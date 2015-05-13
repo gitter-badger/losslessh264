@@ -51,7 +51,7 @@
 #include "typedefs.h"
 #include "measure_time.h"
 #include "d3d9_utils.h"
-
+#include "compression_stream.h"
 
 using namespace std;
 
@@ -69,7 +69,17 @@ int    g_iDecodedFrameNum = 0;
 #endif
 //using namespace WelsDec;
 
-//#define NO_DELAY_DECODING // For Demo interfaces test with no delay decoding
+//#define NO_DELAY_DECODING	// For Demo interfaces test with no delay decoding
+class FlushOnClose {
+public:
+    void nop(){}
+    ~FlushOnClose() {
+        FILE * fp = fopen("/tmp/movie.264", "wb");
+        RawFileWriter rfw(fp);
+        oMovie().flushToWriter(rfw);
+        rfw.Close();
+    }
+};
 
 void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, const char* kpOuputFileName,
                          int32_t& iWidth, int32_t& iHeight, const char* pOptionFileName, const char* pLengthFileName) {
@@ -109,6 +119,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   //~end for
   CUtils cOutputModule;
   double dElapsed = 0;
+  FlushOnClose foc;
 
   if (pDecoder == NULL) return;
   if (kpH264FileName) {
@@ -173,6 +184,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
     goto label_exit;
   }
 
+
   while (true) {
 
     if (iBufPos >= iFileSize) {
@@ -196,6 +208,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
       iSliceSize = i;
     }
     if (iSliceSize < 4) { //too small size, no effective data, ignore
+      oMovie().def().appendBytes(pBuf + iBufPos, iSliceSize);
       iBufPos += iSliceSize;
       continue;
     }
@@ -327,6 +340,7 @@ label_exit:
     fclose (pOptionFile);
     pOptionFile = NULL;
   }
+  foc.nop();
 }
 
 #if (defined(ANDROID_NDK)||defined(APPLE_IOS) || defined (WINDOWS_PHONE))

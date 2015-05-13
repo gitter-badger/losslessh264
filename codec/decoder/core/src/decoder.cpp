@@ -52,7 +52,7 @@
 #include "decode_slice.h"
 #include "error_concealment.h"
 #include "memory_align.h"
-
+#include "compression_stream.h"
 namespace WelsDec {
 
 extern PPicture AllocPicture (PWelsDecoderContext pCtx, const int32_t kiPicWidth, const int32_t kiPicHeight);
@@ -639,7 +639,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     uint8_t* pSrcNal       = NULL;
     uint8_t* pDstNal       = NULL;
     uint8_t* pNalPayload   = NULL;
-
+    oMovie().def().appendBytes(kpBsBuf, kiBsLen);
 
     if (NULL == DetectStartCodePrefix (kpBsBuf, &iOffset,
                                        kiBsLen)) {  //CAN'T find the 00 00 01 start prefix from the source buffer
