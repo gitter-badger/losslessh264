@@ -585,7 +585,7 @@ int32_t ParseNonVclNal (PWelsDecoderContext pCtx, uint8_t* pRbsp, const int32_t 
   int32_t iErr                  = ERR_NONE;
   if (kiSrcLen <= 0)
     return iErr;
-
+  oMovie().def().appendBytes(pRbsp, kiSrcLen);
   pBs = &pCtx->sBs; // SBitStringAux instance for non VCL NALs decoding
   iBitSize = (kiSrcLen << 3) - BsGetTrailingBits (pRbsp + kiSrcLen - 1); // convert into bit
   eNalType = pCtx->sCurNalHead.eNalUnitType;
