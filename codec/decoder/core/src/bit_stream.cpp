@@ -55,6 +55,8 @@ int32_t InitReadBits (PBitStringAux pBitString, intX_t iEndOffset) {
   pBitString->uiCurBits  = GetValue4Bytes (pBitString->pCurBuf);
   pBitString->pCurBuf  += 4;
   pBitString->iLeftBits = -16;
+  pBitString->iPrevIndex = 0;
+  pBitString->iIndex = 0;
   return ERR_NONE;
 }
 
@@ -78,6 +80,8 @@ int32_t DecInitBits (PBitStringAux pBitString, const uint8_t* kpBuf, const int32
   pBitString->pEndBuf   = pTmp + kiSizeBuf; // buffer + length
   pBitString->iBits     = kiSize;           // count bits of overall bitstreaming inputindex;
   pBitString->pCurBuf   = pBitString->pStartBuf;
+  pBitString->iPrevIndex = 0;
+  pBitString->iIndex = 0;
   int32_t iErr = InitReadBits (pBitString, 0);
   if (iErr) {
     return iErr;

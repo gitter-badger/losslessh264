@@ -98,6 +98,7 @@ void RestoreCabacDecEngineToBS (PWelsCabacDecEngine pDecEngine, PBitStringAux pB
   pBsAux->pStartBuf = pDecEngine->pBuffStart;
   pBsAux->pCurBuf = pDecEngine->pBuffCurr;
   pBsAux->uiCurBits = 0;
+  pBsAux->iPrevIndex = 0;
   pBsAux->iIndex = 0;
 }
 

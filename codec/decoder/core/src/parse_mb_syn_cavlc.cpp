@@ -42,6 +42,7 @@
 #include "parse_mb_syn_cavlc.h"
 #include "error_code.h"
 #include "mv_pred.h"
+#include "compression_stream.h"
 
 namespace WelsDec {
 #define MAX_LEVEL_PREFIX 15
@@ -609,6 +610,15 @@ int32_t CheckIntraNxNPredMode (int32_t* pSampleAvail, int8_t* pMode, int32_t iIn
 
 void BsStartCavlc (PBitStringAux pBs) {
   pBs->iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
+
+  uint8_t* pBuf     = ((uint8_t*)pBs->pStartBuf);
+  int iBegin = pBs->iPrevIndex;
+  int iEnd = pBs->iIndex;
+  for (int i = iBegin; i < iEnd; i++) {
+    int whichBit = i & 0x07;
+    oMovie().def().emitBit((pBuf[i >> 3] >> whichBit) & 0x01);
+  }
+  pBs->iPrevIndex = pBs->iIndex;
 }
 void BsEndCavlc (PBitStringAux pBs) {
   pBs->pCurBuf   = pBs->pStartBuf + (pBs->iIndex >> 3);
@@ -617,6 +627,16 @@ void BsEndCavlc (PBitStringAux pBs) {
   pBs->uiCurBits = uiCache32Bit << (pBs->iIndex & 0x07);
   pBs->pCurBuf  += 4;
   pBs->iLeftBits = -16 + (pBs->iIndex & 0x07);
+
+  uint8_t* pBuf     = ((uint8_t*)pBs->pStartBuf);
+  int iBegin = pBs->iPrevIndex;
+  int iEnd = pBs->iIndex;
+  pBs->iPrevIndex = pBs->iIndex;
+  for (int i = iBegin; i < iEnd; i++) {
+    int whichBit = i & 0x07;
+    oMovie().def().emitBit((pBuf[i >> 3] >> whichBit) & 0x01);
+  }
+  fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
 }
 
 

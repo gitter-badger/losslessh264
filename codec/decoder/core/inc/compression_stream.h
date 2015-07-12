@@ -46,6 +46,9 @@ struct BitStream {
     void clear();
     void flushToWriter(CompressedWriter&);
     void emitBits(uint32_t bits, uint32_t nBits);
+    void emitBit(uint32_t bit) {
+      emitBits(bit, 1);
+    }
     std::pair<uint32_t, H264Error> scanBits(uint32_t nBits);
     void pop();
     uint32_t len() const;
