@@ -669,10 +669,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     uint8_t* pDstNal       = NULL;
     uint8_t* pNalPayload   = NULL;
     // oMovie().def().appendBytes(kpBsBuf, kiBsLen);
-    static int counter = 0;
-    if (++counter>=48) {
-        printf("Nailedit");
-    }
 
     if (NULL == DetectStartCodePrefix (kpBsBuf, &iOffset,
                                        kiBsLen)) {  //CAN'T find the 00 00 01 start prefix from the source buffer
@@ -771,9 +767,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       pDstNal[iDstIdx++] = pSrcNal[iSrcIdx++];
       iSrcConsumed++;
     }
-    if (counter>=48) {
-        printf("Nailedit2");
-    }
 
     //last NAL decoding
 
@@ -835,7 +828,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
     }
     DecodeFinishUpdate (pCtx);
-          flushPBitString(pCtx);
+    flushPBitString(pCtx);
     oMovie().def().stopEscape();
 
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
