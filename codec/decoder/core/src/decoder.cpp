@@ -626,6 +626,15 @@ void outputTrailingNalZeros(uint8_t* pSrcRbsp,
   }
 }
 
+void flushPBitString(PWelsDecoderContext pCtx) {
+  PBitStringAux pBs = pCtx->pCurDqLayer->pBitStringAux;
+  for (int i = pBs->iPrevIndex; i < pBs->iBits; ++i) {
+      int whichBit = i & 0x07;
+      oMovie().def().emitBit((((uint8_t*)pBs->pStartBuf)[i >> 3] >> (7-whichBit)) & 0x01);
+  }
+  pBs->iPrevIndex = pBs->iBits;
+}
+
 /*!
  *************************************************************************************
  * \brief   First entrance to decoding core interface.
@@ -660,6 +669,10 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     uint8_t* pDstNal       = NULL;
     uint8_t* pNalPayload   = NULL;
     // oMovie().def().appendBytes(kpBsBuf, kiBsLen);
+    static int counter = 0;
+    if (++counter>=48) {
+        printf("Nailedit");
+    }
 
     if (NULL == DetectStartCodePrefix (kpBsBuf, &iOffset,
                                        kiBsLen)) {  //CAN'T find the 00 00 01 start prefix from the source buffer
@@ -716,6 +729,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           //oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // fixme <-- want to get this roundtripping
           DecodeFinishUpdate (pCtx);
           outputTrailingNalZeros(pDstNal, iDstIdx); // these were ignored from the header and added to consume bytes for no good reason
+          flushPBitString(pCtx);
           oMovie().def().stopEscape();
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
@@ -756,6 +770,9 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       }
       pDstNal[iDstIdx++] = pSrcNal[iSrcIdx++];
       iSrcConsumed++;
+    }
+    if (counter>=48) {
+        printf("Nailedit2");
     }
 
     //last NAL decoding
@@ -818,6 +835,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
     }
     DecodeFinishUpdate (pCtx);
+          flushPBitString(pCtx);
     oMovie().def().stopEscape();
 
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {

@@ -35,8 +35,20 @@ BitStream::BitStream() {
     escapingEnabled = false;
     escapeBufferSize = 0;
 }
+int stages = 0;
 void BitStream::appendByte(uint8_t x) {
     if (escapingEnabled) {
+        if (stages == 0 && x == 0x84) {
+            stages = 1;
+        } else if (stages == 1 && x == 0xd9) {
+            stages = 2;
+        } else if (stages == 2 && x == 0xba) {
+            stages = 3;
+        } else if (stages == 3 && x == 0x4b) {
+            printf("HIT ME\n");
+        } else {
+            stages = 0;
+        }
         if (x <= 3 && escapeBufferSize == 2 && escapeBuffer[0] == 0 && escapeBuffer[1] == 0) {
             buffer.push_back(0);
             buffer.push_back(0);
@@ -169,7 +181,7 @@ uint32_t BitStream::len()const {
 }
 void BitStream::flushBits() {
     if (bitsWrittenSinceFlush) {
-        emitBits(1, 1);
+        //emitBits(1, 1);
     }
     int first = 1;
     while (nBits > 0) {

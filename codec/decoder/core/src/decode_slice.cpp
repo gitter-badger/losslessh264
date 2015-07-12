@@ -49,6 +49,7 @@
 #include "mv_pred.h"
 
 #include "cpu_core.h"
+#include "compression_stream.h"
 
 namespace WelsDec {
 
@@ -1254,7 +1255,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCurLayer->iMbY = iMbY;
     pCurLayer->iMbXyIndex = iNextMbXyIndex;
   } while (1);
-
   return ERR_NONE;
 }
 

@@ -1264,7 +1264,6 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
   default:
     break;
   }
-
   return 0;
 }
 
