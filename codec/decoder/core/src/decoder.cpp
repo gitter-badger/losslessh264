@@ -712,7 +712,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
               ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
             }
           }
-          oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes);
+          //oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // fixme <-- want to get this roundtripping
           DecodeFinishUpdate (pCtx);
 
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
@@ -779,7 +779,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
       }
     }
-    oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes);
+    // oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // <- fixme: want to get this roundtripping
     oMovie().def().stopEscape();
     //outputTrailingNalZeros(pDstNal, iDstIdx);
     DecodeFinishUpdate (pCtx);
