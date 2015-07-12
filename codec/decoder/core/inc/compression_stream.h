@@ -36,6 +36,7 @@ public:
 
 struct BitStream {
     bool escapingEnabled;
+    bool bitsWrittenSinceFlush;// if any bits have been written since last flush was called
     typedef std::pair<uint32_t, H264Error> uint32E;
     std::vector<uint8_t> buffer;
     uint8_t escapeBuffer[2];
@@ -63,6 +64,7 @@ struct BitStream {
         escapingEnabled = true;
     }
     void stopEscape() {
+        flushBits();
         escapingEnabled = false;
         uint8_t buffer[sizeof(escapeBuffer)];
         for (uint32_t i = 0; i < escapeBufferSize; ++i) {

@@ -28,6 +28,7 @@ CompressionStream &oMovie() {
 }
 
 BitStream::BitStream() {
+    bitsWrittenSinceFlush = false;
     bits = 0;
     nBits = 0;
     bitReadCursor = 0;
@@ -75,6 +76,7 @@ void BitStream::flushToWriter(CompressedWriter &w) {
 }
 
 void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
+    bitsWrittenSinceFlush = true;
     BitStream &b = *this;
     nBits += uint32_t(b.nBits);
     bits <<= 32 - nBits;
@@ -166,9 +168,15 @@ uint32_t BitStream::len()const {
     return uint32_t(buffer.size()) + uint32_t(nBits/8);
 }
 void BitStream::flushBits() {
-    while (nBits > 0) {
+    if (bitsWrittenSinceFlush) {
         emitBits(1, 1);
     }
+    int first = 1;
+    while (nBits > 0) {
+        emitBits(0, 1);
+        first = 0;
+    }
+    bitsWrittenSinceFlush = false;
 }
 
 std::vector<uint8_t> streamLenToBE(uint32_t streamLen) {
