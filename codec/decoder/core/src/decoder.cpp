@@ -767,7 +767,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
 
     oMovie().def().escape00xWith003x();
 
-    size_t nal_start =oMovie().def().bitlen();
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
     oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
     if (pNalPayload) { //parse correct
@@ -780,9 +779,9 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       }
     }
     // oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // <- fixme: want to get this roundtripping
-    oMovie().def().stopEscape();
     //outputTrailingNalZeros(pDstNal, iDstIdx);
     DecodeFinishUpdate (pCtx);
+    oMovie().def().stopEscape();
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
       pCtx->bParamSetsLostFlag = true;
