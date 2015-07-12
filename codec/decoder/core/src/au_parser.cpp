@@ -45,7 +45,7 @@
 #include "decoder_core.h"
 #include "bit_stream.h"
 #include "memory_align.h"
-
+#include "compression_stream.h"
 namespace WelsDec {
 /*!
  *************************************************************************************
@@ -140,7 +140,7 @@ uint8_t* ParseNalHeader (PWelsDecoderContext pCtx, SNalUnitHeader* pNalUnitHeade
 
   pNalUnitHeader->uiNalRefIdc   = (uint8_t) (pNal[0] >> 5);             // uiNalRefIdc
   pNalUnitHeader->eNalUnitType  = (EWelsNalUnitType) (pNal[0] & 0x1f);  // eNalUnitType
-
+  //oMovie().def().appendByte(*pNal);
   ++pNal;
   --iNalSize;
   ++ (*pConsumedBytes);
@@ -235,7 +235,7 @@ uint8_t* ParseNalHeader (PWelsDecoderContext pCtx, SNalUnitHeader* pNalUnitHeade
       pCtx->iErrorCode |= dsBitstreamError;
       return NULL;
     }
-
+    //oMovie().def().appendBytes(pNal, NAL_UNIT_HEADER_EXT_SIZE);
     pNal            += NAL_UNIT_HEADER_EXT_SIZE;
     iNalSize        -= NAL_UNIT_HEADER_EXT_SIZE;
     *pConsumedBytes += NAL_UNIT_HEADER_EXT_SIZE;
@@ -313,6 +313,7 @@ uint8_t* ParseNalHeader (PWelsDecoderContext pCtx, SNalUnitHeader* pNalUnitHeade
         pCtx->iErrorCode |= dsBitstreamError;
         return NULL;
       }
+      //oMovie().def().appendBytes(pNal, NAL_UNIT_HEADER_EXT_SIZE);
       pNal            += NAL_UNIT_HEADER_EXT_SIZE;
       iNalSize        -= NAL_UNIT_HEADER_EXT_SIZE;
       *pConsumedBytes += NAL_UNIT_HEADER_EXT_SIZE;
