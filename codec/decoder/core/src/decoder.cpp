@@ -702,6 +702,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
                                0; // set 4 reserved bytes to zero
           oMovie().def().escape00xWith003x();
           pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
+          // note that iBytesConsumed and pNalPayload are only valid for IS_PARAM_SET_NALS NonVclNal header: otherwise it reads way more
           oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
           if (pNalPayload) { //parse correct
             if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
@@ -714,7 +715,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           }
           //oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // fixme <-- want to get this roundtripping
           DecodeFinishUpdate (pCtx);
-
+          outputTrailingNalZeros(pDstNal, iDstIdx); // these were ignored from the header and added to consume bytes for no good reason
+          oMovie().def().stopEscape();
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
             pCtx->bParamSetsLostFlag = true;
@@ -743,7 +745,6 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           } else {
             pRawData->pCurPos = pDstNal;
           }
-          oMovie().def().stopEscape();
           oMovie().def().appendBytes(pSrcNal + iSrcIdx, 3);
 
           pSrcNal += iSrcIdx + 3;
@@ -768,7 +769,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     oMovie().def().escape00xWith003x();
 
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
-    oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
+    // note that iBytesConsumed and pNalPayload are only valid for IS_PARAM_SET_NALS NonVclNal header: otherwise it reads way more
     if (pNalPayload) { //parse correct
       if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
         iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes, pSrcNal - 3, iSrcIdx + 3);
@@ -779,15 +780,15 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       }
     }
     // oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // <- fixme: want to get this roundtripping
-    //outputTrailingNalZeros(pDstNal, iDstIdx);
     DecodeFinishUpdate (pCtx);
-    oMovie().def().stopEscape();
+    outputTrailingNalZeros(pDstNal, iDstIdx);
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
       pCtx->bParamSetsLostFlag = true;
 #else
       pCtx->bReferenceLostAtT0Flag = true;
 #endif
+      oMovie().def().stopEscape();
       return pCtx->iErrorCode;
     }
     if (iRet) {
@@ -799,6 +800,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         pCtx->bReferenceLostAtT0Flag = true;
 #endif
       }
+      oMovie().def().stopEscape();
       return pCtx->iErrorCode;
     }
   } else { /* no supplementary picture payload input, but stored a picture */
@@ -808,6 +810,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       pCtx->pAccessUnitList; // current access unit, it will never point to NULL after decode's successful initialization
 
     if (pCurAu->uiAvailUnitsNum == 0) {
+      oMovie().def().stopEscape();
       return pCtx->iErrorCode;
     } else {
       pCtx->pAccessUnitList->uiEndPos = pCtx->pAccessUnitList->uiAvailUnitsNum - 1;
@@ -815,6 +818,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
     }
     DecodeFinishUpdate (pCtx);
+    oMovie().def().stopEscape();
 
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
