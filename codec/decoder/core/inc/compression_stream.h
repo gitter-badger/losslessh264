@@ -35,8 +35,11 @@ public:
 };
 
 struct BitStream {
+    bool escapingEnabled;
     typedef std::pair<uint32_t, H264Error> uint32E;
     std::vector<uint8_t> buffer;
+    uint8_t escapeBuffer[2];
+    uint32_t escapeBufferSize;
 	uint32_t bits;
 	uint8_t nBits;
 	uint32_t bitReadCursor;
@@ -52,7 +55,23 @@ struct BitStream {
     std::pair<uint32_t, H264Error> scanBits(uint32_t nBits);
     void pop();
     uint32_t len() const;
+    size_t bitlen() const{ 
+        return nBits + buffer.size() * 8;
+    }
     void flushBits();
+    void escape00xWith003x() {
+        escapingEnabled = true;
+    }
+    void stopEscape() {
+        escapingEnabled = false;
+        uint8_t buffer[sizeof(escapeBuffer)];
+        for (uint32_t i = 0; i < escapeBufferSize; ++i) {
+            buffer[i] = escapeBuffer[i];
+        }
+        uint32_t size = escapeBufferSize;
+        escapeBufferSize = 0;
+        appendBytes(buffer, size);
+    }
 };
 struct CompressionStream {
     enum {

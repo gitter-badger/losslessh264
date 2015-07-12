@@ -31,12 +31,36 @@ BitStream::BitStream() {
     bits = 0;
     nBits = 0;
     bitReadCursor = 0;
+    escapingEnabled = false;
+    escapeBufferSize = 0;
 }
 void BitStream::appendByte(uint8_t x) {
-    buffer.push_back(x);
+    if (escapingEnabled) {
+        if (x <= 3 && escapeBufferSize == 2 && escapeBuffer[0] == 0 && escapeBuffer[1] == 0) {
+            buffer.push_back(0);
+            buffer.push_back(0);
+            buffer.push_back(3);
+            buffer.push_back(x);
+            escapeBufferSize = 0;
+        }else if (escapeBufferSize == 2) {
+            buffer.push_back(escapeBuffer[0]);
+            escapeBuffer[0] = escapeBuffer[1];
+            escapeBuffer[1] = x;
+        } else {
+            escapeBuffer[escapeBufferSize++] = x;
+        }
+    }else {
+        buffer.push_back(x);
+    }
 }
 void BitStream::appendBytes(const uint8_t*bytes, uint32_t nBytes) {
-    buffer.insert(buffer.end(), bytes, bytes + nBytes);
+    if (escapingEnabled) {
+        for (uint32_t i = 0; i < nBytes; ++i) {
+            appendByte(bytes[i]);
+        }
+    }else {
+        buffer.insert(buffer.end(), bytes, bytes + nBytes);
+    }
 }
 
 void BitStream::clear() {

@@ -37,6 +37,7 @@
  *
  *************************************************************************************
  */
+#include <vector>
 #include "codec_def.h"
 #include "decoder.h"
 #include "cpu.h"
@@ -606,6 +607,25 @@ void GetVclNalTemporalId (PWelsDecoderContext pCtx) {
   pCtx->iFeedbackTidInAu    = pAccessUnit->pNalUnitsList[idx]->sNalHeaderExt.uiTemporalId;
 }
 
+void outputTrailingNalZeros(uint8_t* pSrcRbsp,
+                 int32_t iSrcRbspLen) {
+  //remove the consecutive ZERO at the end of current NAL in the reverse order.--2011.6.1
+  // code taken from ParseNalHeader
+  {
+    int32_t iIndex = iSrcRbspLen - 1;
+    uint8_t uiBsZero = 0;
+    while (iIndex >= 0) {
+      uiBsZero = pSrcRbsp[iIndex];
+      if (0 == uiBsZero) {
+        oMovie().def().appendByte(0);
+        --iIndex;
+      } else {
+        break;
+      }
+    }
+  }
+}
+
 /*!
  *************************************************************************************
  * \brief   First entrance to decoding core interface.
@@ -646,9 +666,11 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       pCtx->iErrorCode |= dsBitstreamError;
       return dsBitstreamError;
     }
-
+    assert(iOffset >= 3);
+    oMovie().def().appendBytes(kpBsBuf, iOffset);
     pSrcNal    = const_cast<uint8_t*> (kpBsBuf) + iOffset;
     iSrcLength = kiBsLen - iOffset;
+
 
     if ((kiBsLen + 4) > (pRawData->pEnd - pRawData->pCurPos)) {
       pRawData->pCurPos = pRawData->pHead;
@@ -663,22 +685,24 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     //copy raw data from source buffer (application) to raw data buffer (codec inside)
     //0x03 removal and extract all of NAL Unit from current raw data
     pDstNal = pRawData->pCurPos;
-
     while (iSrcConsumed < iSrcLength) {
       if ((2 + iSrcConsumed < iSrcLength) &&
           (0 == LD16 (pSrcNal + iSrcIdx)) &&
           ((pSrcNal[2 + iSrcIdx] == 0x03) || (pSrcNal[2 + iSrcIdx] == 0x01))) {
         if (pSrcNal[2 + iSrcIdx] == 0x03) {
+            //locationOfThree.push_back(pSrcNal + iSrcIdx + 2 - kpBsBuf);
+
           ST16 (pDstNal + iDstIdx, 0);
           iDstIdx      += 2;
           iSrcIdx      += 3;
           iSrcConsumed += 3;
         } else {
-
           iConsumedBytes = 0;
           pDstNal[iDstIdx] = pDstNal[iDstIdx + 1] = pDstNal[iDstIdx + 2] = pDstNal[iDstIdx + 3] =
                                0; // set 4 reserved bytes to zero
+          oMovie().def().escape00xWith003x();
           pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
+          oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
           if (pNalPayload) { //parse correct
             if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
               iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes, pSrcNal - 3, iSrcIdx + 3);
@@ -688,6 +712,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
               ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
             }
           }
+          oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes);
           DecodeFinishUpdate (pCtx);
 
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
@@ -718,6 +743,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           } else {
             pRawData->pCurPos = pDstNal;
           }
+          oMovie().def().stopEscape();
+          oMovie().def().appendBytes(pSrcNal + iSrcIdx, 3);
 
           pSrcNal += iSrcIdx + 3;
           iSrcConsumed += 3;
@@ -736,7 +763,13 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     pDstNal[iDstIdx] = pDstNal[iDstIdx + 1] = pDstNal[iDstIdx + 2] = pDstNal[iDstIdx + 3] =
                          0; // set 4 reserved bytes to zero
     pRawData->pCurPos = pDstNal + iDstIdx + 4; //init, increase 4 reserved zero bytes, used to store the next NAL
+
+
+    oMovie().def().escape00xWith003x();
+
+    size_t nal_start =oMovie().def().bitlen();
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
+    oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
     if (pNalPayload) { //parse correct
       if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
         iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes, pSrcNal - 3, iSrcIdx + 3);
@@ -746,8 +779,10 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
         ConstructAccessUnit (pCtx, ppDst, pDstBufInfo);
       }
     }
+    oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes);
+    oMovie().def().stopEscape();
+    //outputTrailingNalZeros(pDstNal, iDstIdx);
     DecodeFinishUpdate (pCtx);
-
     if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
       pCtx->bParamSetsLostFlag = true;
@@ -768,6 +803,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
       return pCtx->iErrorCode;
     }
   } else { /* no supplementary picture payload input, but stored a picture */
+    //FIXME: is this what happens in a truncated stream? oMovie().def().appendBytes(kpBsBuf, kiBsLen); // snag the rest of the buffer
+
     PAccessUnit pCurAu =
       pCtx->pAccessUnitList; // current access unit, it will never point to NULL after decode's successful initialization
 
