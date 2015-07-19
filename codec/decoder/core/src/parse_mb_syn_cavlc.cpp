@@ -608,6 +608,8 @@ int32_t CheckIntraNxNPredMode (int32_t* pSampleAvail, int8_t* pMode, int32_t iIn
   return iFinalMode;
 }
 
+#include <arpa/inet.h>
+
 void BsStartCavlc (PBitStringAux pBs) {
   pBs->iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
 
@@ -634,7 +636,7 @@ void BsEndCavlc (PBitStringAux pBs) {
   pBs->iPrevIndex = pBs->iIndex;
   for (int i = iBegin; i < iEnd; i++) {
     int whichBit = i & 0x07;
-    oMovie().def().emitBit((pBuf[i >> 3] >> (7-whichBit)) & 0x01);
+    // oMovie().def().emitBit((pBuf[i >> 3] >> (7-whichBit)) & 0x01);
   }
   fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
 }
@@ -900,7 +902,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
-      pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[0]) >> 4 : (iLevel[i] * kpDequantCoeff[0]);
+      pTCoeff[j] = iLevel[i];
+      // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[0] : kpDequantCoeff[0] << 4;
     }
   } else if (iResidualProperty == I16_LUMA_DC) { //DC coefficent, only call in Intra_16x16, base_mode_flag = 0
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into rundecode?
@@ -908,13 +911,15 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
       pTCoeff[j] = iLevel[i];
+      // pTDequantCoeffx16[j] = 16;
     }
   } else {
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode?
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
-      pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[j]) >> 4 : (iLevel[i] * kpDequantCoeff[j & 0x07]);
+      pTCoeff[j] = iLevel[i];
+      // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[j] : kpDequantCoeff[j & 0x07] << 4;
     }
   }
 
@@ -1001,8 +1006,11 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
     iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
     j = (iCoeffNum << 2) + iIdx4x4;
     j          = kpZigzagTable[ j ];
-    pTCoeff[j] = uiQp >= 36 ? ((iLevel[i] * kpDequantCoeff[j]) << (uiQp / 6 - 6))
-                 : ((iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6));
+    // pTCoeff[j] = uiQp >= 36 ? ((iLevel[i] * kpDequantCoeff[j]) << (uiQp / 6 - 6))
+    //             : ((iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6));
+    pTCoeff[j] = iLevel[i];
+    // pTDequantCoeffx16[j] = uiQp >= 36 ? kpDequantCoeff[j] << (uiQp / 6 - 2)
+    //             : (iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6);
   }
 
   return 0;

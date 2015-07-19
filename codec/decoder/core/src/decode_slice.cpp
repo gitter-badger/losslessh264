@@ -1438,6 +1438,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       }
       //step2: Luma AC
       if (uiCbpL) {
+          // FIXME(patrick): Doesn't this overwrite the DC component when i == 0?
         for (i = 0; i < 16; i++) {
           if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, i,
                                       iScanIdxEnd - WELS_MAX (iScanIdxStart, 1) + 1, g_kuiZigzagScan + WELS_MAX (iScanIdxStart, 1),
@@ -1531,6 +1532,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       ST16A2 (&pNzc[22], LD16A2 (&pNonZeroCount[6 + 8 * 5]));
     }
     BsEndCavlc (pBs);
+    for (int i = 0; i < 384; i++) {
+      oMovie().def().emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
+    }
   }
 
   return 0;
@@ -1903,6 +1907,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       ST16A2 (&pNzc[22], LD16A2 (&pNonZeroCount[6 + 8 * 5]));
     }
     BsEndCavlc (pBs);
+    for (int i = 0; i < 384; i++) {
+      oMovie().def().emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
+    }
   }
 
   return 0;
