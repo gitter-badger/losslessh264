@@ -89,4 +89,12 @@ struct CompressionStream {
     void flushToWriter(CompressedWriter&);
 };
 CompressionStream &oMovie();
+
+// Hack!!! This totally doesn't belong here!
+namespace WelsEnc {
+    struct TagWelsFuncPointerList;
+    typedef struct TagWelsFuncPointerList SWelsFuncPtrList;
+}
+extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
+void InitEncFuncPtrList();
 #endif

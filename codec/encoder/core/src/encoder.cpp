@@ -55,6 +55,10 @@
 #include "crt_util_safe_x.h" // Safe CRT routines like utils for cross_platforms
 #include "slice_multi_threading.h"
 
+#include "cpu.h"
+#include "wels_func_ptr_def.h"
+#include "encode_mb_aux.h"
+
 //  global   function  pointers  definition
 namespace WelsEnc {
 /* Motion compensation */
@@ -504,4 +508,14 @@ void DumpRecFrame (SPicture* pCurPicture, const char* kpFileName, const int8_t k
 void WelsSetMemZero_c (void* pDst, int32_t iSize) { // confirmed_safe_unsafe_usage
   memset (pDst, 0, iSize);
 }
+}
+
+WelsEnc::SWelsFuncPtrList *gFuncPtrList;
+void InitEncFuncPtrList() {
+  int32_t iCpuCores = 0;
+  uint32_t m_uiCpuFeatureFlag = WelsCPUFeatureDetect (&iCpuCores);
+  gFuncPtrList = new WelsEnc::SWelsFuncPtrList;
+  WelsInitEncodingFuncs (gFuncPtrList, m_uiCpuFeatureFlag);
+  /// FIXME: Add CABAC support!
+  InitCoeffFunc (gFuncPtrList,m_uiCpuFeatureFlag,0);
 }

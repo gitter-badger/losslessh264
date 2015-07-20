@@ -638,7 +638,7 @@ void BsEndCavlc (PBitStringAux pBs) {
     int whichBit = i & 0x07;
     // oMovie().def().emitBit((pBuf[i >> 3] >> (7-whichBit)) & 0x01);
   }
-  fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
+  // fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
 }
 
 

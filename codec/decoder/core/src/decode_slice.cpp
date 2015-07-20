@@ -51,6 +51,15 @@
 #include "cpu_core.h"
 #include "compression_stream.h"
 
+// Pretend this isn't an ugly hack.
+namespace WelsEnc {
+int32_t WelsUtilWriteMbResidual (SWelsFuncPtrList* pFuncList, uint32_t uiMbType,
+    const int32_t kiCbpChroma, const int32_t kiCbpLuma,
+    int8_t* pNonZeroCoeffCount, int16_t iLumaI16x16Dc[16],
+    int16_t iLumaBlock[256], int16_t iChromaDc[8],
+    int16_t iChromaBlock[128], SBitStringAux* pBs);
+}
+
 namespace WelsDec {
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
