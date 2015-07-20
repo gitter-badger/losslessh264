@@ -628,10 +628,12 @@ void outputTrailingNalZeros(uint8_t* pSrcRbsp,
 
 void flushPBitString(PWelsDecoderContext pCtx) {
   PBitStringAux pBs = pCtx->pCurDqLayer->pBitStringAux;
-  for (int i = pBs->iPrevIndex; i < pBs->iBits; ++i) {
+  int i;
+  for (i = pBs->iPrevIndex; i < pBs->iBits; ++i) {
       int whichBit = i & 0x07;
       oMovie().def().emitBit((((uint8_t*)pBs->pStartBuf)[i >> 3] >> (7-whichBit)) & 0x01);
   }
+  oMovie().def().padToByte();
   pBs->iPrevIndex = pBs->iBits;
 }
 
