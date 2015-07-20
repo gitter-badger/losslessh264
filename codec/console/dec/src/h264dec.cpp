@@ -52,6 +52,10 @@
 #include "measure_time.h"
 #include "d3d9_utils.h"
 #include "compression_stream.h"
+#include "error_code.h"
+
+#include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -70,14 +74,45 @@ int    g_iDecodedFrameNum = 0;
 //using namespace WelsDec;
 
 //#define NO_DELAY_DECODING	// For Demo interfaces test with no delay decoding
-class FlushOnClose {
+
+class MultiFileWriter : public CompressedWriter {
+    std::string filename;
 public:
+    MultiFileWriter(std::string fname) {
+        filename = fname;
+    }
+    std::pair<uint32_t, H264Error> Write(int streamId, const uint8_t*data, unsigned int size) {
+        std::string thisfilename = filename;
+        if (streamId != CompressionStream::DEFAULT_STREAM) {
+            std::ostringstream os;
+            os << filename << "." << streamId;
+            thisfilename = os.str();
+        }
+        FILE *fp = fopen(thisfilename.c_str(), "wb");
+        signed long nwritten = 0;
+        if (fp) {
+            nwritten = fwrite(data, size, 1, fp);
+            fclose(fp);
+        }
+        if (nwritten == 0) {
+            return std::pair<uint32_t, H264Error>(0, WelsDec::ERR_BOUND);
+        }
+        return std::pair<uint32_t, H264Error>(size, WelsDec::ERR_NONE);
+    }
+    void Close() {}
+};
+
+class FlushOnClose {
+    std::string filename;
+public:
+    FlushOnClose(std::string fname) {
+        filename = fname;
+    }
     void nop(){}
     ~FlushOnClose() {
-        FILE * fp = fopen("/tmp/movie.264", "wb");
-        RawFileWriter rfw(fp);
-        oMovie().flushToWriter(rfw);
-        rfw.Close();
+        MultiFileWriter mfw(filename);
+        oMovie().flushToWriter(mfw);
+        mfw.Close();
     }
 };
 
@@ -119,7 +154,22 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   //~end for
   CUtils cOutputModule;
   double dElapsed = 0;
-  FlushOnClose foc;
+  if (!kpOuputFileName || !*kpOuputFileName) {
+    fprintf (stderr, "Can not find any output file to read..\n");
+    fprintf (stderr, "----------------decoder return------------------------\n");
+    return;
+  }
+  FlushOnClose foc(kpOuputFileName);
+  if (strstr(kpOuputFileName, ".pip")) {
+    oMovie().isRecoding = false;
+  } else if (strstr(kpH264FileName, ".pip")) {
+    InitEncFuncPtrList();
+    oMovie().isRecoding = true;
+    iMovie().filenamePrefix = kpH264FileName;
+  } else {
+    fprintf(stderr, "Either input or output filename must end with .pip!\n");
+    return;
+  }
 
   if (pDecoder == NULL) return;
   if (kpH264FileName) {
@@ -136,7 +186,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   }
 
   if (kpOuputFileName) {
-    pYuvFile = fopen (kpOuputFileName, "wb");
+    pYuvFile = fopen ("/dev/null", "wb");
     if (pYuvFile == NULL) {
       fprintf (stderr, "Can not open yuv file to output result of decoding..\n");
       // any options

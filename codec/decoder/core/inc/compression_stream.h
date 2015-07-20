@@ -1,5 +1,6 @@
 #ifndef _COMPRESSION_STREAM_H_
 #define _COMPRESSION_STREAM_H_
+#include <string>
 #include <vector>
 #include <map>
 typedef int32_t H264Error;
@@ -10,7 +11,7 @@ public:
 };
 class CompressedWriter {
 public:
-    virtual std::pair<uint32_t, H264Error> Write(const uint8_t*data, unsigned int size) = 0;
+    virtual std::pair<uint32_t, H264Error> Write(int streamId, const uint8_t*data, unsigned int size) = 0;
     virtual void Close() = 0;
     virtual ~CompressedWriter(){}
 };
@@ -20,7 +21,7 @@ public:
     RawFileWriter(FILE * ff){
         fp = ff;
     }
-    std::pair<uint32_t, H264Error> Write(const uint8_t*data, unsigned int size);
+    std::pair<uint32_t, H264Error> Write(int, const uint8_t*data, unsigned int size);
     void Close() {
         fclose(fp);
     }
@@ -37,6 +38,7 @@ public:
 struct BitStream {
     bool escapingEnabled;
     bool bitsWrittenSinceFlush;// if any bits have been written since last flush was called
+
     typedef std::pair<uint32_t, H264Error> uint32E;
     std::vector<uint8_t> buffer;
     uint8_t escapeBuffer[2];
@@ -48,15 +50,16 @@ struct BitStream {
     void appendByte(uint8_t x);
     void appendBytes(const uint8_t*bytes, uint32_t nBytes);
     void clear();
-    void flushToWriter(CompressedWriter&);
+    void flushToWriter(int streamId, CompressedWriter&);
     void emitBits(uint32_t bits, uint32_t nBits);
     void emitBit(uint32_t bit) {
       emitBits(bit, 1);
     }
+    void padToByte();
     std::pair<uint32_t, H264Error> scanBits(uint32_t nBits);
     void pop();
     uint32_t len() const;
-    size_t bitlen() const{ 
+    size_t bitlen() const{
         return nBits + buffer.size() * 8;
     }
     void flushBits();
@@ -80,6 +83,8 @@ struct CompressionStream {
         DEFAULT_STREAM = 0x7fffffff
     };
     std::map<int32_t, BitStream> taggedStreams;
+    bool isRecoding;
+    CompressionStream();
     BitStream&def() {
         return taggedStreams[DEFAULT_STREAM];
     }
@@ -89,6 +94,12 @@ struct CompressionStream {
     void flushToWriter(CompressedWriter&);
 };
 CompressionStream &oMovie();
+struct InputCompressionStream {
+    std::string filenamePrefix;
+    std::map<int32_t, BitStream> taggedStreams;
+    BitStream&tag(int32_t tag);
+};
+InputCompressionStream &iMovie();
 
 // Hack!!! This totally doesn't belong here!
 namespace WelsEnc {

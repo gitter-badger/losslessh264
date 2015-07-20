@@ -3,9 +3,11 @@
 #include <assert.h>
 #include "error_code.h"
 #include "compression_stream.h"
+#include <sstream>
 using namespace WelsDec;
 #define H264ErrorNil ERR_NONE
-std::pair<uint32_t, H264Error> RawFileWriter::Write(const uint8_t*data, unsigned int size) {
+std::pair<uint32_t, H264Error> RawFileWriter::Write(int streamId, const uint8_t*data, unsigned int size) {
+    // Ignores streamId.
     signed long nwritten = fwrite(data, size, 1, fp);
     if (nwritten == 0) {
         return std::pair<uint32_t, H264Error>(0, WelsDec::ERR_BOUND);
@@ -22,11 +24,18 @@ std::pair<uint32_t, H264Error> RawFileReader::Read(uint8_t*data, unsigned int si
 
 namespace {
 static CompressionStream css;
+static InputCompressionStream icss;
 }
 CompressionStream &oMovie() {
     return css;
 }
+InputCompressionStream &iMovie() {
+    return icss;
+}
 
+CompressionStream::CompressionStream() {
+    isRecoding = false;
+}
 BitStream::BitStream() {
     bitsWrittenSinceFlush = false;
     bits = 0;
@@ -68,9 +77,9 @@ void BitStream::clear() {
     buffer.clear();
 }
 
-void BitStream::flushToWriter(CompressedWriter &w) {
+void BitStream::flushToWriter(int streamId, CompressedWriter &w) {
     if (!buffer.empty()) {
-        w.Write(&buffer[0], buffer.size());
+        w.Write(streamId, &buffer[0], buffer.size());
     }
     buffer.clear();
 }
@@ -90,6 +99,12 @@ void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
     //fprintf(stderr, "Leftovers %d bits %x\n", nBits, bits)
     b.bits = bits;
     b.nBits = uint8_t(nBits);
+}
+
+void BitStream::padToByte() {
+    for (int i = nBits; (i & 0x07) != 0; ++i) {
+        oMovie().def().emitBit(0);
+    }
 }
 
 std::pair<uint32_t, H264Error> BitStream::scanBits(uint32_t nBits) {
@@ -197,6 +212,38 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
     for (std::map<int32_t, BitStream>::iterator i = taggedStreams.begin(), ie = taggedStreams.end();
          i != ie;
          ++i) {
-        i->second.flushToWriter(w);
+        i->second.flushToWriter(i->first, w);
     }
 }
+
+BitStream& InputCompressionStream::tag(int32_t tag) {
+    bool mustReadData = taggedStreams.find(tag) == taggedStreams.end();
+    BitStream &bs = taggedStreams[tag];
+    if (filenamePrefix.empty()) {
+        fprintf(stderr, "Attempting to read %d without input file set\n", tag);
+        assert(!filenamePrefix.empty());
+    } else if (mustReadData) {
+        std::ostringstream os;
+        os << filenamePrefix << "." << tag;
+        std::string thisfilename = os.str();
+        FILE *fp = fopen(thisfilename.c_str(), "rb");
+        int nread = 0;
+        if (fp) {
+            long datalen = -1;
+            if (fseek(fp, 0, SEEK_END) != -1) {
+                datalen = ftell(fp);
+                rewind(fp);
+            }
+            if (datalen > 0) {
+                bs.buffer.resize(datalen);
+                nread = fread(&(bs.buffer[0]), datalen, 1, fp);
+            }
+            fclose(fp);
+        }
+        if (nread == 0) {
+            fprintf(stderr, "Failed to read from file %s\n", thisfilename.c_str());
+        }
+    }
+    return bs;
+}
+
