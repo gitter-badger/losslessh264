@@ -420,7 +420,7 @@ int32_t WelsWriteMbResidual (SWelsFuncPtrList* pFuncList, SMbCache* sMbCacheInfo
   const int32_t kiCbpChroma     = pCurMb->uiCbp >> 4;
   const int32_t kiCbpLuma       = pCurMb->uiCbp & 0x0F;
   int8_t* pNonZeroCoeffCount    = sMbCacheInfo->iNonZeroCoeffCount;
-  WelsUtilWriteMbResidual(pFuncList, uiMbType, kiCbpChroma, kiCbpLuma,
+  return WelsUtilWriteMbResidual(pFuncList, uiMbType, kiCbpChroma, kiCbpLuma,
       pNonZeroCoeffCount,
       sMbCacheInfo->pDct->iLumaI16x16Dc, sMbCacheInfo->pDct->iLumaBlock[0],
       sMbCacheInfo->pDct->iChromaDc[0], sMbCacheInfo->pDct->iChromaBlock[0],

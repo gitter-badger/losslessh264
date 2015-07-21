@@ -1443,7 +1443,21 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       int16_t lumaAC[256];
       int16_t chromaAC[128];
       uint8_t buf[384 * 2]; // Cannot be larger than raw input.
+      memset(buf,0,sizeof(buf));
+      memset(lumaDC,0,sizeof(lumaDC));
+      memset(lumaAC,0,sizeof(lumaAC));
+      memset(chromaDC,0,sizeof(chromaDC));
+      memset(chromaAC,0,sizeof(chromaAC));
       BitStream::uint32E res;
+      for (i = 0; i < 48; i++) {
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read ldc!\n");
+          pNonZeroCount[i] = 255;
+        } else {
+          pNonZeroCount[i] = res.first;
+        }
+      }
       if (MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
         for (int i = 0; i < 16; i++) {
           res = iMovie().tag(1).scanBits(16);
@@ -1488,7 +1502,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           (int8_t*)pNonZeroCount, lumaDC, lumaAC, chromaDC, chromaAC, &wrBs);
       BsEndCavlc (pBs);
       for (uint8_t *ptr = wrBs.pStartBuf; ptr != wrBs.pCurBuf; ++ptr) {
-        fprintf(stderr, "Wrote some bytes\n");
+        // fprintf(stderr, "Wrote some bytes\n");
         oMovie().def().emitBits(*ptr, 8);
       }
       if (wrBs.iLeftBits < 8) {
@@ -1506,7 +1520,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
         return -1;//abnormal
       }
       // FIXME(patrick): Is it necessary to output DC components?
-      for (int i = 0; i < 16; i++) {
+      for (i = 0; i < 16; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
       //step2: Luma AC
@@ -1584,7 +1598,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       }
       // FIXME(patrick): Is it necessary to output DC components?
       for (int cbcr = 0; cbcr < 2; cbcr++) {
-        for (int i = 256; i < 260; i++) {
+        for (i = 256; i < 260; i++) {
           oMovie().tag(1).emitBits(
               pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64], 16);
         }
@@ -1616,14 +1630,17 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     }
     BsEndCavlc (pBs);
     if (uiCbpL) {
-      for (int i = 0; i < 256; i++) {
+      for (i = 0; i < 256; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
     }
     if (2 == uiCbpC) {
-      for (int i = 256; i < 384; i++) {
+      for (i = 256; i < 384; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
+    }
+    for (i = 0; i < 48; i++) {
+      oMovie().tag(1).emitBits(pNonZeroCount[i], 8);
     }
   }
 
@@ -1891,7 +1908,21 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       int16_t lumaAC[256];
       int16_t chromaAC[128];
       uint8_t buf[384 * 2]; // Cannot be larger than raw input.
+      memset(buf,0,sizeof(buf));
+      memset(lumaDC,0,sizeof(lumaDC));
+      memset(lumaAC,0,sizeof(lumaAC));
+      memset(chromaDC,0,sizeof(chromaDC));
+      memset(chromaAC,0,sizeof(chromaAC));
       BitStream::uint32E res;
+      for (i = 0; i < 48; i++) {
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read ldc!\n");
+          pNonZeroCount[i] = 255;
+        } else {
+          pNonZeroCount[i] = res.first;
+        }
+      }
       if (MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
         for (int i = 0; i < 16; i++) {
           res = iMovie().tag(1).scanBits(16);
@@ -1936,7 +1967,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
           (int8_t*)pNonZeroCount, lumaDC, lumaAC, chromaDC, chromaAC, &wrBs);
       BsEndCavlc (pBs);
       for (uint8_t *ptr = wrBs.pStartBuf; ptr != wrBs.pCurBuf; ++ptr) {
-        fprintf(stderr, "Wrote some bytes\n");
+        // fprintf(stderr, "Wrote some bytes\n");
         oMovie().def().emitBits(*ptr, 8);
       }
       if (wrBs.iLeftBits < 8) {
@@ -1954,7 +1985,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
         return -1;//abnormal
       }
       // FIXME(patrick): Is it necessary to output DC components?
-      for (int i = 0; i < 16; i++) {
+      for (i = 0; i < 16; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
       //step2: Luma AC
@@ -2038,7 +2069,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       }
       // FIXME(patrick): Is it necessary to output DC components?
       for (int cbcr = 0; cbcr < 2; cbcr++) {
-        for (int i = 256; i < 260; i++) {
+        for (i = 256; i < 260; i++) {
           oMovie().tag(1).emitBits(
               pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64], 16);
         }
@@ -2073,14 +2104,17 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
     }
     BsEndCavlc (pBs);
     if (uiCbpL) {
-      for (int i = 0; i < 256; i++) {
+      for (i = 0; i < 256; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
     }
     if (2 == uiCbpC) {
-      for (int i = 256; i < 384; i++) {
+      for (i = 256; i < 384; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
+    }
+    for (i = 0; i < 48; i++) {
+      oMovie().tag(1).emitBits(pNonZeroCount[i], 8);
     }
   }
 
