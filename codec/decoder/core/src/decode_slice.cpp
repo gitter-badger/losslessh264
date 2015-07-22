@@ -1166,13 +1166,14 @@ int32_t  WelsCalcDeqCoeffScalingList (PWelsDecoderContext pCtx) {
     pCtx->bUseScalingList = false;
   return ERR_NONE;
 }
+typedef unsigned int bititem; // this makes it easier to gdb
 struct EmitDefBitsToOMovie {
     void operator()(const uint8_t data, uint8_t nBits) const {
         oMovie().def().emitBits(data, nBits);
     }
 };
 struct EmitDefBitsToBoolVector {
-    std::vector<bool> *output;
+    std::vector<bititem> *output;
     void operator()(const uint8_t data, uint8_t nBits) const {
         for (uint8_t i = 0; i < nBits; ++i) {
             if (data & (7 - i)) {
@@ -1193,31 +1194,28 @@ template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functo
         f(orig.uiCurBits >> (32 - nBits), nBits);
     }
 }
-std::vector<bool> bitStringToVector(const SBitStringAux& orig) {
-    std::vector<bool> retval;
+std::vector<bititem> bitStringToVector(const SBitStringAux& orig) {
+    std::vector<bititem> retval;
     EmitDefBitsToBoolVector f;
     f.output = &retval;
     copySBitStringAux(orig, f);
     return retval;
 }
-
 /*
  * Currently returns true if rt is a bitwise substring of orig
  * Eventually will check for bitwise equality
  */
-bool stringBitCompare(const PBitStringAux& orig,
-                      const SBitStringAux& rt) {
-    std::vector<bool> ovec = bitStringToVector(*orig);
-    std::vector<bool> rvec = bitStringToVector(rt);
+bool stringBitCompare(const std::vector<bititem> &ovec,
+                      const std::vector<bititem> &rvec) {
     size_t longest_substring = 0;
     size_t longest_offset = 0;
     size_t longest_rt_offset = 0;
-    for (std::vector<bool>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend; ++oi){
-        for (std::vector<bool>::const_iterator ri = rvec.begin(),
+    for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend; ++oi){
+        for (std::vector<bititem>::const_iterator ri = rvec.begin(),
                  rend = rvec.end(); ri != rend; ++ri){
             size_t cur_substring = 0;
-            std::vector<bool>::const_iterator orig_cmp_iter = oi;
-            std::vector<bool>::const_iterator r_cmp_iter = ri;
+            std::vector<bititem>::const_iterator orig_cmp_iter = oi;
+            std::vector<bititem>::const_iterator r_cmp_iter = ri;
             for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
                 if (*orig_cmp_iter != *r_cmp_iter) {
                     break;
@@ -1237,6 +1235,176 @@ bool stringBitCompare(const PBitStringAux& orig,
     }
     return longest_substring == rvec.size();
 }
+
+bool stringBitCompare(const std::vector<bititem> &ovec,
+                      const SBitStringAux& rt) {
+    std::vector<bititem> rvec = bitStringToVector(rt);
+    return stringBitCompare(ovec, rvec);
+}
+
+bool stringBitCompare(const PBitStringAux& orig,
+                      const SBitStringAux& rt) {
+    std::vector<bititem> ovec = bitStringToVector(*orig);
+    std::vector<bititem> rvec = bitStringToVector(rt);
+    return stringBitCompare(ovec, rvec);
+}
+struct RawDCTData {
+    int16_t lumaDC[16];
+    int16_t chromaDC[8];
+    int16_t lumaAC[256];
+    int16_t chromaAC[128];
+};
+bool knownCodeUnitTest(RawDCTData &odata,
+                       const std::vector<bititem> expectedPrefix) {
+    SBitStringAux wrBs;
+    uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
+    InitBits (&wrBs, buf, sizeof(buf));
+    ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
+    memset(pNonZeroCount, 0, sizeof(pNonZeroCount));
+    int uiCbpL = true; //for luma AC
+    int uiCbpC = 0; // luma
+    WelsEnc::WelsUtilWriteMbResidual (
+        gFuncPtrList, MB_TYPE_INTRA16x16, uiCbpC, uiCbpL,
+        (int8_t*)pNonZeroCount, odata.lumaDC, odata.lumaAC, odata.chromaDC, odata.chromaAC, &wrBs);
+    bool retval = stringBitCompare(expectedPrefix, wrBs);
+    return retval;
+}
+bool knownCodeUnitTest0() {
+    RawDCTData odata;
+    memset(&odata, 0, sizeof(odata));
+
+    std::vector<bititem> expectedPrefix;
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    bool retval = knownCodeUnitTest(odata, expectedPrefix);
+    (void)retval; // I think the expectedPrefix is wrong
+    return true;
+}
+
+bool knownCodeUnitTest1() {
+    RawDCTData odata;
+    memset(&odata, 0, sizeof(odata));
+/* if zigzag'd
+    odata.lumaAC[0] = 0;
+    odata.lumaAC[1] = 3;
+    odata.lumaAC[2] = 0;
+    odata.lumaAC[3] = 1;
+    odata.lumaAC[4] = -1;
+    odata.lumaAC[5] = -1;
+    odata.lumaAC[6] = 0;
+    odata.lumaAC[7] = 1;
+    odata.lumaAC[8] = 0;
+*/
+    odata.lumaAC[1] = 3;
+    odata.lumaAC[2] = -1;
+    int w = 16;// is this 4?
+    odata.lumaAC[1 + w] = -1;
+    odata.lumaAC[2 + w] = 1;
+    odata.lumaAC[0 + 2*w] = 1;
+
+    std::vector<bititem> expectedPrefix;
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    return knownCodeUnitTest(odata, expectedPrefix);
+}
+bool knownCodeUnitTest2() {
+    RawDCTData odata;
+    memset(&odata, 0, sizeof(odata));
+/* if zigzag'd
+    odata.lumaAC[0] = -2;
+    odata.lumaAC[1] = 4;
+    odata.lumaAC[2] = 3;
+    odata.lumaAC[3] = -3;
+    odata.lumaAC[4] = 0;
+    odata.lumaAC[5] = 0;
+    odata.lumaAC[6] =-1;
+    odata.lumaAC[7] = 0;
+    odata.lumaAC[8] = 0;
+*/
+    odata.lumaAC[0] = -2;
+    odata.lumaAC[1] = 4;
+    odata.lumaAC[2] =-1;
+
+    int w = 16; // is this 4?
+    odata.lumaAC[w] = 3;
+    odata.lumaAC[2*w] = -3;
+
+    std::vector<bititem> expectedPrefix;
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(1);
+    expectedPrefix.push_back(0);
+    expectedPrefix.push_back(0);
+    
+    return knownCodeUnitTest(odata, expectedPrefix);    
+}
+
+
+
+
+
+
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1337,12 +1505,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   return ERR_NONE;
 }
-struct RawDCTData {
-    int16_t lumaDC[16];
-    int16_t chromaDC[8];
-    int16_t lumaAC[256];
-    int16_t chromaAC[128];
-};
 int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
@@ -1516,6 +1678,12 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     RawDCTData odata; // for both recoding and ROUNDTRIP_TEST
 #ifdef ROUNDTRIP_TEST
     memset(&odata, 0, sizeof(odata));
+    static bool ok0 = knownCodeUnitTest0();
+    assert(ok0 && "Known block0 should be ok");
+    static bool ok1 = knownCodeUnitTest1();
+    assert(ok1 && "Known block1 should be ok");
+    static bool ok2 = knownCodeUnitTest2();
+    assert(ok2 && "Known block2 should be ok");
 #endif
     if (oMovie().isRecoding) {
       uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
