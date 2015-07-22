@@ -1166,6 +1166,77 @@ int32_t  WelsCalcDeqCoeffScalingList (PWelsDecoderContext pCtx) {
     pCtx->bUseScalingList = false;
   return ERR_NONE;
 }
+struct EmitDefBitsToOMovie {
+    void operator()(const uint8_t data, uint8_t nBits) const {
+        oMovie().def().emitBits(data, nBits);
+    }
+};
+struct EmitDefBitsToBoolVector {
+    std::vector<bool> *output;
+    void operator()(const uint8_t data, uint8_t nBits) const {
+        for (uint8_t i = 0; i < nBits; ++i) {
+            if (data & (7 - i)) {
+                output->push_back(true);
+            } else {
+                output->push_back(false);
+            }
+
+        }
+    }
+};
+template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functor f) {
+    for (const uint8_t *ptr = orig.pStartBuf; ptr != orig.pCurBuf; ++ptr) {
+        f(*ptr, 8);
+    }
+    if (orig.iLeftBits < 8) {
+        int nBits = 8 - orig.iLeftBits;
+        f(orig.uiCurBits >> (32 - nBits), nBits);
+    }
+}
+std::vector<bool> bitStringToVector(const SBitStringAux& orig) {
+    std::vector<bool> retval;
+    EmitDefBitsToBoolVector f;
+    f.output = &retval;
+    copySBitStringAux(orig, f);
+    return retval;
+}
+
+/*
+ * Currently returns true if rt is a bitwise substring of orig
+ * Eventually will check for bitwise equality
+ */
+bool stringBitCompare(const PBitStringAux& orig,
+                      const SBitStringAux& rt) {
+    std::vector<bool> ovec = bitStringToVector(*orig);
+    std::vector<bool> rvec = bitStringToVector(rt);
+    size_t longest_substring = 0;
+    size_t longest_offset = 0;
+    size_t longest_rt_offset = 0;
+    for (std::vector<bool>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend; ++oi){
+        for (std::vector<bool>::const_iterator ri = rvec.begin(),
+                 rend = rvec.end(); ri != rend; ++ri){
+            size_t cur_substring = 0;
+            std::vector<bool>::const_iterator orig_cmp_iter = oi;
+            std::vector<bool>::const_iterator r_cmp_iter = ri;
+            for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
+                if (*orig_cmp_iter != *r_cmp_iter) {
+                    break;
+                }
+                ++cur_substring;
+            }
+            if (cur_substring > longest_substring) {
+                longest_substring = cur_substring;
+                longest_offset = oi - ovec.begin();
+                longest_rt_offset = ri - rvec.begin();
+            }
+        }
+    }
+    if (longest_substring < rvec.size()) {
+        fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
+                longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
+    }
+    return longest_substring == rvec.size();
+}
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1266,7 +1337,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   return ERR_NONE;
 }
-
+struct RawDCTData {
+    int16_t lumaDC[16];
+    int16_t chromaDC[8];
+    int16_t lumaAC[256];
+    int16_t chromaAC[128];
+};
 int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
@@ -1437,17 +1513,13 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     }
 
     BsStartCavlc (pBs);
+    RawDCTData odata; // for both recoding and ROUNDTRIP_TEST
+#ifdef ROUNDTRIP_TEST
+    memset(&odata, 0, sizeof(odata));
+#endif
     if (oMovie().isRecoding) {
-      int16_t lumaDC[16];
-      int16_t chromaDC[8];
-      int16_t lumaAC[256];
-      int16_t chromaAC[128];
-      uint8_t buf[384 * 2]; // Cannot be larger than raw input.
-      memset(buf,0,sizeof(buf));
-      memset(lumaDC,0,sizeof(lumaDC));
-      memset(lumaAC,0,sizeof(lumaAC));
-      memset(chromaDC,0,sizeof(chromaDC));
-      memset(chromaAC,0,sizeof(chromaAC));
+      uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
+      memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
       for (i = 0; i < 48; i++) {
         res = iMovie().tag(1).scanBits(8);
@@ -1464,7 +1536,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           if (res.second) {
             fprintf(stderr, "failed to read ldc!\n");
           }
-          lumaDC[i] = res.first;
+          odata.lumaDC[i] = res.first;
         }
       }
       if (1 == uiCbpC || 2 == uiCbpC) {
@@ -1473,7 +1545,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           if (res.second) {
             fprintf(stderr, "failed to read crdc!\n");
           }
-          chromaDC[i] = res.first;
+          odata.chromaDC[i] = res.first;
         }
       }
       if (uiCbpL) {
@@ -1482,7 +1554,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           if (res.second) {
             fprintf(stderr, "failed to read lac!\n");
           }
-          lumaAC[i] = res.first;
+          odata.lumaAC[i] = res.first;
         }
       }
       if (uiCbpC == 2) {
@@ -1491,7 +1563,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           if (res.second) {
             fprintf(stderr, "failed to read crac!\n");
           }
-          chromaAC[i] = iMovie().tag(1).scanBits(16).first;
+          odata.chromaAC[i] = iMovie().tag(1).scanBits(16).first;
         }
       }
 
@@ -1499,8 +1571,11 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       InitBits (&wrBs, buf, sizeof(buf));
       WelsEnc::WelsUtilWriteMbResidual (
           gFuncPtrList, pCurLayer->pMbType[iMbXy], uiCbpC, uiCbpL,
-          (int8_t*)pNonZeroCount, lumaDC, lumaAC, chromaDC, chromaAC, &wrBs);
+          (int8_t*)pNonZeroCount, odata.lumaDC, odata.lumaAC, odata.chromaDC, odata.chromaAC, &wrBs);
       BsEndCavlc (pBs);
+      EmitDefBitsToOMovie emission;
+      copySBitStringAux(wrBs, emission);
+/*
       for (uint8_t *ptr = wrBs.pStartBuf; ptr != wrBs.pCurBuf; ++ptr) {
         // fprintf(stderr, "Wrote some bytes\n");
         oMovie().def().emitBits(*ptr, 8);
@@ -1509,6 +1584,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
         int nBits = 8 - wrBs.iLeftBits;
         oMovie().def().emitBits(wrBs.uiCurBits >> (32 - nBits), nBits);
       }
+*/
       return 0;
     }
     // for (i = 0; i < 48; i++) oMovie().tag(1).writeBits(pNonZeroCount[i], 8);
@@ -1520,6 +1596,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
         return -1;//abnormal
       }
       // FIXME(patrick): Is it necessary to output DC components?
+#ifdef ROUNDTRIP_TEST
+      memcpy(odata.lumaDC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaDC));
+#endif
       for (i = 0; i < 16; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
@@ -1601,6 +1680,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
         for (i = 256; i < 260; i++) {
           oMovie().tag(1).emitBits(
               pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64], 16);
+#ifdef ROUNDTRIP_TEST
+          odata.chromaDC[i - 256 + cbcr * 4] = pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64];
+#endif
         }
       }
     } else if (uiCbpC != 0) {
@@ -1633,15 +1715,32 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
       for (i = 0; i < 256; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
+#ifdef ROUNDTRIP_TEST
+      memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
+#endif
     }
     if (2 == uiCbpC) {
       for (i = 256; i < 384; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
+#ifdef ROUNDTRIP_TEST
+      memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.chromaAC));
+#endif
     }
     for (i = 0; i < 48; i++) {
       oMovie().tag(1).emitBits(pNonZeroCount[i], 8);
     }
+#ifdef ROUNDTRIP_TEST
+    {
+        SBitStringAux wrBs;
+        uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
+        InitBits (&wrBs, buf, sizeof(buf));
+        WelsEnc::WelsUtilWriteMbResidual (
+            gFuncPtrList, pCurLayer->pMbType[iMbXy], uiCbpC, uiCbpL,
+            (int8_t*)pNonZeroCount, odata.lumaDC, odata.lumaAC, odata.chromaDC, odata.chromaAC, &wrBs);
+        assert(stringBitCompare(pBs, wrBs));
+    }
+#endif
   }
 
   return 0;

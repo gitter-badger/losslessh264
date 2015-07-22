@@ -107,5 +107,6 @@ namespace WelsEnc {
     typedef struct TagWelsFuncPointerList SWelsFuncPtrList;
 }
 extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
+#define ROUNDTRIP_TEST
 void InitEncFuncPtrList();
 #endif
