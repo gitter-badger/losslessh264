@@ -1763,12 +1763,11 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
                                   g_kuiLumaDcZigzagScan, I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
         return -1;//abnormal
       }
-      // FIXME(patrick): Is it necessary to output DC components?
-#ifdef ROUNDTRIP_TEST
-      memcpy(odata.lumaDC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaDC));
-#endif
-      for (i = 0; i < 16; i++) {
+      for (i = 0; i < 256; i += 16) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
+#ifdef ROUNDTRIP_TEST
+        odata.chromaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+#endif
       }
       //step2: Luma AC
       if (uiCbpL) {
@@ -1843,15 +1842,12 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
           return -1;//abnormal
         }
       }
-      // FIXME(patrick): Is it necessary to output DC components?
-      for (int cbcr = 0; cbcr < 2; cbcr++) {
-        for (i = 256; i < 260; i++) {
-          oMovie().tag(1).emitBits(
-              pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64], 16);
+      for (i = 256; i < 384; i += 16) {
+        oMovie().tag(1).emitBits(
+              pCurLayer->pScaledTCoeff[iMbXy][i], 16);
 #ifdef ROUNDTRIP_TEST
-          odata.chromaDC[i - 256 + cbcr * 4] = pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64];
+        odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
 #endif
-        }
       }
     } else if (uiCbpC != 0) {
       // FIXME(patrick): Encoder does not check for this condition...
@@ -2251,8 +2247,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
                                   I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
         return -1;//abnormal
       }
-      // FIXME(patrick): Is it necessary to output DC components?
-      for (i = 0; i < 16; i++) {
+      for (i = 0; i < 256; i += 16) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
       //step2: Luma AC
@@ -2334,12 +2329,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
           return -1;//abnormal
         }
       }
-      // FIXME(patrick): Is it necessary to output DC components?
-      for (int cbcr = 0; cbcr < 2; cbcr++) {
-        for (i = 256; i < 260; i++) {
-          oMovie().tag(1).emitBits(
-              pCurLayer->pScaledTCoeff[iMbXy][i + cbcr * 64], 16);
-        }
+      for (i = 256; i < 384; i += 16) {
+        oMovie().tag(1).emitBits(
+              pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
     } else if (uiCbpC != 0) {
       // FIXME(patrick): Encoder does not check for this condition...
