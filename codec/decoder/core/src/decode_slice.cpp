@@ -1286,15 +1286,59 @@ struct RawDCTData {
 bool knownCodeUnitTest(RawDCTData &odata,
                        const std::vector<bititem> expectedPrefix) {
     SBitStringAux wrBs;
-    uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
+    uint8_t buf[MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2] = {0}; // Cannot be larger than raw input.
+    WelsEnc::SDCTCoeff pDct = {};
+    memcpy(pDct.iLumaBlock, odata.lumaAC, sizeof(odata.lumaAC));
+    memcpy(pDct.iChromaBlock, odata.chromaAC, sizeof(odata.chromaAC));
+    memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
+    memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
+
     InitBits (&wrBs, buf, sizeof(buf));
     ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
     memset(pNonZeroCount, 0, 48 * sizeof(*pNonZeroCount));
-    int uiCbpL = true; //for luma AC
-    int uiCbpC = 0; // luma
-    if (WelsEnc::WelsUtilWriteMbResidual (
-        gFuncPtrList, MB_TYPE_INTRA16x16, uiCbpC, uiCbpL,
-        (int8_t*)pNonZeroCount, odata.lumaDC, odata.lumaAC, odata.chromaDC, odata.chromaAC, &wrBs)) {
+    pNonZeroCount[0] = 5;
+    pNonZeroCount[1] = 3;
+
+    WelsEnc::sWelsEncCtx pEncCtx = {};
+    WelsEnc::SSlice pSlice = {};
+    WelsEnc::SMB pCurMb = {};
+
+    // This stuff isn't really used.
+    WelsEnc::SDqLayer pCurDqLayer = {};
+    WelsEnc::SWelsPPS pPpsP = {};
+    pEncCtx.pCurDqLayer = &pCurDqLayer;
+    pCurDqLayer.sLayerInfo.pPpsP = &pPpsP;
+    pPpsP.uiChromaQpIndexOffset = 0;
+
+    // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset
+    pEncCtx.eSliceType = I_SLICE;
+    pEncCtx.pFuncList = gFuncPtrList;
+
+    memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
+    // pSlice.sMbCacheInfo.sMvComponents may be need for cabac
+    // pMbCache->pPrevIntra4x4PredModeFlag // Only for intra4x4
+    // pMbCache->pRemIntra4x4PredModeFlag // Only for intra4x4
+    // pMbCache->uiChmaI8x8Mode // Only for intra4x4 or intra16x16
+    // pMbCache->sMbMvp
+    pSlice.sMbCacheInfo.pDct = &pDct;
+    pSlice.pSliceBsa = &wrBs;
+    // pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active // Number of reference frames.
+    // pSlice.uiLastMbQp = decoder.pSlice->iLastMbQp
+    // iMbSkipRun
+    // uiSliceIdx
+    // pCurMb.uiSubMbType // only 8x8
+    // pCurMb.pRefIndex[0..3]
+    // pCurMb.sMv
+    pCurMb.uiMbType = MB_TYPE_INTRA16x16;
+    // pCurMb->uiCbp = uiCbpC << 4 | (uiCbpL & 15)
+    // CbpC bits for which 8x8 block to encode luma?
+    // CbpL 0 = no chroma; 1 = dc only; 2 = dc&ac
+    pCurMb.uiCbp = 15;
+    // pCurMb.uiLumaQp
+    // pCurMb->uiChromaQp
+
+    if (WelsEnc::WelsSpatialWriteMbSyn (
+                &pEncCtx, &pSlice, &pCurMb)) {
         fprintf(stderr, "Encode failed!");
         return false;
     }

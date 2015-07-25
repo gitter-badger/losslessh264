@@ -40,6 +40,10 @@
 #include "../../../encoder/core/inc/wels_common_basis.h"
 #include "../../../encoder/core/inc/encoder_context.h"
 
+namespace WelsEnc {
+int32_t WelsSpatialWriteMbSyn (sWelsEncCtx* pCtx, SSlice* pSlice, SMB* pCurMb);
+}
+
 #undef MAX_PPS_COUNT // make sure it is not used.
 #undef MAX_SHORT_REF_COUNT
 
