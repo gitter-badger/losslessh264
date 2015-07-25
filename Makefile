@@ -92,7 +92,8 @@ INCLUDES += -I$(SRC_PATH)codec/api/svc -I$(SRC_PATH)codec/common/inc -Icodec/com
 
 DECODER_INCLUDES += \
     -I$(SRC_PATH)codec/decoder/core/inc \
-    -I$(SRC_PATH)codec/decoder/plus/inc
+    -I$(SRC_PATH)codec/decoder/plus/inc \
+    -I$(SRC_PATH)codec/processing/interface
 
 ENCODER_INCLUDES += \
     -I$(SRC_PATH)codec/encoder/core/inc \

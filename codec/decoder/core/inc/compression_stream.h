@@ -105,8 +105,21 @@ InputCompressionStream &iMovie();
 namespace WelsEnc {
     struct TagWelsFuncPointerList;
     typedef struct TagWelsFuncPointerList SWelsFuncPtrList;
+
+    struct TagWelsEncCtx;
+    typedef struct TagWelsEncCtx sWelsEncCtx;
+
+    struct TagSlice;
+    typedef struct TagSlice SSlice;
+
+    struct TagMB;
+    typedef struct TagMB SMB;
 }
 extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
 #define ROUNDTRIP_TEST
 void InitEncFuncPtrList();
+
+//sWelsEncCtx *allocWelsEncCtx();
+//void freeWelsEncCtx(sWelsEncCtx *);
+
 #endif
