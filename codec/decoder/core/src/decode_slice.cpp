@@ -2079,17 +2079,20 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
 
     {
         odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
-        bool chromaPredModeMatchFound = false;
-        for (size_t i = 0; i < sizeof(WelsEnc::g_kiMapModeIntraChroma) / sizeof(WelsEnc::g_kiMapModeIntraChroma[0]); ++i) {
-            if (WelsEnc::g_kiMapModeIntraChroma[i] == odata.uiChmaI8x8Mode) {
-                odata.uiChmaI8x8Mode = (uint8_t)i;
-                chromaPredModeMatchFound = true;
-                break;
+/* values 4,5,6 are alll the case where top, left, or niether are present--they get remapped to mode 0 by the enc 
+        if (pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA4x4 || pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA16x16) {
+            bool chromaPredModeMatchFound = false;
+            for (size_t i = 0; i < sizeof(WelsEnc::g_kiMapModeIntraChroma) / sizeof(WelsEnc::g_kiMapModeIntraChroma[0]); ++i) {
+                if (WelsEnc::g_kiMapModeIntraChroma[i] == odata.uiChmaI8x8Mode) {
+                    odata.uiChmaI8x8Mode = (uint8_t)i;
+                    chromaPredModeMatchFound = true;
+                    break;
+                }
             }
+            oMovie().tag(1).emitBits(odata.uiChmaI8x8Mode, 8);
+            assert(chromaPredModeMatchFound && "Reverse lookup table g_kiMapModeIntraChroma not rich enough to recode this file");
         }
-        oMovie().tag(1).emitBits(odata.uiChmaI8x8Mode, 8);
-        assert(chromaPredModeMatchFound && "Reverse lookup table g_kiMapModeIntraChroma not rich enough to recode this file");
-
+*/
         size_t num_components = 0;
         if (pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA8x8) {
             num_components = 4;
