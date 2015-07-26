@@ -1339,7 +1339,7 @@ struct EncoderState {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
         PSlice decoderpSlice    = &pCurLayer->sLayerInfo.sSliceInLayer;                
         PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader; 
-        PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];                    
+        //PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];                    
 
         InitBits (&wrBs, buf, sizeof(buf));
         memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
@@ -1368,7 +1368,7 @@ struct EncoderState {
             remIntra4x4PredModeFlag[i] = (int8_t)(rtd->iRemIntra4x4PredMode[i]);
         }
 
-        pSlice.sMbCacheInfo.uiChmaI8x8Mode = rtd->uiChmaI8x8Mode;
+        pSlice.sMbCacheInfo.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
         // pMbCache->sMbMvp is left as 0 so that we can just write the MV deltas we read in.
         pSlice.sMbCacheInfo.pDct = &pDct;
         pSlice.pSliceBsa = &wrBs;

@@ -122,7 +122,6 @@ void InitEncFuncPtrList();
 struct RoundTripData {
   int32_t iPrevIntra4x4PredMode[16];
   int32_t iRemIntra4x4PredMode[16];
-  uint8_t uiChmaI8x8Mode;
   int16_t sMbMvp[16][2];
   int uiSubMbType[4];
   int8_t iRefIdx[4];
