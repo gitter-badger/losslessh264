@@ -630,12 +630,12 @@ void BsEndCavlc (PBitStringAux pBs) {
   pBs->pCurBuf  += 4;
   pBs->iLeftBits = -16 + (pBs->iIndex & 0x07);
 
-  uint8_t* pBuf     = ((uint8_t*)pBs->pStartBuf);
+  //uint8_t* pBuf     = ((uint8_t*)pBs->pStartBuf);
   int iBegin = pBs->iPrevIndex;
   int iEnd = pBs->iIndex;
   pBs->iPrevIndex = pBs->iIndex;
   for (int i = iBegin; i < iEnd; i++) {
-    int whichBit = i & 0x07;
+    // int whichBit = i & 0x07;
     // oMovie().def().emitBit((pBuf[i >> 3] >> (7-whichBit)) & 0x01);
   }
   // fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
@@ -831,8 +831,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
 
   int32_t iMbResProperty = 0;
   GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
-  const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
-                                   g_kuiDequantCoeff[uiQp];
+  //const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
+  //                                 g_kuiDequantCoeff[uiQp];
 
   int8_t nA, nB, nC;
   uint8_t uiTotalCoeff, uiTrailingOnes;
@@ -937,8 +937,8 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
   int32_t iMbResProperty = 0;
   GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
 
-  const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
-                                   g_kuiDequantCoeff8x8[uiQp];
+  //const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
+  //                                 g_kuiDequantCoeff8x8[uiQp];
 
   int8_t nA, nB, nC;
   uint8_t uiTotalCoeff, uiTrailingOnes;

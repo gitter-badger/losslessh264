@@ -1337,9 +1337,9 @@ struct EncoderState {
               PWelsDecoderContext pCtx, PNalUnit pNalCur,
               RoundTripData *rtd, int uiCbpC, int uiCbpL) {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
-        PSlice decoderpSlice    = &pCurLayer->sLayerInfo.sSliceInLayer;                
-        PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader; 
-        //PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];                    
+        PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
+        PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
+        //PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];
 
         InitBits (&wrBs, buf, sizeof(buf));
         memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
@@ -2212,7 +2212,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
     pCurLayer->pMbType[iMbXy] = g_ksInterMbTypeInfo[uiMbType].iType;
     WelsFillCacheInter (&sNeighAvail, pNonZeroCount, iMotionVector, iRefIndex, pCurLayer);
 
-    if (ParseInterInfo (pCtx, iMotionVector, iRefIndex, pBs)) {
+    if (ParseInterInfo (pCtx, iMotionVector, iRefIndex, pBs, &rtd)) {
       return -1;//abnormal
     }
 
@@ -2644,11 +2644,10 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     ST32A4 (&pNzc[20], 0);
 
     pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
-    memset (pCurLayer->pRefIndex[-1][iMbXy], 0, sizeof (int8_t) * 16);
+    memset (pCurLayer->pRefIndex[0][iMbXy], 0, sizeof (int8_t) * 16);
     pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[0] && ppRefPic[0]->bIsComplete);
     //predict iMv
-    //FIXME <-- not sure if this needs a prefix
-    pSliceHeader->eSliceTypeFromNeighbor (pCurLayer, iMv);
+    PredPSkipMvFromNeighbor (pCurLayer, iMv);
     for (i = 0; i < 16; i++) {
       ST32A2 (pCurLayer->pMv[0][iMbXy][i], * (uint32_t*)iMv);
     }
