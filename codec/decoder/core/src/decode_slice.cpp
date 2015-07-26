@@ -1178,7 +1178,7 @@ struct EmitDefBitsToBoolVector {
     std::vector<bititem> *output;
     void operator()(const uint8_t data, uint8_t nBits) const {
         for (uint8_t i = 0; i < nBits; ++i) {
-            if (data & (7 - i)) {
+            if (data & (1<<(7 - i))) {
                 output->push_back(true);
             } else {
                 output->push_back(false);
@@ -1191,9 +1191,13 @@ template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functo
     for (const uint8_t *ptr = orig.pStartBuf; ptr != orig.pCurBuf; ++ptr) {
         f(*ptr, 8);
     }
-    if (orig.iLeftBits < 8) {
-        int nBits = 8 - orig.iLeftBits;
-        f(orig.uiCurBits >> (32 - nBits), nBits);
+    if (orig.iLeftBits < 32) {
+        int nBits = 32 - orig.iLeftBits;
+        uint32_t curBits = orig.uiCurBits;
+        while (nBits > 0) {
+            f(((curBits) >> (nBits - 8)) & 0xff, nBits < 8 ? nBits : 8);
+            nBits -= 8;
+        }
     }
 }
 std::vector<bititem> bitStringToVector(const SBitStringAux& orig) {
@@ -1212,31 +1216,31 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
     size_t longest_substring = 0;
     size_t longest_offset = 0;
     size_t longest_rt_offset = 0;
-    for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend; ++oi){
-        for (std::vector<bititem>::const_iterator ri = rvec.begin(),
-                 rend = rvec.end(); ri != rend; ++ri){
-            size_t cur_substring = 0;
-            std::vector<bititem>::const_iterator orig_cmp_iter = oi;
-            std::vector<bititem>::const_iterator r_cmp_iter = ri;
-            for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
-                if (*orig_cmp_iter != *r_cmp_iter) {
-                    break;
-                }
-                ++cur_substring;
+    std::vector<bititem>::const_iterator oi = ovec.begin();
+    std::vector<bititem>::const_iterator oend = ovec.end();
+    for (std::vector<bititem>::const_iterator ri = rvec.begin(),
+             rend = rvec.end(); ri != rend; ++ri){
+        size_t cur_substring = 0;
+        std::vector<bititem>::const_iterator orig_cmp_iter = oi;
+        std::vector<bititem>::const_iterator r_cmp_iter = ri;
+        for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
+            if (*orig_cmp_iter != *r_cmp_iter) {
+                break;
             }
-            if (cur_substring > longest_substring) {
-                longest_substring = cur_substring;
-                longest_offset = oi - ovec.begin();
-                longest_rt_offset = ri - rvec.begin();
-            }
+            ++cur_substring;
+        }
+        if (cur_substring > longest_substring) {
+            longest_substring = cur_substring;
+            longest_offset = oi - ovec.begin();
+            longest_rt_offset = ri - rvec.begin();
         }
     }
     if (longest_substring < rvec.size()) {
         fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                 longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
     }
-    bool ret = longest_substring == rvec.size() && longest_substring != 0;
-    if (!ret) {
+    bool ret = longest_substring == ovec.size();
+    /*if (!ret) {
         std::string s = "";
         for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(), ri = rvec.begin(), rend = rvec.end(); oi != oend || ri != rend;){
             int bits = 0;
@@ -1261,7 +1265,17 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
             }
         }
         fprintf(stderr, "Bitstrings not equal! %s\n", s.c_str());
+    }*/
+    std::string s = "";
+    for (std::vector<bititem>::const_iterator oi = ovec.begin(); oi != ovec.end(); ++oi) {
+        s += ('0' + (int)(*oi));
     }
+    fprintf(stderr, "Origin bitstring %s\n", s.c_str());
+    s = "";
+    for (std::vector<bititem>::const_iterator ri = rvec.begin(); ri != rvec.end(); ++ri) {
+        s += ('0' + (int)(*ri));
+    }
+    fprintf(stderr, "Result bitstring %s\n", s.c_str());
     return ret;
 }
 
@@ -1296,8 +1310,9 @@ bool knownCodeUnitTest(RawDCTData &odata,
     InitBits (&wrBs, buf, sizeof(buf));
     ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
     memset(pNonZeroCount, 0, 48 * sizeof(*pNonZeroCount));
-    pNonZeroCount[0] = 5;
-    pNonZeroCount[1] = 3;
+    //pNonZeroCount[0] = 5;
+    //pNonZeroCount[1] = 3;
+    pNonZeroCount[9] = 5;
 
     WelsEnc::sWelsEncCtx pEncCtx = {};
     WelsEnc::SSlice pSlice = {};
@@ -1312,6 +1327,7 @@ bool knownCodeUnitTest(RawDCTData &odata,
 
     // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset
     pEncCtx.eSliceType = I_SLICE;
+    pSlice.sSliceHeaderExt.sSliceHeader.eSliceType = pEncCtx.eSliceType;
     pEncCtx.pFuncList = gFuncPtrList;
 
     memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
@@ -1371,7 +1387,6 @@ bool knownCodeUnitTest0() {
 bool knownCodeUnitTest1() {
     RawDCTData odata;
     memset(&odata, 0, sizeof(odata));
-/* if zigzag'd
     odata.lumaAC[0] = 0;
     odata.lumaAC[1] = 3;
     odata.lumaAC[2] = 0;
@@ -1381,13 +1396,14 @@ bool knownCodeUnitTest1() {
     odata.lumaAC[6] = 0;
     odata.lumaAC[7] = 1;
     odata.lumaAC[8] = 0;
-*/
+/*
     odata.lumaAC[1] = 3;
     odata.lumaAC[2] = -1;
     int w = 16;// is this 4?
     odata.lumaAC[1 + w] = -1;
     odata.lumaAC[2 + w] = 1;
     odata.lumaAC[0 + 2*w] = 1;
+*/
 
     std::vector<bititem> expectedPrefix;
     expectedPrefix.push_back(0);
@@ -1419,7 +1435,6 @@ bool knownCodeUnitTest1() {
 bool knownCodeUnitTest2() {
     RawDCTData odata;
     memset(&odata, 0, sizeof(odata));
-/* if zigzag'd
     odata.lumaAC[0] = -2;
     odata.lumaAC[1] = 4;
     odata.lumaAC[2] = 3;
@@ -1429,7 +1444,7 @@ bool knownCodeUnitTest2() {
     odata.lumaAC[6] =-1;
     odata.lumaAC[7] = 0;
     odata.lumaAC[8] = 0;
-*/
+/* if row major
     odata.lumaAC[0] = -2;
     odata.lumaAC[1] = 4;
     odata.lumaAC[2] =-1;
@@ -1437,6 +1452,7 @@ bool knownCodeUnitTest2() {
     int w = 16; // is this 4?
     odata.lumaAC[w] = 3;
     odata.lumaAC[2*w] = -3;
+*/
 
     std::vector<bititem> expectedPrefix;
     expectedPrefix.push_back(0);
