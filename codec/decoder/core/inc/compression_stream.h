@@ -119,6 +119,18 @@ extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
 #define ROUNDTRIP_TEST
 void InitEncFuncPtrList();
 
+struct RoundTripData {
+  int32_t iPrevIntra4x4PredMode[16];
+  int32_t iRemIntra4x4PredMode[16];
+  int16_t sMbMvp[16][2];
+  int uiSubMbType[4];
+  int8_t iRefIdx[4];
+
+  RoundTripData()
+      : iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(), uiSubMbType(), iRefIdx() {
+  }
+};
+
 //sWelsEncCtx *allocWelsEncCtx();
 //void freeWelsEncCtx(sWelsEncCtx *);
 
