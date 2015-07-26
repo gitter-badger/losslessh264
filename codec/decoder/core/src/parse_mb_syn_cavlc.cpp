@@ -1063,7 +1063,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
       return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
     }
-    rtd.iRefIdx[0] = iRefIdx;
+    rtd->iRefIdx[0] = iRefIdx;
     PredMv (iMvArray, iRefIdxArray, 0, 4, iRefIdx, iMv);
 
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
@@ -1103,7 +1103,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       }
       pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRefIdx[i]]
                               && ppRefPic[iRefIdx[i]]->bIsComplete);
-      rtd.iRefIdx[i] = iRefIdx[i];
+      rtd->iRefIdx[i] = iRefIdx[i];
     }
     for (i = 0; i < 2; i++) {
       PredInter16x8Mv (iMvArray, iRefIdxArray, i << 3, iRefIdx[i], iMv);
@@ -1147,7 +1147,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
         return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
       }
-      rtd.iRefIdx[i] = iRefIdx[i];
+      rtd->iRefIdx[i] = iRefIdx[i];
 
     }
     for (i = 0; i < 2; i++) {
@@ -1225,7 +1225,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
           WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
           return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
         }
-        rtd.iRefIdx[i] = iRefIdx[i];
+        rtd->iRefIdx[i] = iRefIdx[i];
       }
     }
 

@@ -63,6 +63,15 @@ int32_t WelsUtilWriteMbResidual (SWelsFuncPtrList* pFuncList, uint32_t uiMbType,
 }
 
 namespace WelsDec {
+struct RawDCTData {
+    bool pPrevIntra4x4PredModeFlag[16];
+    uint8_t pRemIntra4x4PredModeFlag[16];
+    uint8_t uiChmaI8x8Mode;
+    int16_t lumaDC[16];
+    int16_t chromaDC[8];
+    int16_t lumaAC[256];
+    int16_t chromaAC[128];
+};
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1321,22 +1330,21 @@ struct EncoderState {
         pCurDqLayer.sLayerInfo.pPpsP = &pPpsP;
         pEncCtx.pFuncList = gFuncPtrList;
         pSlice.sMbCacheInfo.pDct = &pDct;
-        pCurMb.pRefIndex = &pRefIndex;
+        pCurMb.pRefIndex = &pRefIndex[0];
     }
 
     void init(uint8_t* pNonZeroCount, RawDCTData *dct,
               PWelsDecoderContext pCtx, PNalUnit pNalCur,
               RoundTripData *rtd, int uiCbpC, int uiCbpL) {
-
+        PDqLayer pCurLayer = pCtx->pCurDqLayer;
         PSlice decoderpSlice    = &pCurLayer->sLayerInfo.sSliceInLayer;                
-        PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader; 
+        PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader; 
         PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];                    
 
         InitBits (&wrBs, buf, sizeof(buf));
         memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
 
-        pPpsP.uiChromaQpIndexOffset = pSliceHeader.pPps->iChromaQpIndexOffset[0];
-        PDqLayer pCurLayer = pCtx->pCurDqLayer;
+        pPpsP.uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
 
         // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset FIXME?
         pEncCtx.eSliceType = pSliceHeader->eSliceType;
@@ -1345,59 +1353,52 @@ struct EncoderState {
 
         memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
         // pSlice.sMbCacheInfo.sMvComponents may be need for cabac
-        pMbCache->pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
-        pMbCache->pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
+        pSlice.sMbCacheInfo.pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
+        pSlice.sMbCacheInfo.pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
 
         size_t num_components = 0;
+        const int32_t iMbXy = pCurLayer->iMbXyIndex;
         if (pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA8x8) {
             num_components = 4;
         } else if (pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA4x4) {
             num_components = 16;
         }
         for (size_t i = 0; i < num_components; i++) {
-            prevIntra4x4PredModeFlag[i] = !!(rtd->pPrevIntra4x4PredModeFlag[i]);
-            remIntra4x4PredModeFlag[i] = (int8_t)(rtd->pRemIntra4x4PredModeFlag[i]);
+            prevIntra4x4PredModeFlag[i] = !!(rtd->iPrevIntra4x4PredMode[i]);
+            remIntra4x4PredModeFlag[i] = (int8_t)(rtd->iRemIntra4x4PredMode[i]);
         }
 
-        pMbCache->uiChmaI8x8Mode = rtd->uiChmaI8x8Mode;
+        pSlice.sMbCacheInfo.uiChmaI8x8Mode = rtd->uiChmaI8x8Mode;
         // pMbCache->sMbMvp is left as 0 so that we can just write the MV deltas we read in.
         pSlice.sMbCacheInfo.pDct = &pDct;
         pSlice.pSliceBsa = &wrBs;
-        pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active = pSliceHeader.uiRefCount[0]; // Number of reference frames.
+        pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
         pSlice.uiLastMbQp = decoderpSlice->iLastMbQp;
         pSlice.iMbSkipRun = decoderpSlice->iMbSkipRun;
         pSlice.uiSliceIdx = 0;
         for (int i = 0; i < 4; i++) {
             // only 8x8
-            pCurMb.uiSubMbType[i] = pCurDqLayer->pSubMbType[iMbXy][i];
+            pCurMb.uiSubMbType[i] = pCtx->pCurDqLayer->pSubMbType[iMbXy][i];
         }
 
         for (int i = 0; i < 4; i++) {
-            pCurMb.pRefIndex[i] = rtd.pRefIdx[i];
+            pCurMb.pRefIndex[i] = rtd->iRefIdx[i];
         }
         for (int i = 0; i < 16; i++) {
-            pCurMb.sMv[i] = rtd.sMbMvp[i];
+            pCurMb.sMv[i].iMvX = rtd->sMbMvp[i][0];
+            pCurMb.sMv[i].iMvY = rtd->sMbMvp[i][1];
         }
         pCurMb.uiMbType = pCurLayer->pMbType[iMbXy];
-        pCurMb->uiCbp = ((uiCbpC << 4) | (uiCbpL & 15);
+        pCurMb.uiCbp = ((uiCbpC << 4) | (uiCbpL & 15));
         // CbpC bits for which 8x8 block to encode luma?
         // CbpL 0 = no chroma; 1 = dc only; 2 = dc&ac
-        pCurMb->uiLumaQp = pCurLayer->pLumaQp[iMbXy][0];
+        pCurMb.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
         // FIXME: Cb and Cr. Baseline only?
-        pCurMb->uiChromaQp = pCurLayer->pChromaQp[iMbXy][0];
+        pCurMb.uiChromaQp = pCurLayer->pChromaQp[iMbXy][0];
     }
 
 };
 
-struct RawDCTData {
-    bool pPrevIntra4x4PredModeFlag[16];
-    uint8_t pRemIntra4x4PredModeFlag[16];
-    uint8_t uiChmaI8x8Mode;
-    int16_t lumaDC[16];
-    int16_t chromaDC[8];
-    int16_t lumaAC[256];
-    int16_t chromaAC[128];
-};
 bool knownCodeUnitTest(RawDCTData &odata,
                        const std::vector<bititem> expectedPrefix) {
     SBitStringAux wrBs;
@@ -1462,9 +1463,6 @@ bool knownCodeUnitTest(RawDCTData &odata,
     bool retval = stringBitCompare(expectedPrefix, wrBs);
     return retval;
 }
-
-void initEncoderState(WelsEnc::sWelsEncCtx *pEncCtx, WelsEnc::SSlice *pSlice,
-        WelsEnc::SMB
 
 bool knownCodeUnitTest0() {
     RawDCTData odata;
@@ -2080,10 +2078,10 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     // Write stuff here.
 
     {
-        odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode1[iMbXy];
+        odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
         bool chromaPredModeMatchFound = false;
-        for (size_t i = 0; i < sizeof(g_kiMapModeIntraChroma) / sizeof(g_kiMapModeIntraChroma[0]); ++i) {
-            if (g_kiMapModeIntraChroma[i] == pMbCache->uiChmaI8x8Mode) {
+        for (size_t i = 0; i < sizeof(WelsEnc::g_kiMapModeIntraChroma) / sizeof(WelsEnc::g_kiMapModeIntraChroma[0]); ++i) {
+            if (WelsEnc::g_kiMapModeIntraChroma[i] == odata.uiChmaI8x8Mode) {
                 odata.uiChmaI8x8Mode = (uint8_t)i;
                 chromaPredModeMatchFound = true;
                 break;
@@ -2099,8 +2097,8 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
             num_components = 16;
         }
         for (size_t i = 0; i < num_components; i++) {
-            oMovie().tag(1).emitBits(odata.pPrevIntra4x4PredModeFlag, 1);
-            oMovie().tag(1).emitBits(odata.pRemIntra4x4PredModeFlag, 3);
+            oMovie().tag(1).emitBits(odata.pPrevIntra4x4PredModeFlag[i] ? 1 : 0, 1);
+            oMovie().tag(1).emitBits(odata.pRemIntra4x4PredModeFlag[i], 3);
         }
 
     }
@@ -2649,7 +2647,8 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     memset (pCurLayer->pRefIndex[-1][iMbXy], 0, sizeof (int8_t) * 16);
     pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[0] && ppRefPic[0]->bIsComplete);
     //predict iMv
-    PredpSliceHeader->eSliceTypeFromNeighbor (pCurLayer, iMv);
+    //FIXME <-- not sure if this needs a prefix
+    pSliceHeader->eSliceTypeFromNeighbor (pCurLayer, iMv);
     for (i = 0; i < 16; i++) {
       ST32A2 (pCurLayer->pMv[0][iMbXy][i], * (uint32_t*)iMv);
     }

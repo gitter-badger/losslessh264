@@ -39,6 +39,7 @@
 
 #include "../../../encoder/core/inc/wels_common_basis.h"
 #include "../../../encoder/core/inc/encoder_context.h"
+#include "../../../encoder/core/inc/md.h"
 
 namespace WelsEnc {
 int32_t WelsSpatialWriteMbSyn (sWelsEncCtx* pCtx, SSlice* pSlice, SMB* pCurMb);
