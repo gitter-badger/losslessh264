@@ -1316,6 +1316,7 @@ struct EncoderState {
     WelsEnc::SMB pCurMb;
     WelsEnc::SDqLayer pCurDqLayer;
     WelsEnc::SWelsPPS pPpsP;
+    WelsEnc::SMVUnitXY sMv[16];
     SBitStringAux wrBs;
     uint8_t buf[MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2];
     bool prevIntra4x4PredModeFlag[16];
@@ -1384,6 +1385,7 @@ struct EncoderState {
         for (int i = 0; i < 4; i++) {
             pCurMb.pRefIndex[i] = rtd->iRefIdx[i];
         }
+        pCurMb.sMv = &sMv[0];
         for (int i = 0; i < 16; i++) {
             pCurMb.sMv[i].iMvX = rtd->sMbMvp[i][0];
             pCurMb.sMv[i].iMvY = rtd->sMbMvp[i][1];
@@ -1700,7 +1702,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   return ERR_NONE;
 }
-int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
+int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
@@ -2126,13 +2128,11 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx) {
     }
 #ifdef ROUNDTRIP_TEST
     {
-        SBitStringAux wrBs;
-        uint8_t buf[384 * 2] = {0}; // Cannot be larger than raw input.
-        InitBits (&wrBs, buf, sizeof(buf));
-        WelsEnc::WelsUtilWriteMbResidual (
-            gFuncPtrList, pCurLayer->pMbType[iMbXy], uiCbpC, uiCbpL,
-            (int8_t*)pNonZeroCount, odata.lumaDC, odata.lumaAC, odata.chromaDC, odata.chromaAC, &wrBs);
-        assert(stringBitCompare(pBs, wrBs));
+        EncoderState es;
+        es.init(pNonZeroCount, &odata, pCtx, pNalCur, &rtd, uiCbpC, uiCbpL);
+        WelsEnc::WelsSpatialWriteMbSyn (
+            &es.pEncCtx, &es.pSlice, &es.pCurMb);
+        assert(stringBitCompare(pBs, es.wrBs));
     }
 #endif
   }
@@ -2155,7 +2155,7 @@ int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     iBaseModeFlag = pSliceHeaderExt->bDefaultBaseModeFlag;
   }
   if (!iBaseModeFlag) {
-    iRet = WelsActualDecodeMbCavlcISlice (pCtx);
+      iRet = WelsActualDecodeMbCavlcISlice (pCtx, pNalCur);
   } else {
     WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.",
              iBaseModeFlag);
