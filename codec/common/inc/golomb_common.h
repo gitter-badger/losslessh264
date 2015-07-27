@@ -42,6 +42,8 @@
 
 #include "typedefs.h"
 
+extern int woffset;
+extern char wbits[65536];
 namespace WelsCommon {
 
 #define WRITE_BE_32(ptr, val) do { \
@@ -75,8 +77,11 @@ static inline int32_t InitBits (SBitStringAux* pBs, const uint8_t* kpBuf, const 
 
   return kiSize;
 }
-
 static inline int32_t BsWriteBits (PBitStringAux pBitString, int32_t iLen, const uint32_t kuiValue) {
+  for (int i= 0;i<iLen;++i) {
+    wbits[woffset] = (kuiValue & (1<<(iLen - 1 - i))) ? 1 : 0;
+    ++woffset;
+  }
   if (iLen < pBitString->iLeftBits) {
     pBitString->uiCurBits = (pBitString->uiCurBits << iLen) | kuiValue;
     pBitString->iLeftBits -= iLen;

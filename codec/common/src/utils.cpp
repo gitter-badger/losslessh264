@@ -40,6 +40,9 @@
 #include "utils.h"
 #include "crt_util_safe_x.h" // Safe CRT routines like utils for cross platforms
 #include "codec_app_def.h"
+int woffset =0;
+char wbits[65536]={};
+
 float WelsCalcPsnr (const void* kpTarPic,
                     const int32_t kiTarStride,
                     const void* kpRefPic,

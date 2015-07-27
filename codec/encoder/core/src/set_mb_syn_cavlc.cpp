@@ -65,7 +65,11 @@ const  ALIGNED_DECLARE (uint8_t, g_kuiZeroLeftMap[16], 16) = {
   pBs->iLeftBits = iLeftBits;
 
 #define    CAVLC_BS_WRITE( n,  v ) \
-  {  \
+  {    for (int i= 0;i<n;++i) { \
+    wbits[woffset] = (v & (1<<(n - 1 - i))) ? 1 : 0; \
+    ++woffset; \
+  } \
+    \
   if ( (n) < iLeftBits ) {\
   uiCurBits = (uiCurBits<<(n))|(v);\
   iLeftBits -= (n);\
