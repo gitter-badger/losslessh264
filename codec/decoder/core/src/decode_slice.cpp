@@ -1349,11 +1349,16 @@ struct EncoderState {
         pSlice.sMbCacheInfo.pDct = &pDct;
         pCurMb.pRefIndex = &pRefIndex[0];
     }
+    void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components) {
+        for (size_t i = 0; i < num_components; ++i) {
+            zigdest[((i >> 4) << 4) | g_kuiZigzagScan[ i & 0xf ]] = source[ i ];
+        }
+    }
     void setupCoefficientsFromOdata(const RawDCTData&odata) {
-        memcpy(pDct.iLumaBlock, odata.lumaAC, sizeof(odata.lumaAC));
-        memcpy(pDct.iChromaBlock, odata.chromaAC, sizeof(odata.chromaAC));
+        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]));
+        zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]));
         memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
-        memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));        
+        memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
             prevIntra4x4PredModeFlag[i] = odata.pPrevIntra4x4PredModeFlag[i];
         }
@@ -1365,8 +1370,8 @@ struct EncoderState {
     void setupCoefficientsFromCtx(PWelsDecoderContext pCtx) {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
         uint32_t iMbXy = pCurLayer->iMbXyIndex;
-        memcpy(pDct.iLumaBlock, pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC));
-        memcpy(pDct.iChromaBlock, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC));
+        zigCopy(&pDct.iLumaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]));
+        zigCopy(&pDct.iChromaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]));
         for (int i = 0; i < 256; i += 16) {
             int coord = (i / 16);
             pDct.iLumaI16x16Dc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
