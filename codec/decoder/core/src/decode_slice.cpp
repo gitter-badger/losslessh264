@@ -1351,7 +1351,7 @@ struct EncoderState {
     }
     void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components) {
         for (size_t i = 0; i < num_components; ++i) {
-            zigdest[((i >> 4) << 4) | g_kuiZigzagScan[ i & 0xf ]] = source[ i ];
+            zigdest[i] = source[((i >> 4) << 4) | g_kuiZigzagScan[ i & 0xf ]];
         }
     }
     void setupCoefficientsFromOdata(const RawDCTData&odata) {
