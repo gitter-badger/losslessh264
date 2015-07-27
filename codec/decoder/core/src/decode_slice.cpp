@@ -631,7 +631,6 @@ struct CopyOnExit {
     uint32_t *uiCbpC;
     CopyOnExit(RoundTripData *roundTripData, uint8_t *nonZeroCount, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
         : rtd(roundTripData), pNonZeroCount(nonZeroCount), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
-        
     }
     ~CopyOnExit() {
         memcpy(rtd->pNonZeroCount, pNonZeroCount, sizeof(rtd->pNonZeroCount));
@@ -1707,7 +1706,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         uint32_t iMbXy = pCurLayer->iMbXyIndex;
         odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
-        memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.chromaAC));
+        memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
         for (int i = 0; i < 256; i += 16) {
             odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
         }
