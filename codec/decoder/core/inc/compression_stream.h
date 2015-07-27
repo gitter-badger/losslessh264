@@ -115,6 +115,11 @@ namespace WelsEnc {
     struct TagMB;
     typedef struct TagMB SMB;
 }
+
+namespace WelsDec {
+    struct TagSlice;
+    typedef TagSlice* PSlice;
+}
 extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
 #define ROUNDTRIP_TEST
 void InitEncFuncPtrList();
@@ -127,12 +132,14 @@ struct RoundTripData {
   int uiSubMbType[4];
   int8_t iRefIdx[4];
   uint32_t uiCbpC, uiCbpL;
+  int32_t iLastMbQp;
   RoundTripData()
-    : iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(), uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0) {
+    : iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(), uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0) {
       for (size_t i = 0; i < sizeof(pNonZeroCount) / sizeof(pNonZeroCount[0]); ++i) {
           pNonZeroCount[i] = 0;
       }
   }
+  void preInit(const WelsDec::PSlice);
 };
 
 //sWelsEncCtx *allocWelsEncCtx();

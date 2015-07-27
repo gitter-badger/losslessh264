@@ -53,7 +53,11 @@
 
 #include "encoder_from_decoder.h"
 
+
 // Pretend this isn't an ugly hack.
+void RoundTripData::preInit(const WelsDec::PSlice pSlice) {
+    iLastMbQp = pSlice->iLastMbQp;
+}
 namespace WelsEnc {
 int32_t WelsUtilWriteMbResidual (SWelsFuncPtrList* pFuncList, uint32_t uiMbType,
     const int32_t kiCbpChroma, const int32_t kiCbpLuma,
@@ -1387,7 +1391,7 @@ struct EncoderState {
         pSlice.sMbCacheInfo.pDct = &pDct;
         pSlice.pSliceBsa = &wrBs;
         pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
-        pSlice.uiLastMbQp = decoderpSlice->iLastMbQp;
+        pSlice.uiLastMbQp = rtd->iLastMbQp;
         pSlice.iMbSkipRun = decoderpSlice->iMbSkipRun;
         pSlice.uiSliceIdx = 0;
         for (int i = 0; i < 4; i++) {
@@ -1615,7 +1619,6 @@ bool knownCodeUnitTest2() {
 
 
 
-
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PFmo pFmo = pCtx->pFmo;
@@ -1693,6 +1696,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
     RoundTripData rtd;
+    rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
     pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
     if (iRet != ERR_NONE) {
@@ -1915,7 +1919,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
     BsStartCavlc (pBs);
     RawDCTData odata; // for both recoding and ROUNDTRIP_TEST
-#ifdef ROUNDTRIP_TEST
+#if 0
     memset(&odata, 0, sizeof(odata));
     //static bool ok0 = knownCodeUnitTest0();
     //assert(ok0 && "Known block0 should be ok");
