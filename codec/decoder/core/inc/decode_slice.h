@@ -34,20 +34,20 @@
 #define WELS_DECODE_SLICE_H__
 
 #include "decoder_context.h"
-
+struct RoundTripData;
 namespace WelsDec {
 
-int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx);
-int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag);
+int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, RoundTripData *rtd);
+int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd);
 
-int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx);
-int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag);
-typedef int32_t (*PWelsDecMbFunc) (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag);
+int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *rtd);
+int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd);
+typedef int32_t (*PWelsDecMbFunc) (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd);
 
-int32_t WelsDecodeMbCabacISlice(PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag);
-int32_t WelsDecodeMbCabacPSlice(PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag);
-int32_t WelsDecodeMbCabacISliceBaseMode0(PWelsDecoderContext pCtx, uint32_t& uiEosFlag);
-int32_t WelsDecodeMbCabacPSliceBaseMode0(PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag);
+int32_t WelsDecodeMbCabacISlice(PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd);
+int32_t WelsDecodeMbCabacPSlice(PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd);
+int32_t WelsDecodeMbCabacISliceBaseMode0(PWelsDecoderContext pCtx, uint32_t& uiEosFlag, RoundTripData *rtd);
+int32_t WelsDecodeMbCabacPSliceBaseMode0(PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag, RoundTripData *rtd);
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx); //construction based on slice
 

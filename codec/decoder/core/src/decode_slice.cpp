@@ -624,8 +624,22 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
 
   return ERR_NONE;
 }
-
-int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& uiEosFlag) {
+struct CopyOnExit {
+    RoundTripData *rtd;
+    uint8_t *pNonZeroCount;
+    uint32_t *uiCbpL;
+    uint32_t *uiCbpC;
+    CopyOnExit(RoundTripData *roundTripData, uint8_t *nonZeroCount, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
+        : rtd(roundTripData), pNonZeroCount(nonZeroCount), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
+        
+    }
+    ~CopyOnExit() {
+        memcpy(rtd->pNonZeroCount, pNonZeroCount, sizeof(rtd->pNonZeroCount));
+        rtd->uiCbpL = *uiCbpL;
+        rtd->uiCbpC = *uiCbpC;
+    }
+};
+int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& uiEosFlag, RoundTripData*rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBsAux           = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -637,9 +651,9 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
   int32_t i;
   uint32_t uiMbType = 0, uiCbp = 0, uiCbpLuma = 0, uiCbpChroma = 0;
 
-  RoundTripData rtd;
-
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
+  { // scope for copy on exit
+  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
 
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
@@ -671,10 +685,10 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
     if (pCtx->pCurDqLayer->pTransformSize8x8Flag[iMbXy]) {
       uiMbType = pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA8x8;
       pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-      WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBsAux, pCurLayer, &rtd));
+      WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBsAux, pCurLayer, rtd));
     } else {
       pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-      WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBsAux, pCurLayer, &rtd));
+      WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBsAux, pCurLayer, rtd));
     }
     //get uiCbp for I4x4
     WELS_READ_VERIFY (ParseCbpInfoCabac (pCtx, &sNeighAvail, uiCbp));
@@ -825,26 +839,24 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
     ST32 (&pCurLayer->pNzc[iMbXy][16], 0);
     ST32 (&pCurLayer->pNzc[iMbXy][20], 0);
   }
-
   WELS_READ_VERIFY (ParseEndOfSliceCabac (pCtx, uiEosFlag));
+  }
   if (uiEosFlag) {
     RestoreCabacDecEngineToBS (pCtx->pCabacDecEngine, pCtx->pCurDqLayer->pBitStringAux);
   }
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag) {
-  WELS_READ_VERIFY (WelsDecodeMbCabacISliceBaseMode0 (pCtx, uiEosFlag));
+int32_t WelsDecodeMbCabacISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
+  WELS_READ_VERIFY (WelsDecodeMbCabacISliceBaseMode0 (pCtx, uiEosFlag, rtd));
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag) {
+int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag, RoundTripData *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBsAux           = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader;
-
-  RoundTripData rtd;
 
   int32_t iScanIdxStart = pSlice->sSliceHeaderExt.uiScanIdxStart;
   int32_t iScanIdxEnd   = pSlice->sSliceHeaderExt.uiScanIdxEnd;
@@ -854,7 +866,8 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
   uint32_t uiMbType = 0, uiCbp = 0, uiCbpLuma = 0, uiCbpChroma = 0;
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
-
+  {
+  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
 
   WELS_READ_VERIFY (ParseMBTypePSliceCabac (pCtx, pNeighAvail, uiMbType));
@@ -892,10 +905,10 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
         if (pCtx->pCurDqLayer->pTransformSize8x8Flag[iMbXy]) {
           uiMbType = pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA8x8;
           pCtx->pFillInfoCacheIntraNxNFunc (pNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-          WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, pNeighAvail, pIntraPredMode, pBsAux, pCurLayer, &rtd));
+          WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, pNeighAvail, pIntraPredMode, pBsAux, pCurLayer, rtd));
         } else {
           pCtx->pFillInfoCacheIntraNxNFunc (pNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-          WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, pNeighAvail, pIntraPredMode, pBsAux, pCurLayer, &rtd));
+          WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, pNeighAvail, pIntraPredMode, pBsAux, pCurLayer, rtd));
         }
       } else { //Intra16x16
         pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA16x16;
@@ -1072,11 +1085,11 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
   if (uiEosFlag) {
     RestoreCabacDecEngineToBS (pCtx->pCabacDecEngine, pCtx->pCurDqLayer->pBitStringAux);
   }
-
+  }
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag) {
+int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader;
@@ -1134,7 +1147,7 @@ int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     return ERR_NONE;
   }
 
-  WELS_READ_VERIFY (WelsDecodeMbCabacPSliceBaseMode0 (pCtx, &uiNeighAvail, uiEosFlag));
+  WELS_READ_VERIFY (WelsDecodeMbCabacPSliceBaseMode0 (pCtx, &uiNeighAvail, uiEosFlag, rtd));
   return ERR_NONE;
 }
 // Calculate deqaunt coeff scaling list value
@@ -1334,16 +1347,17 @@ struct EncoderState {
         pCurMb.pRefIndex = &pRefIndex[0];
     }
 
-    void init(uint8_t* pNonZeroCount, RawDCTData *dct,
+    void init(RawDCTData *dct,
               PWelsDecoderContext pCtx, PNalUnit pNalCur,
-              RoundTripData *rtd, int uiCbpC, int uiCbpL) {
+              RoundTripData *rtd) {
+
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
         PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
         PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
         //PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];
 
         InitBits (&wrBs, buf, sizeof(buf));
-        memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
+        memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, rtd->pNonZeroCount, 48);
 
         pPpsP.uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
 
@@ -1352,7 +1366,7 @@ struct EncoderState {
         pSlice.sSliceHeaderExt.sSliceHeader.eSliceType = pEncCtx.eSliceType;
         pEncCtx.pFuncList = gFuncPtrList;
 
-        memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, pNonZeroCount, 48);
+        memcpy(pSlice.sMbCacheInfo.iNonZeroCoeffCount, rtd->pNonZeroCount, 48);
         // pSlice.sMbCacheInfo.sMvComponents may be need for cabac
         pSlice.sMbCacheInfo.pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
         pSlice.sMbCacheInfo.pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
@@ -1391,7 +1405,7 @@ struct EncoderState {
             pCurMb.sMv[i].iMvY = rtd->sMbMvp[i][1];
         }
         pCurMb.uiMbType = pCurLayer->pMbType[iMbXy];
-        pCurMb.uiCbp = ((uiCbpC << 4) | (uiCbpL & 15));
+        pCurMb.uiCbp = ((rtd->uiCbpC << 4) | (rtd->uiCbpL & 15));
         // CbpC bits for which 8x8 block to encode luma?
         // CbpL 0 = no chroma; 1 = dc only; 2 = dc&ac
         pCurMb.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
@@ -1679,12 +1693,33 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
-    iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag);
+    RoundTripData rtd;
+    iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
     pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
     if (iRet != ERR_NONE) {
       return iRet;
     }
-
+#ifdef ROUNDTRIP_TEST
+    {
+        
+        EncoderState es;
+        RawDCTData odata;
+        uint32_t iMbXy = pCurLayer->iMbXyIndex;
+        odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
+        memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
+        memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.chromaAC));
+        for (int i = 0; i < 256; i += 16) {
+            odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        }
+        for (int i = 256; i < 384; i += 16) {
+            odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        }
+        es.init(&odata, pCtx, pNalCur, &rtd);
+        WelsEnc::WelsSpatialWriteMbSyn (
+            &es.pEncCtx, &es.pSlice, &es.pCurMb);
+        assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs));
+    }
+#endif
     ++pSlice->iTotalMbInCurSlice;
     if (uiEosFlag) { //end of slice
       break;
@@ -1702,14 +1737,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   return ERR_NONE;
 }
-int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur) {
+int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, RoundTripData *rtd) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader;
-
-  RoundTripData rtd;
 
   SWelsNeighAvail sNeighAvail;
   int32_t iMbResProperty;
@@ -1727,6 +1760,8 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
   int32_t iCode;
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
+  {
+  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpL, &uiCbpC);
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
   pCurLayer->pResidualPredFlag[iMbXy] = pSlice->sSliceHeaderExt.bDefaultResidualPredFlag;
@@ -1804,10 +1839,10 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     }
     if (!pCurLayer->pTransformSize8x8Flag[iMbXy]) {
       pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-      WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, &rtd));
+      WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, rtd));
     } else {
       pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-      WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, &rtd));
+      WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, rtd));
     }
 
     //uiCbp
@@ -1964,7 +1999,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
       for (i = 0; i < 256; i += 16) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
 #ifdef ROUNDTRIP_TEST
-        odata.chromaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
 #endif
       }
       //step2: Luma AC
@@ -2080,7 +2115,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     // Write stuff here.
 
     {
-        odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
+
 /* values 4,5,6 are alll the case where top, left, or niether are present--they get remapped to mode 0 by the enc 
         if (pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA4x4 || pCurLayer->pMbType[iMbXy] == MB_TYPE_INTRA16x16) {
             bool chromaPredModeMatchFound = false;
@@ -2111,36 +2146,21 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
       for (i = 0; i < 256; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
-#ifdef ROUNDTRIP_TEST
-      memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
-#endif
     }
     if (2 == uiCbpC) {
       for (i = 256; i < 384; i++) {
         oMovie().tag(1).emitBits(pCurLayer->pScaledTCoeff[iMbXy][i], 16);
       }
-#ifdef ROUNDTRIP_TEST
-      memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.chromaAC));
-#endif
     }
     for (i = 0; i < 48; i++) {
       oMovie().tag(1).emitBits(pNonZeroCount[i], 8);
     }
-#ifdef ROUNDTRIP_TEST
-    {
-        EncoderState es;
-        es.init(pNonZeroCount, &odata, pCtx, pNalCur, &rtd, uiCbpC, uiCbpL);
-        WelsEnc::WelsSpatialWriteMbSyn (
-            &es.pEncCtx, &es.pSlice, &es.pCurMb);
-        assert(stringBitCompare(pBs, es.wrBs));
-    }
-#endif
   }
-
+  }
   return 0;
 }
 
-int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag) {
+int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PBitStringAux pBs = pCurLayer->pBitStringAux;
   PSliceHeaderExt pSliceHeaderExt = &pCurLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt;
@@ -2155,7 +2175,7 @@ int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     iBaseModeFlag = pSliceHeaderExt->bDefaultBaseModeFlag;
   }
   if (!iBaseModeFlag) {
-      iRet = WelsActualDecodeMbCavlcISlice (pCtx, pNalCur);
+      iRet = WelsActualDecodeMbCavlcISlice (pCtx, pNalCur, rtd);
   } else {
     WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.",
              iBaseModeFlag);
@@ -2181,14 +2201,12 @@ int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
   return 0;
 }
 
-int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
+int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *rtd) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader;
-
-  RoundTripData rtd;
 
   int32_t iScanIdxStart = pSlice->sSliceHeaderExt.uiScanIdxStart;
   int32_t iScanIdxEnd   = pSlice->sSliceHeaderExt.uiScanIdxEnd;
@@ -2206,6 +2224,8 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
 
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
+  {
+  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpL, &uiCbpC);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;//2009.10.23
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
@@ -2215,7 +2235,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
     pCurLayer->pMbType[iMbXy] = g_ksInterMbTypeInfo[uiMbType].iType;
     WelsFillCacheInter (&sNeighAvail, pNonZeroCount, iMotionVector, iRefIndex, pCurLayer);
 
-    if (ParseInterInfo (pCtx, iMotionVector, iRefIndex, pBs, &rtd)) {
+    if (ParseInterInfo (pCtx, iMotionVector, iRefIndex, pBs, rtd)) {
       return -1;//abnormal
     }
 
@@ -2309,10 +2329,10 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
         }
         if (!pCurLayer->pTransformSize8x8Flag[iMbXy]) {
           pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-          WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, &rtd));
+          WELS_READ_VERIFY (ParseIntra4x4Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, rtd));
         } else {
           pCtx->pFillInfoCacheIntraNxNFunc (&sNeighAvail, pNonZeroCount, pIntraPredMode, pCurLayer);
-          WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, &rtd));
+          WELS_READ_VERIFY (ParseIntra8x8Mode (pCtx, &sNeighAvail, pIntraPredMode, pBs, pCurLayer, rtd));
         }
       } else { //I_PCM exclude, we can ignore it
         pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA16x16;
@@ -2608,11 +2628,11 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx) {
       oMovie().tag(1).emitBits(pNonZeroCount[i], 8);
     }
   }
-
+  }
   return 0;
 }
 
-int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag) {
+int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -2678,7 +2698,7 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
       iBaseModeFlag = pSlice->sSliceHeaderExt.bDefaultBaseModeFlag;
     }
     if (!iBaseModeFlag) {
-      iRet = WelsActualDecodeMbCavlcPSlice (pCtx);
+      iRet = WelsActualDecodeMbCavlcPSlice (pCtx, rtd);
     } else {
       WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "iBaseModeFlag (%d) != 0, inter-layer prediction not supported.",
                iBaseModeFlag);
