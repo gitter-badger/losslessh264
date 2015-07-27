@@ -1245,11 +1245,11 @@ std::vector<bititem> bitStringToVector(const SBitStringAux& orig) {
  * Eventually will check for bitwise equality
  */
 bool stringBitCompare(const std::vector<bititem> &ovec,
-                      const std::vector<bititem> &rvec) {
+                      const std::vector<bititem> &rvec, size_t offset = 0) {
     size_t longest_substring = 0;
     size_t longest_offset = 0;
     size_t longest_rt_offset = 0;
-    std::vector<bititem>::const_iterator oi = ovec.begin();
+    std::vector<bititem>::const_iterator oi = ovec.begin() + offset;
     std::vector<bititem>::const_iterator oend = ovec.end();
     for (std::vector<bititem>::const_iterator ri = rvec.begin(),
              rend = rvec.end(); ri != rend; ++ri){
@@ -1313,16 +1313,16 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
 }
 
 bool stringBitCompare(const std::vector<bititem> &ovec,
-                      const SBitStringAux& rt) {
+                      const SBitStringAux& rt, size_t offset = 0) {
     std::vector<bititem> rvec = bitStringToVector(rt);
-    return stringBitCompare(ovec, rvec);
+    return stringBitCompare(ovec, rvec, offset);
 }
 
 bool stringBitCompare(const PBitStringAux& orig,
-                      const SBitStringAux& rt) {
+                      const SBitStringAux& rt, size_t offset = 0) {
     std::vector<bititem> ovec = bitStringToVector(*orig);
     std::vector<bititem> rvec = bitStringToVector(rt);
-    return stringBitCompare(ovec, rvec);
+    return stringBitCompare(ovec, rvec, offset);
 }
 
 struct EncoderState {
@@ -1762,7 +1762,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         es.setupCoefficientsFromOdata(odata);
         WelsEnc::WelsSpatialWriteMbSyn (
             &es.pEncCtx, &es.pSlice, &es.pCurMb);
-        assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs));
+        assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
     }
 #endif
     ++pSlice->iTotalMbInCurSlice;
