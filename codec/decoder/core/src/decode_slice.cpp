@@ -1707,6 +1707,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
         memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
+        for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
+            odata.pPrevIntra4x4PredModeFlag[i] = rtd.iPrevIntra4x4PredMode[i];
+        }
+        for (size_t i = 0; i < sizeof(odata.pRemIntra4x4PredModeFlag) / sizeof(odata.pRemIntra4x4PredModeFlag[0]); ++i) {
+            odata.pRemIntra4x4PredModeFlag[i] = rtd.iRemIntra4x4PredMode[i];
+        }
         for (int i = 0; i < 256; i += 16) {
             odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
         }
