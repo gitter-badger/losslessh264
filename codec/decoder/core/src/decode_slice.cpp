@@ -1349,12 +1349,47 @@ struct EncoderState {
         pSlice.sMbCacheInfo.pDct = &pDct;
         pCurMb.pRefIndex = &pRefIndex[0];
     }
+    void setupCoefficientsFromOdata(const RawDCTData&odata) {
+        memcpy(pDct.iLumaBlock, odata.lumaAC, sizeof(odata.lumaAC));
+        memcpy(pDct.iChromaBlock, odata.chromaAC, sizeof(odata.chromaAC));
+        memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
+        memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));        
+        for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
+            prevIntra4x4PredModeFlag[i] = odata.pPrevIntra4x4PredModeFlag[i];
+        }
+        for (size_t i = 0; i < sizeof(odata.pRemIntra4x4PredModeFlag) / sizeof(odata.pRemIntra4x4PredModeFlag[0]); ++i) {
+            remIntra4x4PredModeFlag[i] = odata.pRemIntra4x4PredModeFlag[i];
+        }
 
-    void init(RawDCTData *dct,
-              PWelsDecoderContext pCtx, PNalUnit pNalCur,
-              RoundTripData *rtd) {
+    }
+    void setupCoefficientsFromCtx(PWelsDecoderContext pCtx) {
+        PDqLayer pCurLayer = pCtx->pCurDqLayer;
+        uint32_t iMbXy = pCurLayer->iMbXyIndex;
+        memcpy(pDct.iLumaBlock, pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC));
+        memcpy(pDct.iChromaBlock, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC));
+        for (int i = 0; i < 256; i += 16) {
+            int coord = (i / 16);
+            pDct.iLumaI16x16Dc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        }
+        for (int i = 256; i < 384; i += 16) {
+            int coord = (i / 16) - 16;
+            pDct.iChromaDc[coord>>1][coord&1] = pCurLayer->pScaledTCoeff[iMbXy][i];
+            pDct.iChromaDc[coord>>1][coord&1] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        }
+/*
+        for (size_t i = 0; i < sizeof(RawDCTData::pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
+            prevIntra4x4PredModeFlag[i] = odata.pPrevIntra4x4PredModeFlag[i];
+        }
+        for (size_t i = 0; i < sizeof(odata.pRemIntra4x4PredModeFlag) / sizeof(odata.pRemIntra4x4PredModeFlag[0]); ++i) {
+            remIntra4x4PredModeFlag[i] = odata.pRemIntra4x4PredModeFlag[i];
+            }*/
+
+    }
+    
+    void init(PWelsDecoderContext pCtx, PNalUnit pNalCur, RoundTripData *rtd) {
 
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
+
         PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
         PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
         //PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];
@@ -1723,7 +1758,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         for (int i = 256; i < 384; i += 16) {
             odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
         }
-        es.init(&odata, pCtx, pNalCur, &rtd);
+        es.init(pCtx, pNalCur, &rtd);
+        es.setupCoefficientsFromOdata(odata);
         WelsEnc::WelsSpatialWriteMbSyn (
             &es.pEncCtx, &es.pSlice, &es.pCurMb);
         assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs));
