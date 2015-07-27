@@ -1272,7 +1272,7 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
         fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                 longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
     }
-    bool ret = longest_substring == ovec.size();
+    bool ret = longest_substring + 7 > rvec.size() && rvec.size() * 2 > ovec.size(); // need to allow zero-padding at the end of the stream
     /*if (!ret) {
         std::string s = "";
         for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(), ri = rvec.begin(), rend = rvec.end(); oi != oend || ri != rend;){
@@ -1349,14 +1349,24 @@ struct EncoderState {
         pSlice.sMbCacheInfo.pDct = &pDct;
         pCurMb.pRefIndex = &pRefIndex[0];
     }
-    void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components) {
+    void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components, bool dc) {
         for (size_t i = 0; i < num_components; ++i) {
             zigdest[i] = source[((i >> 4) << 4) | g_kuiZigzagScan[ i & 0xf ]];
         }
+        if (! dc) {
+            for (size_t i = 0; i < num_components; ++i) {
+                if ((i & 0xf) == 0xf) {
+                    zigdest[i] = 0;
+                } else {
+                    zigdest[i] = zigdest[i + 1]; 
+                }
+            }
+        }
+
     }
     void setupCoefficientsFromOdata(const RawDCTData&odata) {
-        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]));
-        zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]));
+        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
+        zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]), false);
         memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
@@ -1370,8 +1380,8 @@ struct EncoderState {
     void setupCoefficientsFromCtx(PWelsDecoderContext pCtx) {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
         uint32_t iMbXy = pCurLayer->iMbXyIndex;
-        zigCopy(&pDct.iLumaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]));
-        zigCopy(&pDct.iChromaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]));
+        zigCopy(&pDct.iLumaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
+        zigCopy(&pDct.iChromaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]), false);
         for (int i = 0; i < 256; i += 16) {
             int coord = (i / 16);
             pDct.iLumaI16x16Dc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
