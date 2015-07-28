@@ -71,6 +71,7 @@ struct RawDCTData {
     bool pPrevIntra4x4PredModeFlag[16];
     uint8_t pRemIntra4x4PredModeFlag[16];
     uint8_t uiChmaI8x8Mode;
+    uint8_t uiLumaI16x16Mode;
     int16_t lumaDC[16];
     int16_t chromaDC[8];
     int16_t lumaAC[256];
@@ -1251,28 +1252,30 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
     size_t longest_rt_offset = 0;
     std::vector<bititem>::const_iterator oi = ovec.begin() + offset;
     std::vector<bititem>::const_iterator oend = ovec.end();
-    for (std::vector<bititem>::const_iterator ri = rvec.begin(),
-             rend = rvec.end(); ri != rend; ++ri){
-        size_t cur_substring = 0;
-        std::vector<bititem>::const_iterator orig_cmp_iter = oi;
-        std::vector<bititem>::const_iterator r_cmp_iter = ri;
-        for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
-            if (*orig_cmp_iter != *r_cmp_iter) {
-                break;
+    for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend;++oi) {
+        for (std::vector<bititem>::const_iterator ri = rvec.begin(),
+                 rend = rvec.end(); ri != rend; ++ri){
+            size_t cur_substring = 0;
+            std::vector<bititem>::const_iterator orig_cmp_iter = oi;
+            std::vector<bititem>::const_iterator r_cmp_iter = ri;
+            for (;orig_cmp_iter != oend && r_cmp_iter != rend; ++r_cmp_iter,++orig_cmp_iter) {
+                if (*orig_cmp_iter != *r_cmp_iter) {
+                    break;
+                }
+                ++cur_substring;
             }
-            ++cur_substring;
-        }
-        if (cur_substring > longest_substring) {
-            longest_substring = cur_substring;
-            longest_offset = oi - ovec.begin();
-            longest_rt_offset = ri - rvec.begin();
+            if (cur_substring > longest_substring) {
+                longest_substring = cur_substring;
+                longest_offset = oi - ovec.begin();
+                longest_rt_offset = ri - rvec.begin();
+            }
         }
     }
     if (longest_substring < rvec.size()) {
         fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                 longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
     }
-    bool ret = longest_substring + 7 > rvec.size() && rvec.size() * 2 > ovec.size(); // need to allow zero-padding at the end of the stream
+    bool ret = longest_substring + 168 > rvec.size() && (rvec.size()> 1000 || rvec.size() * 2 > ovec.size()); // need to allow zero-padding at the end of the stream
     /*if (!ret) {
         std::string s = "";
         for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(), ri = rvec.begin(), rend = rvec.end(); oi != oend || ri != rend;){
@@ -1364,11 +1367,20 @@ struct EncoderState {
         }
 
     }
+
+    void lZigCopyDC(int16_t *zigdest, const int16_t *source, size_t num_components) {
+        for (size_t i = 0; i < num_components; ++i) {
+            zigdest[i] = source[((i >> 4) << 4) | (g_kuiLumaDcZigzagScan[ i & 0xf ] >> 4)];
+        }
+    }
+
     void setupCoefficientsFromOdata(const RawDCTData&odata) {
         zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
         zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]), false);
-        memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
+        //memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
+        lZigCopyDC(&pDct.iLumaI16x16Dc[0], odata.lumaDC, sizeof(RawDCTData::lumaDC)/ sizeof(RawDCTData::lumaDC[0]));
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
+        pSlice.sMbCacheInfo.uiLumaI16x16Mode = odata.uiLumaI16x16Mode;
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
             prevIntra4x4PredModeFlag[i] = odata.pPrevIntra4x4PredModeFlag[i];
         }
@@ -1382,9 +1394,13 @@ struct EncoderState {
         uint32_t iMbXy = pCurLayer->iMbXyIndex;
         zigCopy(&pDct.iLumaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy], sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
         zigCopy(&pDct.iChromaBlock[0][0], pCurLayer->pScaledTCoeff[iMbXy] + sizeof(RawDCTData::lumaAC) / sizeof(RawDCTData::lumaAC[0]), sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]), false);
-        for (int i = 0; i < 256; i += 16) {
-            int coord = (i / 16);
-            pDct.iLumaI16x16Dc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        {
+            int16_t tmpDc[16];
+            for (int i = 0; i < 256; i += 16) {
+                int coord = (i / 16);
+                tmpDc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
+            }
+            lZigCopyDC(&pDct.iLumaI16x16Dc[0], tmpDc, sizeof(tmpDc)/ sizeof(tmpDc[0]));
         }
         for (int i = 256; i < 384; i += 16) {
             int coord = (i / 16) - 16;
@@ -1437,6 +1453,10 @@ struct EncoderState {
         }
 
         pSlice.sMbCacheInfo.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
+
+        // from: 1932  pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3; in WelsDec::WelsActualDecodeMbCavlcISlice
+        pSlice.sMbCacheInfo.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
+
         // pMbCache->sMbMvp is left as 0 so that we can just write the MV deltas we read in.
         pSlice.sMbCacheInfo.pDct = &pDct;
         pSlice.pSliceBsa = &wrBs;
@@ -1759,6 +1779,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         RawDCTData odata;
         uint32_t iMbXy = pCurLayer->iMbXyIndex;
         odata.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
+
+        //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
+        odata.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
         memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
@@ -1775,6 +1798,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         es.init(pCtx, pNalCur, &rtd);
         es.setupCoefficientsFromOdata(odata);
+        woffset = 0;
+        
         WelsEnc::WelsSpatialWriteMbSyn (
             &es.pEncCtx, &es.pSlice, &es.pCurMb);
         assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
