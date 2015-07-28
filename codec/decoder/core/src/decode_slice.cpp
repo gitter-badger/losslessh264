@@ -1766,11 +1766,15 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   iMbY = iNextMbXyIndex / pCurLayer->iMbWidth; // error is introduced by multiple slices case, 11/23/2009
   pSlice->iMbSkipRun = -1;
   iSliceIdc = (pSliceHeader->iFirstMbInSlice << 7) + pCurLayer->uiLayerDqId;
-
+  static int slice_group = 0;
+  if (slice_group ==12) {
+      warnme();
+  }
+  ++slice_group;
   pCurLayer->iMbX =  iMbX;
   pCurLayer->iMbY = iMbY;
   pCurLayer->iMbXyIndex = iNextMbXyIndex;
-
+  int origSkipped = -1;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
@@ -1800,6 +1804,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
         odata.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
         odata.iMbSkipRun = rtd.iMbSkipRun;
+        if (rtd.iMbSkipRun > 0 && origSkipped == -1) {
+            origSkipped = rtd.iMbSkipRun;
+        }
+        if (rtd.iMbSkipRun == 0 && origSkipped != -1) {
+            odata.iMbSkipRun = rtd.iMbSkipRun = origSkipped;
+            origSkipped = -1;
+        }
         odata.uiMbType = pCurLayer->pMbType[iMbXy];
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
         memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
