@@ -52,6 +52,7 @@
 #include "compression_stream.h"
 
 #include "encoder_from_decoder.h"
+extern void warnme();
 
 
 // Pretend this isn't an ugly hack.
@@ -77,6 +78,7 @@ struct RawDCTData {
     int16_t lumaAC[256];
     int16_t chromaAC[128];
     int32_t iMbSkipRun;
+    uint32_t uiMbType;
 };
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
@@ -1399,6 +1401,7 @@ struct EncoderState {
             remIntra4x4PredModeFlag[i] = odata.pRemIntra4x4PredModeFlag[i];
         }
         pSlice.iMbSkipRun = odata.iMbSkipRun;
+        pCurMb.uiMbType = odata.uiMbType;
     }
     void setupCoefficientsFromCtx(PWelsDecoderContext pCtx) {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1699,7 +1702,6 @@ bool knownCodeUnitTest2() {
 
 
 
-
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PFmo pFmo = pCtx->pFmo;
@@ -1773,6 +1775,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
     }
+    static int which_block = 0;
+    if (which_block == 431) {
+        warnme();
+    }
 
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
@@ -1794,6 +1800,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
         odata.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
         odata.iMbSkipRun = rtd.iMbSkipRun;
+        odata.uiMbType = pCurLayer->pMbType[iMbXy];
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
         memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
@@ -1811,12 +1818,15 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         es.init(pCtx, pNalCur, &rtd);
         es.setupCoefficientsFromOdata(odata);
         woffset = 0;
-        
+        if (which_block == 431) {
+            warnme();
+        }
         WelsEnc::WelsSpatialWriteMbSyn (
             &es.pEncCtx, &es.pSlice, &es.pCurMb);
         assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
     }
 #endif
+    ++which_block;
     ++pSlice->iTotalMbInCurSlice;
     if (uiEosFlag) { //end of slice
       break;
@@ -1868,6 +1878,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
+  rtd->originalUiMbType = uiCode;
   if (uiMbType > 25)
     return ERR_INFO_INVALID_MB_TYPE;
   if (!pCtx->pSps->uiChromaFormatIdc && ((uiMbType >= 5 && uiMbType <= 12) || (uiMbType >= 17 && uiMbType <= 24)))

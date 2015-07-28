@@ -5,6 +5,9 @@
 #include "compression_stream.h"
 #include <sstream>
 using namespace WelsDec;
+void warnme() {
+fprintf(stderr, "DOING 431\n");
+}
 #define H264ErrorNil ERR_NONE
 std::pair<uint32_t, H264Error> RawFileWriter::Write(int streamId, const uint8_t*data, unsigned int size) {
     // Ignores streamId.
