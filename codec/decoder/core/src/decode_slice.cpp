@@ -1241,6 +1241,14 @@ std::vector<bititem> bitStringToVector(const SBitStringAux& orig) {
     copySBitStringAux(orig, f);
     return retval;
 }
+bool trailing_zeros(const std::vector<bititem> &rvec, size_t longest_substring) {
+    for(size_t i = longest_substring; i < rvec.size(); ++i) {
+        if (rvec[i] != 0) {
+            return false;
+        }
+    }
+    return true;
+}
 /*
  * Currently returns true if rt is a bitwise substring of orig
  * Eventually will check for bitwise equality
@@ -1252,9 +1260,10 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
     size_t longest_rt_offset = 0;
     std::vector<bititem>::const_iterator oi = ovec.begin() + offset;
     std::vector<bititem>::const_iterator oend = ovec.end();
+    std::vector<bititem>::const_iterator ri = rvec.begin(), rend = rvec.end();
     for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend;++oi) {
-        for (std::vector<bititem>::const_iterator ri = rvec.begin(),
-                 rend = rvec.end(); ri != rend; ++ri){
+        /*for (std::vector<bititem>::const_iterator ri = rvec.begin(),
+          rend = rvec.end(); ri != rend; ++ri)*/{
             size_t cur_substring = 0;
             std::vector<bititem>::const_iterator orig_cmp_iter = oi;
             std::vector<bititem>::const_iterator r_cmp_iter = ri;
@@ -1275,7 +1284,7 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
         fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                 longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
     }
-    bool ret = longest_substring + 168 > rvec.size() && (rvec.size()> 1000 || rvec.size() * 2 > ovec.size()); // need to allow zero-padding at the end of the stream
+    bool ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size() && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
     /*if (!ret) {
         std::string s = "";
         for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(), ri = rvec.begin(), rend = rvec.end(); oi != oend || ri != rend;){
