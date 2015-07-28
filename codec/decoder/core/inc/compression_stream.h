@@ -133,8 +133,9 @@ struct RoundTripData {
   int8_t iRefIdx[4];
   uint32_t uiCbpC, uiCbpL;
   int32_t iLastMbQp;
+  int32_t iMbSkipRun;
   RoundTripData()
-    : iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(), uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0) {
+    : iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(), uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0), iMbSkipRun(0) {
       for (size_t i = 0; i < sizeof(pNonZeroCount) / sizeof(pNonZeroCount[0]); ++i) {
           pNonZeroCount[i] = 0;
       }

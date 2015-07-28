@@ -76,6 +76,7 @@ struct RawDCTData {
     int16_t chromaDC[8];
     int16_t lumaAC[256];
     int16_t chromaAC[128];
+    int32_t iMbSkipRun;
 };
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
@@ -634,6 +635,7 @@ struct CopyOnExit {
     uint8_t *pNonZeroCount;
     uint32_t *uiCbpL;
     uint32_t *uiCbpC;
+
     CopyOnExit(RoundTripData *roundTripData, uint8_t *nonZeroCount, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
         : rtd(roundTripData), pNonZeroCount(nonZeroCount), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
     }
@@ -1396,7 +1398,7 @@ struct EncoderState {
         for (size_t i = 0; i < sizeof(odata.pRemIntra4x4PredModeFlag) / sizeof(odata.pRemIntra4x4PredModeFlag[0]); ++i) {
             remIntra4x4PredModeFlag[i] = odata.pRemIntra4x4PredModeFlag[i];
         }
-
+        pSlice.iMbSkipRun = odata.iMbSkipRun;
     }
     void setupCoefficientsFromCtx(PWelsDecoderContext pCtx) {
         PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1471,7 +1473,7 @@ struct EncoderState {
         pSlice.pSliceBsa = &wrBs;
         pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
         pSlice.uiLastMbQp = rtd->iLastMbQp;
-        pSlice.iMbSkipRun = decoderpSlice->iMbSkipRun;
+        pSlice.iMbSkipRun = rtd->iMbSkipRun;
         pSlice.uiSliceIdx = 0;
         for (int i = 0; i < 4; i++) {
             // only 8x8
@@ -1791,6 +1793,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
         //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
         odata.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
+        odata.iMbSkipRun = rtd.iMbSkipRun;
         memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
         memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
@@ -2741,7 +2744,6 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
 
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
-
   if (-1 == pSlice->iMbSkipRun) {
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //mb_skip_run
     pSlice->iMbSkipRun = uiCode;
@@ -2749,6 +2751,7 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
       return -1;
     }
   }
+  rtd->iMbSkipRun = pSlice->iMbSkipRun;
   if (pSlice->iMbSkipRun--) {
     int16_t iMv[2];
 
