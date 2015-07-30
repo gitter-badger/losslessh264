@@ -79,6 +79,7 @@ struct RawDCTData {
     int16_t chromaAC[128];
     int32_t iMbSkipRun;
     uint32_t uiMbType;
+    uint8_t uiSubMbType[4];
 };
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
@@ -1284,10 +1285,6 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
             }
         }
     }
-    if (longest_substring < rvec.size()) {
-        fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
-                longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
-    }
     bool ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size() && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
     /*if (!ret) {
         std::string s = "";
@@ -1315,16 +1312,22 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
         }
         fprintf(stderr, "Bitstrings not equal! %s\n", s.c_str());
     }*/
-    std::string s = "";
-    for (std::vector<bititem>::const_iterator oi = ovec.begin(); oi != ovec.end(); ++oi) {
-        s += ('0' + (int)(*oi));
+    if (!ret ) {
+        if (longest_substring < rvec.size()) {
+            fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
+                    longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
+        }
+        std::string s = "";
+        for (std::vector<bititem>::const_iterator oi = ovec.begin(); oi != ovec.end(); ++oi) {
+            s += ('0' + (int)(*oi));
+        }
+        fprintf(stderr, "Origin bitstring %s\n", s.c_str());
+        s = "";
+        for (std::vector<bititem>::const_iterator ri = rvec.begin(); ri != rvec.end(); ++ri) {
+            s += ('0' + (int)(*ri));
+        }
+        fprintf(stderr, "Result bitstring %s\n", s.c_str());
     }
-    fprintf(stderr, "Origin bitstring %s\n", s.c_str());
-    s = "";
-    for (std::vector<bititem>::const_iterator ri = rvec.begin(); ri != rvec.end(); ++ri) {
-        s += ('0' + (int)(*ri));
-    }
-    fprintf(stderr, "Result bitstring %s\n", s.c_str());
     return ret;
 }
 
@@ -1394,6 +1397,11 @@ struct EncoderState {
         lZigCopyDC(&pDct.iLumaI16x16Dc[0], odata.lumaDC, sizeof(RawDCTData::lumaDC)/ sizeof(RawDCTData::lumaDC[0]));
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
         pSlice.sMbCacheInfo.uiLumaI16x16Mode = odata.uiLumaI16x16Mode;
+        for (int i = 0; i < 4; i++) {
+            // only 8x8
+            pCurMb.uiSubMbType[i] = odata.uiSubMbType[i];
+        }
+        
         for (size_t i = 0; i < sizeof(odata.pPrevIntra4x4PredModeFlag) / sizeof(odata.pPrevIntra4x4PredModeFlag[0]); ++i) {
             prevIntra4x4PredModeFlag[i] = odata.pPrevIntra4x4PredModeFlag[i];
         }
@@ -1415,6 +1423,10 @@ struct EncoderState {
                 tmpDc[coord] = pCurLayer->pScaledTCoeff[iMbXy][i];
             }
             lZigCopyDC(&pDct.iLumaI16x16Dc[0], tmpDc, sizeof(tmpDc)/ sizeof(tmpDc[0]));
+        }
+        for (int i = 0; i < 4; i++) {
+            // only 8x8
+            pCurMb.uiSubMbType[i] = pCtx->pCurDqLayer->pSubMbType[iMbXy][i];
         }
         for (int i = 256; i < 384; i += 16) {
             int coord = (i / 16) - 16;
@@ -1478,10 +1490,6 @@ struct EncoderState {
         pSlice.uiLastMbQp = rtd->iLastMbQp;
         pSlice.iMbSkipRun = rtd->iMbSkipRun;
         pSlice.uiSliceIdx = 0;
-        for (int i = 0; i < 4; i++) {
-            // only 8x8
-            pCurMb.uiSubMbType[i] = pCtx->pCurDqLayer->pSubMbType[iMbXy][i];
-        }
 
         for (int i = 0; i < 4; i++) {
             pCurMb.pRefIndex[i] = rtd->iRefIdx[i];
@@ -1780,7 +1788,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       break;
     }
     static int which_block = 0;
-    if (which_block == 431) {
+    if (which_block == 609) {
         warnme();
     }
 
@@ -1826,10 +1834,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         for (int i = 256; i < 384; i += 16) {
             odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
         }
+        for (int i = 0; i < 4; ++i) {
+            odata.uiSubMbType[i] = pCtx->pCurDqLayer->pSubMbType[iMbXy][i];
+        }
         es.init(pCtx, pNalCur, &rtd);
         es.setupCoefficientsFromOdata(odata);
         woffset = 0;
-        if (which_block == 431) {
+        if (which_block == 609) {
             warnme();
         }
         WelsEnc::WelsSpatialWriteMbSyn (
