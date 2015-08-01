@@ -88,7 +88,7 @@ void BitStream::flushToWriter(int streamId, CompressedWriter &w) {
 }
 
 void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
-    fprintf(stderr, "emit %d\n", nBits);
+    // fprintf(stderr, "emit %d\n", nBits);
     bitsWrittenSinceFlush = true;
     BitStream &b = *this;
     nBits += uint32_t(b.nBits);
@@ -112,7 +112,7 @@ void BitStream::padToByte() {
 }
 
 std::pair<uint32_t, H264Error> BitStream::scanBits(uint32_t nBits) {
-    fprintf(stderr, "scan %d\n", nBits);
+    // fprintf(stderr, "scan %d\n", nBits);
     BitStream &b = *this;
     if (nBits > 16) {
         assert(false &&"Must have nBits < 16");

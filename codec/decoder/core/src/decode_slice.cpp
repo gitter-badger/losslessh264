@@ -70,6 +70,38 @@ struct RawDCTData {
     int16_t chromaAC[128];
 };
 
+static void initRTDFromDecoderState(RoundTripData &rtd, RawDCTData &odata,
+        PDqLayer pCurLayer) {
+    uint32_t iMbXy = pCurLayer->iMbXyIndex;
+    PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
+    PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
+
+    rtd.eSliceType = pSliceHeader->eSliceType;
+    rtd.uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
+
+    rtd.uiChmaI8x8Mode = pCurLayer->pChromaPredMode[iMbXy];
+    //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
+    rtd.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
+    rtd.uiMbType = pCurLayer->pMbType[iMbXy];
+    for (int i = 0; i < 4; i++) {
+        // only 8x8
+        rtd.uiSubMbType[i] = pCurLayer->pSubMbType[iMbXy][i];
+    }
+    rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
+    rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
+    // FIXME: Cb and Cr. Baseline only?
+    rtd.uiChromaQp = pCurLayer->pChromaQp[iMbXy][0];
+
+    memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
+    memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
+    for (int i = 0; i < 256; i += 16) {
+        odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+    }
+    for (int i = 256; i < 384; i += 16) {
+        odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+    }
+}
+
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PSlice pCurSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -1300,8 +1332,8 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
         }
         fprintf(stderr, "Bitstrings not equal! %s\n", s.c_str());
     }*/
-    if (!ret ) {
-        if (longest_substring < rvec.size()) {
+    if (1||!ret ) {
+        if (1||longest_substring < rvec.size()) {
             fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                     longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
         }
@@ -1763,7 +1795,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     RoundTripData rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     if (oMovie().isRecoding) {
-      EncoderState es;
       RawDCTData odata;
       memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
@@ -1964,6 +1995,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       }
       fprintf(stderr, "all done!\n");
       // Some state is duplicated in rtd an odata. Just set both for now.
+      EncoderState es;
       es.init(&rtd);
       es.setupCoefficientsFromOdata(odata);
       WelsEnc::WelsSpatialWriteMbSyn (
@@ -1992,52 +2024,39 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       if (iRet != ERR_NONE) {
         return iRet;
       }
+
+#ifdef ROUNDTRIP_TEST
+      {
+        memset(&odata, 0, sizeof(odata));
+        initRTDFromDecoderState(rtd, odata, pCurLayer);
+        EncoderState es;
+        es.init(&rtd);
+        es.setupCoefficientsFromOdata(odata);
+        woffset = 0;
+        if (which_block == 609) {
+            warnme();
+        }
+        WelsEnc::WelsSpatialWriteMbSyn (
+            &es.pEncCtx, &es.pSlice, &es.pCurMb);
+        assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
+      }
+#endif
     } else {
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
+      if (rtd.iMbSkipRun > 0 && origSkipped == -1) {
+        origSkipped = rtd.iMbSkipRun;
+      }
+      if (rtd.iMbSkipRun == 0 && origSkipped != -1) {
+        rtd.iMbSkipRun = origSkipped;
+        origSkipped = -1;
+      }
       pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
       if (iRet != ERR_NONE) {
         return iRet;
       }
       {
-        
         RawDCTData odata;
-        uint32_t iMbXy = pCurLayer->iMbXyIndex;
-        PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
-        PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
-
-        rtd.eSliceType = pSliceHeader->eSliceType;
-        rtd.uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
-
-        rtd.uiChmaI8x8Mode = pCtx->pCurDqLayer->pChromaPredMode[iMbXy];
-        //from WelsDec::WelsActualDecodeMbCavlcISlice pCurLayer->pIntraPredMode[iMbXy][7] = (uiMbType - 1) & 3
-        rtd.uiLumaI16x16Mode = pCurLayer->pIntraPredMode[iMbXy][7];
-        rtd.uiMbType = pCurLayer->pMbType[iMbXy];
-        for (int i = 0; i < 4; i++) {
-            // only 8x8
-            rtd.uiSubMbType[i] = pCtx->pCurDqLayer->pSubMbType[iMbXy][i];
-        }
-        rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
-        rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
-        // FIXME: Cb and Cr. Baseline only?
-        rtd.uiChromaQp = pCurLayer->pChromaQp[iMbXy][0];
-
-        if (rtd.iMbSkipRun > 0 && origSkipped == -1) {
-            origSkipped = rtd.iMbSkipRun;
-        }
-        if (rtd.iMbSkipRun == 0 && origSkipped != -1) {
-            rtd.iMbSkipRun = origSkipped;
-            origSkipped = -1;
-        }
-        memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
-        memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
-        for (int i = 0; i < 256; i += 16) {
-            odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
-        }
-        for (int i = 256; i < 384; i += 16) {
-            odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
-        }
-
-
+        initRTDFromDecoderState(rtd, odata, pCurLayer);
 
         oMovie().tag(1).emitBits(rtd.uiCbpC, 8);
         oMovie().tag(1).emitBits(rtd.uiCbpL, 8);
@@ -2111,22 +2130,20 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         fprintf(stderr, "all done!\n");
 
 
-
-
-
-/*
 #ifdef ROUNDTRIP_TEST
-        EncoderState es;
-        es.init(pCtx, pNalCur, &rtd);
-        es.setupCoefficientsFromOdata(odata);
-        woffset = 0;
-        if (which_block == 609) {
+        {
+          EncoderState es;
+          es.init(&rtd);
+          es.setupCoefficientsFromOdata(odata);
+          woffset = 0;
+          if (which_block == 609) {
             warnme();
+          }
+          WelsEnc::WelsSpatialWriteMbSyn (
+              &es.pEncCtx, &es.pSlice, &es.pCurMb);
+          assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
         }
-        WelsEnc::WelsSpatialWriteMbSyn (
-            &es.pEncCtx, &es.pSlice, &es.pCurMb);
-        /////////////////////////////////////////////////////////////// assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
-#endif*/
+#endif
       }
     }
     ++which_block;
