@@ -1795,11 +1795,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCtx->bMbRefConcealed = false;
     RoundTripData rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
+    woffset = 0;
     if (oMovie().isRecoding) {
       if (curSkipped == -1) {
         origSkipped = -1;
       }
       RawDCTData odata;
+      bool endOfSlice = false;
       memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
       if (origSkipped == -1) {
@@ -1811,6 +1813,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
       }
       if ((curSkipped--) == 0) {
+        res = iMovie().tag(1).scanBits(1);
+        if (res.second) {
+          fprintf(stderr, "failed to read eos!\n");
+        } else {
+          endOfSlice = res.first;
+        }
         res = iMovie().tag(1).scanBits(8);
         if (res.second) {
           fprintf(stderr, "failed to read uiCbpC!\n");
@@ -2013,7 +2021,15 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       fprintf(stderr, "!>>>>>>EM\n");
 
       PBitStringAux pBsOrig = pCurLayer->pBitStringAux;
+      // We always will need at least one stop bit.
+      // This bit value is not actually read, just used to compare the
+      // size of the input bitstring to determine the uiEosFlag.
       BsWriteOneBit (&es.wrBs, 0);
+      if (!endOfSlice) {
+        // This extra bit tells the deoder that there is at least one more
+        // bit before the stop bit, hence not end of slice.
+        BsWriteOneBit (&es.wrBs, 0);
+      }
       size_t len = ((es.wrBs.pCurBuf - es.wrBs.pStartBuf) << 3) + (32 - es.wrBs.iLeftBits);
       es.wrBs.uiCurBits <<= es.wrBs.iLeftBits;
       for (int i = 24; i >= 0; i -= 8) {
@@ -2039,9 +2055,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
       pCurLayer->pBitStringAux = pBsOrig;
       pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
-      if (iRet != ERR_NONE) {
-        return iRet;
-      }
 
 #ifdef ROUNDTRIP_TEST
       {
@@ -2059,6 +2072,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         assert(stringBitCompare(&es.wrBs, es2.wrBs, 22));
       }
 #endif
+      if (iRet != ERR_NONE) {
+        return iRet;
+      }
     } else {
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
       if (rtd.iMbSkipRun > 0 && origSkipped == -1) {
@@ -2078,10 +2094,11 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         initRTDFromDecoderState(rtd, odata, pCurLayer);
 
         oMovie().tag(1).emitBits(origSkipped == -1 ? 0 : origSkipped, 16);
+        oMovie().tag(1).emitBits(uiEosFlag, 1);
         oMovie().tag(1).emitBits(rtd.uiCbpC, 8);
         oMovie().tag(1).emitBits(rtd.uiCbpL, 8);
         fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
-        oMovie().tag(1).emitBits(rtd.iLastMbQp, 16);
+        oMovie().tag(1).emitBits((uint16_t)rtd.iLastMbQp, 16);
         oMovie().tag(1).emitBits(rtd.uiLumaQp, 16);
         oMovie().tag(1).emitBits(rtd.uiChromaQp, 16);
         oMovie().tag(1).emitBits(rtd.uiMbType, 16);
@@ -2093,24 +2110,24 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(1).emitBits(rtd.iPrevIntra4x4PredMode[i], 8);
+            oMovie().tag(1).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i], 8);
           }
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(1).emitBits(rtd.iRemIntra4x4PredMode[i], 8);
+            oMovie().tag(1).emitBits((uint16_t)rtd.iRemIntra4x4PredMode[i], 8);
           }
         }
         if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
           for (int i = 0; i < 4; i++) {
-            oMovie().tag(1).emitBits(rtd.iPrevIntra4x4PredMode[i], 8);
+            oMovie().tag(1).emitBits((uint8_t)rtd.iPrevIntra4x4PredMode[i], 8);
           }
           for (int i = 0; i < 4; i++) {
-            oMovie().tag(1).emitBits(rtd.iRemIntra4x4PredMode[i], 8);
+            oMovie().tag(1).emitBits((uint8_t)rtd.iRemIntra4x4PredMode[i], 8);
           }
           for (int i = 0; i < 4; i++) {
             oMovie().tag(1).emitBits(rtd.uiSubMbType[i], 8);
           }
           for (int i = 0; i < 4; i++) {
-            iMovie().tag(1).emitBits(rtd.iRefIdx[i], 8);
+            iMovie().tag(1).emitBits((uint8_t)rtd.iRefIdx[i], 8);
           }
         }
         if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
@@ -2118,32 +2135,32 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             MB_TYPE_INTRA4x4 != rtd.uiMbType) {
           fprintf(stderr, "mvps!\n");
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(1).emitBits(rtd.sMbMvp[i][0], 16);
-            oMovie().tag(1).emitBits(rtd.sMbMvp[i][1], 16);
+            oMovie().tag(1).emitBits((uint16_t)rtd.sMbMvp[i][0], 16);
+            oMovie().tag(1).emitBits((uint16_t)rtd.sMbMvp[i][1], 16);
           }
         }
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
           fprintf(stderr, "ldc!\n");
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(1).emitBits(odata.lumaDC[i], 16);
+            oMovie().tag(1).emitBits((uint16_t)odata.lumaDC[i], 16);
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
           fprintf(stderr, "cdc!\n");
           for (int i = 0; i < 8; i++) {
-            oMovie().tag(1).emitBits(odata.chromaDC[i], 16);
+            oMovie().tag(1).emitBits((uint16_t)odata.chromaDC[i], 16);
           }
         }
         if (rtd.uiCbpL) {
           fprintf(stderr, "lac!\n");
           for (int i = 0; i < 256; i++) {
-            oMovie().tag(1).emitBits(odata.lumaAC[i], 16);
+            oMovie().tag(1).emitBits((uint16_t)odata.lumaAC[i], 16);
           }
         }
         if (rtd.uiCbpC == 2) {
           fprintf(stderr, "cac!\n");
           for (int i = 0; i < 128; i++) {
-            oMovie().tag(1).emitBits(odata.chromaAC[i], 16);
+            oMovie().tag(1).emitBits((uint16_t)odata.chromaAC[i], 16);
           }
         }
         fprintf(stderr, "all done!\n");

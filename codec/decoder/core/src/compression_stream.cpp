@@ -90,6 +90,12 @@ void BitStream::flushToWriter(int streamId, CompressedWriter &w) {
 void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
     // fprintf(stderr, "emit %d\n", nBits);
     bitsWrittenSinceFlush = true;
+    if (nBits > 16) {
+        assert(false &&"Must have nBits < 16");
+    }
+    if (bits >= (1U << nBits)) {
+        assert(false &&"bits is out of range for nBits");
+    }
     BitStream &b = *this;
     nBits += uint32_t(b.nBits);
     bits <<= 32 - nBits;
