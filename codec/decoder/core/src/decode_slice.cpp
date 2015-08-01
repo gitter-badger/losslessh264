@@ -1781,6 +1781,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   pCurLayer->iMbY = iMbY;
   pCurLayer->iMbXyIndex = iNextMbXyIndex;
   int origSkipped = -1;
+  int curSkipped = -1;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
@@ -1795,205 +1796,211 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     RoundTripData rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     if (oMovie().isRecoding) {
+      if (curSkipped == -1) {
+        origSkipped = -1;
+      }
       RawDCTData odata;
       memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
-      res = iMovie().tag(1).scanBits(8);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiCbpC!\n");
-        rtd.uiCbpC = 255;
-      } else {
-        rtd.uiCbpC = res.first;
+      if (origSkipped == -1) {
+        res = iMovie().tag(1).scanBits(16);
+        if (res.second) {
+          fprintf(stderr, "failed to read iMbSkipRun!\n");
+        } else {
+          origSkipped = curSkipped = res.first;
+        }
       }
-      res = iMovie().tag(1).scanBits(8);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiCbpL!\n");
-        rtd.uiCbpL = 255;
-      } else {
-        rtd.uiCbpL = res.first;
-      }
-      fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
-      res = iMovie().tag(1).scanBits(16);
-      if (res.second) {
-        fprintf(stderr, "failed to read iLastMbQp!\n");
-        rtd.iLastMbQp = 255;
-      } else {
-        rtd.iLastMbQp = res.first;
-      }
-      res = iMovie().tag(1).scanBits(16);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiLumaQp!\n");
-        rtd.uiLumaQp = 255;
-      } else {
-        rtd.uiLumaQp = res.first;
-      }
-      res = iMovie().tag(1).scanBits(16);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiChromaQp!\n");
-        rtd.uiChromaQp = 255;
-      } else {
-        rtd.uiChromaQp = res.first;
-      }
-      res = iMovie().tag(1).scanBits(16);
-      if (res.second) {
-        fprintf(stderr, "failed to read iMbSkipRun!\n");
-        rtd.iMbSkipRun = 255;
-      } else {
-        rtd.iMbSkipRun = res.first;
-      }
-      res = iMovie().tag(1).scanBits(16);
-      if (res.second) {
-        fprintf(stderr, "failed to read iMbType!\n");
-        rtd.uiMbType = 0;
-      } else {
-        rtd.uiMbType = res.first;
-      }
-      res = iMovie().tag(1).scanBits(8);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiChmaI8x8Mode!\n");
-        rtd.uiNumRefIdxL0Active = 255;
-      } else {
-        rtd.uiNumRefIdxL0Active = res.first;
-      }
-      res = iMovie().tag(1).scanBits(8);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiChmaI8x8Mode!\n");
-        rtd.uiChmaI8x8Mode = 255;
-      } else {
-        rtd.uiChmaI8x8Mode = res.first;
-      }
-      res = iMovie().tag(1).scanBits(8);
-      if (res.second) {
-        fprintf(stderr, "failed to read uiLumaI16x16Mode!\n");
-        rtd.uiLumaI16x16Mode = 255;
-      } else {
-        rtd.uiLumaI16x16Mode = res.first;
-      }
-      for (int i = 0; i < 48; i++) {
+      if ((curSkipped--) == 0) {
         res = iMovie().tag(1).scanBits(8);
         if (res.second) {
-          fprintf(stderr, "failed to read nzc!\n");
-          rtd.pNonZeroCount[i] = 255;
+          fprintf(stderr, "failed to read uiCbpC!\n");
+          rtd.uiCbpC = 255;
         } else {
-          rtd.pNonZeroCount[i] = res.first;
+          rtd.uiCbpC = res.first;
         }
-      }
-      if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
-        for (int i = 0; i < 16; i++) {
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiCbpL!\n");
+          rtd.uiCbpL = 255;
+        } else {
+          rtd.uiCbpL = res.first;
+        }
+        fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
+        res = iMovie().tag(1).scanBits(16);
+        if (res.second) {
+          fprintf(stderr, "failed to read iLastMbQp!\n");
+          rtd.iLastMbQp = 255;
+        } else {
+          rtd.iLastMbQp = res.first;
+        }
+        res = iMovie().tag(1).scanBits(16);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiLumaQp!\n");
+          rtd.uiLumaQp = 255;
+        } else {
+          rtd.uiLumaQp = res.first;
+        }
+        res = iMovie().tag(1).scanBits(16);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiChromaQp!\n");
+          rtd.uiChromaQp = 255;
+        } else {
+          rtd.uiChromaQp = res.first;
+        }
+        res = iMovie().tag(1).scanBits(16);
+        if (res.second) {
+          fprintf(stderr, "failed to read iMbType!\n");
+          rtd.uiMbType = 0;
+        } else {
+          rtd.uiMbType = res.first;
+        }
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiChmaI8x8Mode!\n");
+          rtd.uiNumRefIdxL0Active = 255;
+        } else {
+          rtd.uiNumRefIdxL0Active = res.first;
+        }
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiChmaI8x8Mode!\n");
+          rtd.uiChmaI8x8Mode = 255;
+        } else {
+          rtd.uiChmaI8x8Mode = res.first;
+        }
+        res = iMovie().tag(1).scanBits(8);
+        if (res.second) {
+          fprintf(stderr, "failed to read uiLumaI16x16Mode!\n");
+          rtd.uiLumaI16x16Mode = 255;
+        } else {
+          rtd.uiLumaI16x16Mode = res.first;
+        }
+        for (int i = 0; i < 48; i++) {
           res = iMovie().tag(1).scanBits(8);
           if (res.second) {
-            fprintf(stderr, "failed to read prevPredMode!\n");
-            rtd.iPrevIntra4x4PredMode[i] = 0;
+            fprintf(stderr, "failed to read nzc!\n");
+            rtd.pNonZeroCount[i] = 255;
           } else {
-            rtd.iPrevIntra4x4PredMode[i] = res.first;
+            rtd.pNonZeroCount[i] = res.first;
           }
         }
-        for (int i = 0; i < 16; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read remPredMode!\n");
-            rtd.iRemIntra4x4PredMode[i] = 0;
-          } else {
-            rtd.iRemIntra4x4PredMode[i] = res.first;
+        if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
+          for (int i = 0; i < 16; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read prevPredMode!\n");
+              rtd.iPrevIntra4x4PredMode[i] = 0;
+            } else {
+              rtd.iPrevIntra4x4PredMode[i] = res.first;
+            }
+          }
+          for (int i = 0; i < 16; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read remPredMode!\n");
+              rtd.iRemIntra4x4PredMode[i] = 0;
+            } else {
+              rtd.iRemIntra4x4PredMode[i] = res.first;
+            }
           }
         }
+        if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read prevPredMode!\n");
+              rtd.iPrevIntra4x4PredMode[i] = 0;
+            } else {
+              rtd.iPrevIntra4x4PredMode[i] = res.first;
+            }
+          }
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read remPredMode!\n");
+              rtd.iRemIntra4x4PredMode[i] = 0;
+            } else {
+              rtd.iRemIntra4x4PredMode[i] = res.first;
+            }
+          }
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read uiSubMbType!\n");
+              rtd.uiSubMbType[i] = 0;
+            } else {
+              rtd.uiSubMbType[i] = res.first;
+            }
+          }
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read iRefIdx!\n");
+              rtd.iRefIdx[i] = 0;
+            } else {
+              rtd.iRefIdx[i] = res.first;
+            }
+          }
+        }
+        if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
+            MB_TYPE_INTRA8x8 != rtd.uiMbType &&
+            MB_TYPE_INTRA4x4 != rtd.uiMbType) {
+          fprintf(stderr, "mvps!\n");
+          for (int i = 0; i < 16; i++) {
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read mv x!\n");
+            }
+            rtd.sMbMvp[i][0] = res.first;
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read mv y!\n");
+            }
+            rtd.sMbMvp[i][1] = res.first;
+          }
+        }
+        if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
+          fprintf(stderr, "ldc!\n");
+          for (int i = 0; i < 16; i++) {
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read ldc!\n");
+            }
+            odata.lumaDC[i] = res.first;
+          }
+        }
+        if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
+          fprintf(stderr, "cdc!\n");
+          for (int i = 0; i < 8; i++) {
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read crdc!\n");
+            }
+            odata.chromaDC[i] = res.first;
+          }
+        }
+        if (rtd.uiCbpL) {
+          fprintf(stderr, "lac!\n");
+          for (int i = 0; i < 256; i++) {
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read lac!\n");
+            }
+            odata.lumaAC[i] = res.first;
+          }
+        }
+        if (rtd.uiCbpC == 2) {
+          fprintf(stderr, "cac!\n");
+          for (int i = 0; i < 128; i++) {
+            res = iMovie().tag(1).scanBits(16);
+            if (res.second) {
+              fprintf(stderr, "failed to read crac!\n");
+            }
+            odata.chromaAC[i] = res.first;
+          }
+        }
+        fprintf(stderr, "all done!\n");
       }
-      if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
-        for (int i = 0; i < 4; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read prevPredMode!\n");
-            rtd.iPrevIntra4x4PredMode[i] = 0;
-          } else {
-            rtd.iPrevIntra4x4PredMode[i] = res.first;
-          }
-        }
-        for (int i = 0; i < 4; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read remPredMode!\n");
-            rtd.iRemIntra4x4PredMode[i] = 0;
-          } else {
-            rtd.iRemIntra4x4PredMode[i] = res.first;
-          }
-        }
-        for (int i = 0; i < 4; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read uiSubMbType!\n");
-            rtd.uiSubMbType[i] = 0;
-          } else {
-            rtd.uiSubMbType[i] = res.first;
-          }
-        }
-        for (int i = 0; i < 4; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read iRefIdx!\n");
-            rtd.iRefIdx[i] = 0;
-          } else {
-            rtd.iRefIdx[i] = res.first;
-          }
-        }
-      }
-      if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
-          MB_TYPE_INTRA8x8 != rtd.uiMbType &&
-          MB_TYPE_INTRA4x4 != rtd.uiMbType) {
-        fprintf(stderr, "mvps!\n");
-        for (int i = 0; i < 16; i++) {
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read mv x!\n");
-          }
-          rtd.sMbMvp[i][0] = res.first;
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read mv y!\n");
-          }
-          rtd.sMbMvp[i][1] = res.first;
-        }
-      }
-      if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
-        fprintf(stderr, "ldc!\n");
-        for (int i = 0; i < 16; i++) {
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read ldc!\n");
-          }
-          odata.lumaDC[i] = res.first;
-        }
-      }
-      if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
-        fprintf(stderr, "cdc!\n");
-        for (int i = 0; i < 8; i++) {
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read crdc!\n");
-          }
-          odata.chromaDC[i] = res.first;
-        }
-      }
-      if (rtd.uiCbpL) {
-        fprintf(stderr, "lac!\n");
-        for (int i = 0; i < 256; i++) {
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read lac!\n");
-          }
-          odata.lumaAC[i] = res.first;
-        }
-      }
-      if (rtd.uiCbpC == 2) {
-        fprintf(stderr, "cac!\n");
-        for (int i = 0; i < 128; i++) {
-          res = iMovie().tag(1).scanBits(16);
-          if (res.second) {
-            fprintf(stderr, "failed to read crac!\n");
-          }
-          odata.chromaAC[i] = res.first;
-        }
-      }
-      fprintf(stderr, "all done!\n");
       // Some state is duplicated in rtd an odata. Just set both for now.
       EncoderState es;
       es.init(&rtd);
@@ -2018,6 +2025,17 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       // but reuse the existing buffer.
       DecInitBits (&es.wrBs, es.wrBs.pStartBuf, len);
       pCurLayer->pBitStringAux = &es.wrBs;
+      // We want the decoder to read at the same time the encoder reads.
+      // By default, the encoder has 3 stats with skipping:
+      // > 0: we have already decided to skip.
+      // == 0: we are finished skipping but have already read skip.
+      // == -1: we need to read the skip bits and then decide to skip.
+      //
+      // The decoder only reads the skip bit when iMbSkipRun==-1.
+      // So, we only want to read the skip bits then.
+      // We also force this to the correct value at the beginning
+      // of a run so it never reads iMbSkipRun early.
+      pSlice->iMbSkipRun = curSkipped > 0 ? curSkipped : -1;
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
       pCurLayer->pBitStringAux = pBsOrig;
       pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
@@ -2029,16 +2047,16 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       {
         memset(&odata, 0, sizeof(odata));
         initRTDFromDecoderState(rtd, odata, pCurLayer);
-        EncoderState es;
-        es.init(&rtd);
-        es.setupCoefficientsFromOdata(odata);
+        EncoderState es2;
+        es2.init(&rtd);
+        es2.setupCoefficientsFromOdata(odata);
         woffset = 0;
         if (which_block == 609) {
             warnme();
         }
         WelsEnc::WelsSpatialWriteMbSyn (
-            &es.pEncCtx, &es.pSlice, &es.pCurMb);
-        assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
+            &es2.pEncCtx, &es2.pSlice, &es2.pCurMb);
+        assert(stringBitCompare(&es.wrBs, es2.wrBs, 22));
       }
 #endif
     } else {
@@ -2054,17 +2072,18 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       if (iRet != ERR_NONE) {
         return iRet;
       }
-      {
+      if (rtd.iMbSkipRun == 0) {
+        if (which_block ==431) warnme();
         RawDCTData odata;
         initRTDFromDecoderState(rtd, odata, pCurLayer);
 
+        oMovie().tag(1).emitBits(origSkipped == -1 ? 0 : origSkipped, 16);
         oMovie().tag(1).emitBits(rtd.uiCbpC, 8);
         oMovie().tag(1).emitBits(rtd.uiCbpL, 8);
         fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
         oMovie().tag(1).emitBits(rtd.iLastMbQp, 16);
         oMovie().tag(1).emitBits(rtd.uiLumaQp, 16);
         oMovie().tag(1).emitBits(rtd.uiChromaQp, 16);
-        oMovie().tag(1).emitBits(rtd.iMbSkipRun, 16);
         oMovie().tag(1).emitBits(rtd.uiMbType, 16);
         oMovie().tag(1).emitBits(rtd.uiNumRefIdxL0Active, 8);
         oMovie().tag(1).emitBits(rtd.uiChmaI8x8Mode, 8);
