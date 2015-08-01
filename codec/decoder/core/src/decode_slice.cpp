@@ -1305,7 +1305,12 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
             }
         }
     }
-    bool ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size() && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
+    bool ret;
+    if (oMovie().isRecoding) {
+        ret = longest_rt_offset == 0 && longest_substring == rvec.size();
+    } else {
+        ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size() && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
+    }
     /*if (!ret) {
         std::string s = "";
         for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(), ri = rvec.begin(), rend = rvec.end(); oi != oend || ri != rend;){
@@ -1804,6 +1809,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       bool endOfSlice = false;
       memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
+      rtd.uiMbType = MB_TYPE_SKIP;
       if (origSkipped == -1) {
         res = iMovie().tag(1).scanBits(16);
         if (res.second) {
@@ -1812,7 +1818,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           origSkipped = curSkipped = res.first;
         }
       }
-      if ((curSkipped--) == 0) {
+      if (curSkipped == 0) { // Decrementing after decode
         res = iMovie().tag(1).scanBits(1);
         if (res.second) {
           fprintf(stderr, "failed to read eos!\n");
@@ -2020,6 +2026,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       copySBitStringAux(es.wrBs, emission);
       fprintf(stderr, "!>>>>>>EM\n");
 
+      SBitStringAux copyOfFirstEncodeWrbs = es.wrBs;
+
       PBitStringAux pBsOrig = pCurLayer->pBitStringAux;
       // We always will need at least one stop bit.
       // This bit value is not actually read, just used to compare the
@@ -2069,18 +2077,22 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         WelsEnc::WelsSpatialWriteMbSyn (
             &es2.pEncCtx, &es2.pSlice, &es2.pCurMb);
-        assert(stringBitCompare(&es.wrBs, es2.wrBs, 22));
+        assert(stringBitCompare(&copyOfFirstEncodeWrbs, es2.wrBs, 0));
       }
 #endif
+      curSkipped--;
       if (iRet != ERR_NONE) {
         return iRet;
       }
     } else {
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
-      if (rtd.iMbSkipRun > 0 && origSkipped == -1) {
+      bool initialSkip = (rtd.iMbSkipRun > 0 && origSkipped == -1);
+      bool finalSkip = (rtd.iMbSkipRun == 0 && origSkipped != -1);
+      bool writeBlock = rtd.iMbSkipRun == 0;
+      if (initialSkip) {
         origSkipped = rtd.iMbSkipRun;
       }
-      if (rtd.iMbSkipRun == 0 && origSkipped != -1) {
+      if (finalSkip) {
         rtd.iMbSkipRun = origSkipped;
         origSkipped = -1;
       }
@@ -2088,12 +2100,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       if (iRet != ERR_NONE) {
         return iRet;
       }
-      if (rtd.iMbSkipRun == 0) {
+      if (writeBlock) {
         if (which_block ==431) warnme();
         RawDCTData odata;
         initRTDFromDecoderState(rtd, odata, pCurLayer);
 
-        oMovie().tag(1).emitBits(origSkipped == -1 ? 0 : origSkipped, 16);
+        oMovie().tag(1).emitBits(rtd.iMbSkipRun, 16);
         oMovie().tag(1).emitBits(uiEosFlag, 1);
         oMovie().tag(1).emitBits(rtd.uiCbpC, 8);
         oMovie().tag(1).emitBits(rtd.uiCbpL, 8);
