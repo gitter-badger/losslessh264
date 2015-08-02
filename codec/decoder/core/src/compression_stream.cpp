@@ -46,6 +46,7 @@ BitStream::BitStream() {
     bitReadCursor = 0;
     escapingEnabled = false;
     escapeBufferSize = 0;
+    buffer.reserve(64*1024*1024);
 }
 void BitStream::appendByte(uint8_t x) {
     if (escapingEnabled) {

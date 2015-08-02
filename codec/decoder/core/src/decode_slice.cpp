@@ -661,6 +661,7 @@ struct CopyOnExit {
 
     CopyOnExit(RoundTripData *roundTripData, uint8_t *nonZeroCount, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
         : rtd(roundTripData), pNonZeroCount(nonZeroCount), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
+        memset(pNonZeroCount, 0xe7, sizeof(rtd->pNonZeroCount));
     }
     ~CopyOnExit() {
         memcpy(rtd->pNonZeroCount, pNonZeroCount, sizeof(rtd->pNonZeroCount));
@@ -2065,7 +2066,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       rtd.iMbSkipRun = origSkipped;
       es.init(&rtd);
       es.setupCoefficientsFromOdata(odata);
-      if (which_block ==454) warnme();
       WelsEnc::WelsSpatialWriteMbSyn (
           &es.pEncCtx, &es.pSlice, &es.pCurMb);
       EmitDefBitsToOMovie emission;
@@ -2107,6 +2107,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       // We also force this to the correct value at the beginning
       // of a run so it never reads iMbSkipRun early.
       pSlice->iMbSkipRun = curSkipped > 0 ? curSkipped : -1;
+      if (which_block == 1223) warnme();
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
       pCurLayer->pBitStringAux = pBsOrig;
       pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
@@ -2115,6 +2116,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       {
         memset(&odata, 0, sizeof(odata));
         initRTDFromDecoderState(rtd, odata, pCurLayer);
+        rtd.iMbSkipRun = origSkipped;
         EncoderState es2;
         es2.init(&rtd);
         es2.setupCoefficientsFromOdata(odata);
@@ -2133,6 +2135,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       }
     } else {
       bool writeSkipRun = (-1 == pSlice->iMbSkipRun);
+          if (which_block == 1223) warnme();
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
       if (writeSkipRun) {
         fprintf(stderr, "block=%d write skip&eos!\n", which_block);
@@ -2262,7 +2265,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           /*if (which_block == 609) {
             warnme();
           }*/
-          if (which_block ==454) warnme();
           WelsEnc::WelsSpatialWriteMbSyn (
               &es.pEncCtx, &es.pSlice, &es.pCurMb);
           assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
@@ -2982,6 +2984,15 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     pSlice->iMbSkipRun = uiCode;
     if (-1 == pSlice->iMbSkipRun) {
       return -1;
+    }
+    if (oMovie().isRecoding) {
+      // While recoding, we want to make sure that the reads of
+      // iMbSkipRun are synced with writes from the encoder.
+      // To do this, two things must happen:
+      // We tell the decoder when we are currently skipping, and
+      // at the end of a skip, we wish to merely consume this value
+      // while ignoring the skip we already performed
+      pSlice->iMbSkipRun = 0;
     }
   }
   rtd->iMbSkipRun = pSlice->iMbSkipRun;
