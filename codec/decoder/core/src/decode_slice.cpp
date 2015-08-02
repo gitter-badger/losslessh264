@@ -1778,23 +1778,25 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   pSlice->iMbSkipRun = -1;
   iSliceIdc = (pSliceHeader->iFirstMbInSlice << 7) + pCurLayer->uiLayerDqId;
   static int slice_group = 0;
-  if (slice_group ==12) {
+  /*if (slice_group ==12) {
       warnme();
-  }
+  }*/
   ++slice_group;
   pCurLayer->iMbX =  iMbX;
   pCurLayer->iMbY = iMbY;
   pCurLayer->iMbXyIndex = iNextMbXyIndex;
   int origSkipped = -1;
   int curSkipped = -1;
+  bool endOfSlice = false;
+  bool firstInSlice = true;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
     }
     static int which_block = 0;
-    if (which_block == 609) {
+    /*if (which_block == 609) {
         warnme();
-    }
+    }*/
 
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
@@ -1802,28 +1804,38 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     woffset = 0;
     if (oMovie().isRecoding) {
+      fprintf(stderr, "START skiprun=%d ; origSkip%d ; which_block=%d curSkip=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, (int)curSkipped);
       if (curSkipped == -1) {
         origSkipped = -1;
       }
       RawDCTData odata;
-      bool endOfSlice = false;
       memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
       rtd.uiMbType = MB_TYPE_SKIP;
-      if (origSkipped == -1) {
+      if (curSkipped == -1) {
+        fprintf(stderr, "block=%d read skip&eos!\n", which_block);
         res = iMovie().tag(1).scanBits(16);
         if (res.second) {
           fprintf(stderr, "failed to read iMbSkipRun!\n");
         } else {
           origSkipped = curSkipped = res.first;
         }
-      }
-      if (curSkipped == 0) { // Decrementing after decode
         res = iMovie().tag(1).scanBits(1);
         if (res.second) {
           fprintf(stderr, "failed to read eos!\n");
         } else {
           endOfSlice = res.first;
+        }
+      } else {
+        fprintf(stderr, "block=%d not read skip&eos!\n", which_block);
+      }
+      if (curSkipped == 0) { // Decrementing after decode
+        res = iMovie().tag(1).scanBits(16);
+        // Validate which_block. just a sanity check but it wastes space.
+        if (res.second) {
+          fprintf(stderr, "failed to verify which_block!\n");
+        } else {
+          assert((uint16_t)res.first == (uint16_t)which_block);
         }
         res = iMovie().tag(1).scanBits(8);
         if (res.second) {
@@ -1889,6 +1901,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiLumaI16x16Mode = res.first;
         }
+        fprintf(stderr, "block %d nzc ", which_block);
         for (int i = 0; i < 48; i++) {
           res = iMovie().tag(1).scanBits(8);
           if (res.second) {
@@ -1896,8 +1909,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             rtd.pNonZeroCount[i] = 255;
           } else {
             rtd.pNonZeroCount[i] = res.first;
+            fprintf(stderr, "%d ", rtd.pNonZeroCount[i]);
           }
         }
+        fprintf(stderr, "\n");
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
             res = iMovie().tag(1).scanBits(8);
@@ -1953,6 +1968,35 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
               rtd.iRefIdx[i] = 0;
             } else {
               rtd.iRefIdx[i] = res.first;
+            }
+          }
+        } else if (MB_TYPE_8x8 == rtd.uiMbType) {
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read uiSubMbType!\n");
+              rtd.uiSubMbType[i] = 0;
+            } else {
+              rtd.uiSubMbType[i] = res.first;
+            }
+          }
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read iRefIdx!\n");
+              rtd.iRefIdx[i] = 0;
+            } else {
+              rtd.iRefIdx[i] = res.first;
+            }
+          }
+        } else if (MB_TYPE_8x8_REF0 == rtd.uiMbType) {
+          for (int i = 0; i < 4; i++) {
+            res = iMovie().tag(1).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read uiSubMbType!\n");
+              rtd.uiSubMbType[i] = 0;
+            } else {
+              rtd.uiSubMbType[i] = res.first;
             }
           }
         }
@@ -2015,10 +2059,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         fprintf(stderr, "all done!\n");
       }
+      fprintf(stderr, "READY skiprun=%d ; origSkip%d ; which_block=%d curSkip=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, (int)curSkipped);
       // Some state is duplicated in rtd an odata. Just set both for now.
       EncoderState es;
+      rtd.iMbSkipRun = origSkipped;
       es.init(&rtd);
       es.setupCoefficientsFromOdata(odata);
+      if (which_block ==454) warnme();
       WelsEnc::WelsSpatialWriteMbSyn (
           &es.pEncCtx, &es.pSlice, &es.pCurMb);
       EmitDefBitsToOMovie emission;
@@ -2072,9 +2119,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         es2.init(&rtd);
         es2.setupCoefficientsFromOdata(odata);
         woffset = 0;
-        if (which_block == 609) {
+        /*if (which_block == 609) {
             warnme();
-        }
+        }*/
         WelsEnc::WelsSpatialWriteMbSyn (
             &es2.pEncCtx, &es2.pSlice, &es2.pCurMb);
         assert(stringBitCompare(&copyOfFirstEncodeWrbs, es2.wrBs, 0));
@@ -2085,10 +2132,22 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         return iRet;
       }
     } else {
+      bool writeSkipRun = (-1 == pSlice->iMbSkipRun);
       iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
+      if (writeSkipRun) {
+        fprintf(stderr, "block=%d write skip&eos!\n", which_block);
+        oMovie().tag(1).emitBits(rtd.iMbSkipRun, 16);
+        PBitStringAux pBs = pCurLayer->pBitStringAux;
+        int32_t iUsedBits = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
+        bool hasExactlyOneStopBit = (iUsedBits == (pBs->iBits - 1));
+        oMovie().tag(1).emitBits(hasExactlyOneStopBit, 1);
+      } else {
+        fprintf(stderr, "block=%d not write skip&eos!\n", which_block);
+      }
       bool initialSkip = (rtd.iMbSkipRun > 0 && origSkipped == -1);
       bool finalSkip = (rtd.iMbSkipRun == 0 && origSkipped != -1);
       bool writeBlock = rtd.iMbSkipRun == 0;
+      fprintf(stderr, "OUTSIDE skiprun=%d ; origSkip%d ; which_block=%d initSkp=%d finalSkp=%d writeBlock=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, (int)initialSkip, (int)finalSkip, (int)writeBlock);
       if (initialSkip) {
         origSkipped = rtd.iMbSkipRun;
       }
@@ -2101,12 +2160,11 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         return iRet;
       }
       if (writeBlock) {
-        if (which_block ==431) warnme();
         RawDCTData odata;
         initRTDFromDecoderState(rtd, odata, pCurLayer);
 
-        oMovie().tag(1).emitBits(rtd.iMbSkipRun, 16);
-        oMovie().tag(1).emitBits(uiEosFlag, 1);
+        fprintf(stderr, "INSIDE skiprun=%d ; origSkip%d ; which_block=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block);
+        oMovie().tag(1).emitBits((uint16_t)which_block, 16);
         oMovie().tag(1).emitBits(rtd.uiCbpC, 8);
         oMovie().tag(1).emitBits(rtd.uiCbpL, 8);
         fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
@@ -2117,9 +2175,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(1).emitBits(rtd.uiNumRefIdxL0Active, 8);
         oMovie().tag(1).emitBits(rtd.uiChmaI8x8Mode, 8);
         oMovie().tag(1).emitBits(rtd.uiLumaI16x16Mode, 8);
+        fprintf(stderr, "block %d nzc ", which_block);
         for (int i = 0; i < 48; i++) {
           oMovie().tag(1).emitBits(rtd.pNonZeroCount[i], 8);
+          fprintf(stderr, "%d ", rtd.pNonZeroCount[i]);
         }
+        fprintf(stderr, "\n");
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
             oMovie().tag(1).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i], 8);
@@ -2128,6 +2189,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             oMovie().tag(1).emitBits((uint16_t)rtd.iRemIntra4x4PredMode[i], 8);
           }
         }
+        /*  case MB_TYPE_8x8:
+         *    case MB_TYPE_8x8_REF0: {
+         *    */
         if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
           for (int i = 0; i < 4; i++) {
             oMovie().tag(1).emitBits((uint8_t)rtd.iPrevIntra4x4PredMode[i], 8);
@@ -2140,6 +2204,17 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           }
           for (int i = 0; i < 4; i++) {
             iMovie().tag(1).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+          }
+        } else if (MB_TYPE_8x8 == rtd.uiMbType) {
+          for (int i = 0; i < 4; i++) {
+            oMovie().tag(1).emitBits(rtd.uiSubMbType[i], 8);
+          }
+          for (int i = 0; i < 4; i++) {
+            iMovie().tag(1).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+          }
+        } else if (MB_TYPE_8x8_REF0 == rtd.uiMbType) {
+          for (int i = 0; i < 4; i++) {
+            oMovie().tag(1).emitBits(rtd.uiSubMbType[i], 8);
           }
         }
         if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
@@ -2184,9 +2259,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           es.init(&rtd);
           es.setupCoefficientsFromOdata(odata);
           woffset = 0;
-          if (which_block == 609) {
+          /*if (which_block == 609) {
             warnme();
-          }
+          }*/
+          if (which_block ==454) warnme();
           WelsEnc::WelsSpatialWriteMbSyn (
               &es.pEncCtx, &es.pSlice, &es.pCurMb);
           assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
@@ -2204,6 +2280,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     } else {
       ++iNextMbXyIndex;
     }
+    firstInSlice = false;
     iMbX = iNextMbXyIndex % pCurLayer->iMbWidth;
     iMbY = iNextMbXyIndex / pCurLayer->iMbWidth;
     pCurLayer->iMbX =  iMbX;
