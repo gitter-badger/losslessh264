@@ -1733,7 +1733,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     int iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
     for (int i = 0; i < iIndex; i++) {
       int whichBit = i & 0x07;
-      int x = (pBs->pStartBuf[i >> 2] >> (7 - whichBit)) & 0x01;
+      int x = (pBs->pStartBuf[i >> 3] >> (7 - whichBit)) & 0x01;
       oMovie().def().emitBit(x);
     }
   }
