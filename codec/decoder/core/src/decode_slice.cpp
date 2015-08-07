@@ -1252,10 +1252,21 @@ template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functo
         f(*ptr, 8);
     }
     if (orig.iLeftBits < 32) {
-        int nBits = 32 - orig.iLeftBits;
-        uint32_t curBits = orig.uiCurBits;
+        int nBits;
+        uint32_t curBits;
+        if (orig.iLeftBits < 0) { // decoding
+            nBits = -orig.iLeftBits;
+            curBits = orig.uiCurBits >> (-orig.iLeftBits);
+        } else { // encoding
+            nBits = 32 - orig.iLeftBits;
+            curBits = orig.uiCurBits;
+        }
         while (nBits > 0) {
-            f(((curBits) >> (nBits - 8)) & 0xff, nBits < 8 ? nBits : 8);
+            if (nBits < 8) {
+                f((curBits) & ((1 << nBits) - 1), nBits);
+            } else {
+                f(((curBits) >> (nBits - 8)) & 0xff, 8);
+            }
             nBits -= 8;
         }
     }
@@ -1310,7 +1321,7 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
     if (oMovie().isRecoding) {
         ret = longest_rt_offset == 0 && longest_substring == rvec.size();
     } else {
-        ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size() && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
+        ret = longest_rt_offset == 0 && longest_substring + 8 > rvec.size(); // && trailing_zeros(rvec, longest_substring); // need to allow zero-padding at the end of the stream
     }
     /*if (!ret) {
         std::string s = "";
@@ -1338,8 +1349,8 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
         }
         fprintf(stderr, "Bitstrings not equal! %s\n", s.c_str());
     }*/
-    if (1||!ret ) {
-        if (1||longest_substring < rvec.size()) {
+    if (!ret ) {
+        if (longest_substring < rvec.size()) {
             fprintf(stderr, "Longest prefix of rt[%ld] contained is %ld/%ld at orig[%ld] orig.size = %ld\n",
                     longest_rt_offset, longest_substring, rvec.size(), longest_offset, ovec.size());
         }

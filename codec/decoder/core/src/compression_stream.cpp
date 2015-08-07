@@ -128,7 +128,7 @@ std::pair<uint32_t, H264Error> BitStream::scanBits(uint32_t nBits) {
         return uint32E(0, H264ErrorNil); // don't read off the array since it may be empty or at its end
     }
     uint32_t byteAddress = b.bitReadCursor / 8;
-    if (int(byteAddress) >= b.buffer.size()) {
+    if (int(byteAddress) >= int(b.buffer.size())) {
         return uint32E(0, ERR_BOUND);
     }
     uint32_t bitAddress = b.bitReadCursor - byteAddress*8;
@@ -143,7 +143,7 @@ std::pair<uint32_t, H264Error> BitStream::scanBits(uint32_t nBits) {
         b.bitReadCursor += nBits;
         return uint32E(retval, H264ErrorNil);
     }
-    if (int(byteAddress) >= b.buffer.size()) {
+    if (int(byteAddress) >= int(b.buffer.size())) {
         return uint32E(0, ERR_BOUND);
     }
     b.bitReadCursor += remainingBitsInByte;
@@ -198,10 +198,8 @@ void BitStream::flushBits() {
     if (bitsWrittenSinceFlush) {
         //emitBits(1, 1);
     }
-    int first = 1;
     while (nBits > 0) {
         emitBits(0, 1);
-        first = 0;
     }
     bitsWrittenSinceFlush = false;
 }
