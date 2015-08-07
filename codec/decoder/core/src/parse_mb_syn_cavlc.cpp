@@ -618,7 +618,7 @@ void BsStartCavlc (PBitStringAux pBs) {
     int iEnd = pBs->iIndex;
     for (int i = iBegin; i < iEnd; i++) {
       int whichBit = i & 0x07;
-      int x = (pBs->pStartBuf[i >> 2] >> (7 - whichBit)) & 0x01;
+      int x = (pBs->pStartBuf[i >> 3] >> (7 - whichBit)) & 0x01;
       oMovie().def().emitBit(x);
     }
   }
