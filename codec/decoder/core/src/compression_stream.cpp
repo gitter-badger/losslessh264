@@ -222,6 +222,7 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
     for (std::map<int32_t, BitStream>::iterator i = taggedStreams.begin(), ie = taggedStreams.end();
          i != ie;
          ++i) {
+        i->second.padToByte();
         i->second.flushToWriter(i->first, w);
     }
 }

@@ -111,10 +111,6 @@ public:
     void nop(){}
     ~FlushOnClose() {
         MultiFileWriter mfw(filename);
-        oMovie().def().padToByte();
-        if (!oMovie().isRecoding) {
-            oMovie().tag(1).padToByte();
-        }
         oMovie().flushToWriter(mfw);
         mfw.Close();
     }
