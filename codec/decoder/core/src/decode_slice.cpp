@@ -1842,6 +1842,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         fprintf(stderr, "block=%d not read skip&eos!\n", which_block);
 #endif
       }
+      uint8_t readnzc[48];
       if (curSkipped == 1) {
         // We need to know if this macroblock ends in a skip or ends in a block.
         res = iMovie().tag(1).scanBits(1);
@@ -1921,15 +1922,24 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiLumaI16x16Mode = res.first;
         }
+
+        memset(rtd.pNonZeroCount, 231, 48);
+        {
+            SWelsNeighAvail sNeighAvail;
+            WelsFillCacheNonZeroCount (
+                &sNeighAvail, rtd.pNonZeroCount, pCurLayer);
+        }
         for (int i = 0; i < 48; i++) {
           res = iMovie().tag(1).scanBits(8);
           if (res.second) {
             fprintf(stderr, "failed to read nzc!\n");
-            rtd.pNonZeroCount[i] = 255;
+            readnzc[i] = 255;
           } else {
-            rtd.pNonZeroCount[i] = res.first;
+            readnzc[i] = res.first;
+            // pNonZeroCount[i] = readnzc[i];
           }
         }
+
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
             res = iMovie().tag(1).scanBits(8);
@@ -2052,6 +2062,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           }
         }
         if (rtd.uiCbpL) {
+          // FIXME: Do not serialize the 16th coefficient if it is garbage.
           for (int i = 0; i < 256; i++) {
             res = iMovie().tag(1).scanBits(16);
             if (res.second) {
@@ -2059,8 +2070,22 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             }
             odata.lumaAC[i] = res.first;
           }
+          int start = 0;
+          if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
+            start = 1;
+          }
+          for (int i = 0; i < 16; i++) {
+            int numnzc = 0;
+            for (int coef = start; coef < 16; coef++) {
+              if (odata.lumaAC[i * 16 + coef]) {
+                numnzc++;
+              }
+            }
+            rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[i]] = numnzc;
+          }
         }
         if (rtd.uiCbpC == 2) {
+          // FIXME: Do not serialize the 16th coefficient if it is garbage.
           for (int i = 0; i < 128; i++) {
             res = iMovie().tag(1).scanBits(16);
             if (res.second) {
@@ -2068,7 +2093,23 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             }
             odata.chromaAC[i] = res.first;
           }
+          for (int cbcr = 0; cbcr < 2; cbcr++) {
+            for (int i = 0; i < 4; i++) {
+              int numnzc = 0;
+              for (int coef = 1; coef < 16; coef++) {
+                if (odata.chromaAC[cbcr * 64 + i * 16 + coef]) {
+                  fprintf(stderr, "Found a nonzero! %d %d %d %d\n", cbcr, i, coef, cbcr * 64 + i * 16 + coef);
+                  numnzc++;
+                }
+              }
+              rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[cbcr * 4 + i + 16]] = numnzc;
+            }
+          }
         }
+      for (int i = 0; i < 48; i++) {
+        fprintf(stderr, "%d, block=%d NZC component % 2d is %d / correct=%d\n",
+                (int)(rtd.pNonZeroCount[i]== readnzc[i]), which_block, i, rtd.pNonZeroCount[i], readnzc[i]);
+      }
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
         fprintf(stderr, "block %d nzc ", which_block);
