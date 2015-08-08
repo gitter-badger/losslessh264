@@ -141,6 +141,10 @@ static void initRTDFromDecoderState(RoundTripData &rtd, RawDCTData &odata,
     PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
     PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
 
+    int uiCbp = pCurLayer->pCbp[pCurLayer->iMbXyIndex];
+    rtd.uiCbpC = uiCbp >> 4;
+    rtd.uiCbpL = uiCbp & 15;
+
     rtd.eSliceType = pSliceHeader->eSliceType;
     rtd.uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
 
@@ -718,19 +722,7 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
 
   return ERR_NONE;
 }
-struct CopyOnExit {
-    RoundTripData *rtd;
-    uint32_t *uiCbpL;
-    uint32_t *uiCbpC;
 
-    CopyOnExit(RoundTripData *roundTripData, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
-        : rtd(roundTripData), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
-    }
-    ~CopyOnExit() {
-        rtd->uiCbpL = *uiCbpL;
-        rtd->uiCbpC = *uiCbpC;
-    }
-};
 int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& uiEosFlag, RoundTripData*rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBsAux           = pCurLayer->pBitStringAux;
@@ -745,7 +737,6 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   { // scope for copy on exit
-  CopyOnExit coe(rtd, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
 
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
@@ -959,7 +950,6 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
 
   WELS_READ_VERIFY (ParseMBTypePSliceCabac (pCtx, pNeighAvail, uiMbType));
@@ -1922,12 +1912,14 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           endOfSlice = res.first;
         }
-        res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
-        if (res.second) {
-          fprintf(stderr, "failed to read uiCbpC!\n");
-          rtd.uiCbpC = 255;
-        } else {
-          rtd.uiCbpC = res.first;
+        if (pCtx->pSps->uiChromaFormatIdc != 0) {
+          res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
+          if (res.second) {
+            fprintf(stderr, "failed to read uiCbpC!\n");
+            rtd.uiCbpC = 255;
+          } else {
+            rtd.uiCbpC = res.first;
+          }
         }
         res = iMovie().tag(PIP_CBPL_TAG).scanBits(8);
         if (res.second) {
@@ -2307,8 +2299,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         initRTDFromDecoderState(rtd, odata, pCurLayer);
 
         oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
-        oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8);
-        oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8);
+        if (pCtx->pSps->uiChromaFormatIdc != 0) {
+          oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
+        }
+        oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
         oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
         oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
         oMovie().tag(PIP_QPC_TAG).emitBits(rtd.uiChromaQp, 16);
@@ -2443,7 +2437,6 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, &uiCbpL, &uiCbpC);
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
   pCurLayer->pResidualPredFlag[iMbXy] = pSlice->sSliceHeaderExt.bDefaultResidualPredFlag;
@@ -2774,7 +2767,6 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, &uiCbpL, &uiCbpC);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;//2009.10.23
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
