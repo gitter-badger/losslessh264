@@ -2323,14 +2323,14 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
           }
           for (int i = 0; i < 4; i++) {
-            iMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+            oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
           }
         } else if (MB_TYPE_8x8 == rtd.uiMbType) {
           for (int i = 0; i < 4; i++) {
             oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
           }
           for (int i = 0; i < 4; i++) {
-            iMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+            oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
           }
         } else if (MB_TYPE_8x8_REF0 == rtd.uiMbType) {
           for (int i = 0; i < 4; i++) {
