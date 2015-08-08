@@ -613,7 +613,6 @@ int32_t CheckIntraNxNPredMode (int32_t* pSampleAvail, int8_t* pMode, int32_t iIn
 void BsStartCavlc (PBitStringAux pBs) {
   pBs->iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
   if (!oMovie().isRecoding) {
-    uint8_t* pBuf     = ((uint8_t*)pBs->pStartBuf);
     int iBegin = pBs->iPrevIndex;
     int iEnd = pBs->iIndex;
     for (int i = iBegin; i < iEnd; i++) {

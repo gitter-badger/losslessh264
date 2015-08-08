@@ -70,7 +70,6 @@ enum {
     PIP_CBPL_TAG,
     PIP_LAST_MB_TAG,
     PIP_QPL_TAG,
-    PIP_QPC_TAG,
     PIP_MB_TYPE_TAG,
     PIP_REF_TAG,
     PIP_8x8_TAG,
@@ -158,8 +157,6 @@ static void initRTDFromDecoderState(RoundTripData &rtd, RawDCTData &odata,
     }
     rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
     rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
-    // FIXME: Cb and Cr. Baseline only?
-    rtd.uiChromaQp = pCurLayer->pChromaQp[iMbXy][0];
 
     memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
     memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
@@ -1571,8 +1568,12 @@ struct EncoderState {
         // CbpC bits for which 8x8 block to encode luma?
         // CbpL 0 = no chroma; 1 = dc only; 2 = dc&ac
         pCurMb.uiLumaQp = rtd->uiLumaQp;
-        // FIXME: Cb and Cr. Baseline only?
-        pCurMb.uiChromaQp = rtd->uiChromaQp;
+        // FIXME: add support for Cb and Cr in uiChromaQp
+        // and reference uiChromaQpIndexOffset[i] from pPpsp.
+        for (int i = 0; i < 2; i++) {
+          pCurMb.uiChromaQp = g_kuiChromaQpTable[WELS_CLIP3 (rtd->uiLumaQp +
+              rtd->uiChromaQpIndexOffset, 0, 51)];
+        }
     }
 
 };
@@ -1942,13 +1943,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiLumaQp = res.first;
         }
-        res = iMovie().tag(PIP_QPC_TAG).scanBits(16);
-        if (res.second) {
-          fprintf(stderr, "failed to read uiChromaQp!\n");
-          rtd.uiChromaQp = 255;
-        } else {
-          rtd.uiChromaQp = res.first;
-        }
         res = iMovie().tag(PIP_MB_TYPE_TAG).scanBits(16);
         if (res.second) {
           fprintf(stderr, "failed to read iMbType!\n");
@@ -2305,7 +2299,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
         oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
         oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
-        oMovie().tag(PIP_QPC_TAG).emitBits(rtd.uiChromaQp, 16);
         oMovie().tag(PIP_MB_TYPE_TAG).emitBits(rtd.uiMbType, 16);
         oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
         oMovie().tag(PIP_8x8_TAG).emitBits(rtd.uiChmaI8x8Mode, 8);

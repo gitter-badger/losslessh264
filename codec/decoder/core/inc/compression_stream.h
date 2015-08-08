@@ -147,14 +147,13 @@ struct RoundTripData {
   uint32_t uiMbType;
   uint32_t uiNumRefIdxL0Active;
   uint32_t uiLumaQp;
-  uint32_t uiChromaQp;
 
   RoundTripData()
       : eSliceType(), uiChromaQpIndexOffset(), pNonZeroCount(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
         uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0),
         uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
-        uiNumRefIdxL0Active(), uiLumaQp(), uiChromaQp() {
+        uiNumRefIdxL0Active(), uiLumaQp() {
       for (size_t i = 0; i < sizeof(pNonZeroCount) / sizeof(pNonZeroCount[0]); ++i) {
           pNonZeroCount[i] = 0;
       }
