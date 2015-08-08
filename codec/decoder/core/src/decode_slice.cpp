@@ -61,6 +61,7 @@ void RoundTripData::preInit(const WelsDec::PSlice pSlice) {
 }
 
 namespace WelsDec {
+ 
 #if GENERATE_LZMA_MODE_FILE
 enum {
     PIP_DEFAULT_TAG,

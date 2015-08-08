@@ -4,6 +4,8 @@ DECODER_CPP_SRCS=\
 	$(DECODER_SRCDIR)/core/src/bit_stream.cpp\
 	$(DECODER_SRCDIR)/core/src/cabac_decoder.cpp\
 	$(DECODER_SRCDIR)/core/src/compression_stream.cpp\
+	$(DECODER_SRCDIR)/core/src/bitreader.cpp\
+	$(DECODER_SRCDIR)/core/src/bitwriter.cpp\
 	$(DECODER_SRCDIR)/core/src/deblocking.cpp\
 	$(DECODER_SRCDIR)/core/src/decode_mb_aux.cpp\
 	$(DECODER_SRCDIR)/core/src/decode_slice.cpp\
