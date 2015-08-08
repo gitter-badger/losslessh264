@@ -653,16 +653,13 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
 }
 struct CopyOnExit {
     RoundTripData *rtd;
-    uint8_t *pNonZeroCount;
     uint32_t *uiCbpL;
     uint32_t *uiCbpC;
 
-    CopyOnExit(RoundTripData *roundTripData, uint8_t *nonZeroCount, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
-        : rtd(roundTripData), pNonZeroCount(nonZeroCount), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
-        memset(pNonZeroCount, 0xe7, sizeof(rtd->pNonZeroCount));
+    CopyOnExit(RoundTripData *roundTripData, uint32_t*uiCbpLuma, uint32_t *uiCbpChroma)
+        : rtd(roundTripData), uiCbpL(uiCbpLuma), uiCbpC(uiCbpChroma) {
     }
     ~CopyOnExit() {
-        memcpy(rtd->pNonZeroCount, pNonZeroCount, sizeof(rtd->pNonZeroCount));
         rtd->uiCbpL = *uiCbpL;
         rtd->uiCbpC = *uiCbpC;
     }
@@ -681,7 +678,7 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   { // scope for copy on exit
-  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
+  CopyOnExit coe(rtd, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
 
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
@@ -895,7 +892,7 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
+  CopyOnExit coe(rtd, &uiCbpLuma, &uiCbpChroma); // so we don't forget to do this upon return
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
 
   WELS_READ_VERIFY (ParseMBTypePSliceCabac (pCtx, pNeighAvail, uiMbType));
@@ -1842,7 +1839,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         fprintf(stderr, "block=%d not read skip&eos!\n", which_block);
 #endif
       }
-      uint8_t readnzc[48];
       if (curSkipped == 1) {
         // We need to know if this macroblock ends in a skip or ends in a block.
         res = iMovie().tag(1).scanBits(1);
@@ -1925,19 +1921,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
         memset(rtd.pNonZeroCount, 231, 48);
         {
-            SWelsNeighAvail sNeighAvail;
-            WelsFillCacheNonZeroCount (
-                &sNeighAvail, rtd.pNonZeroCount, pCurLayer);
-        }
-        for (int i = 0; i < 48; i++) {
-          res = iMovie().tag(1).scanBits(8);
-          if (res.second) {
-            fprintf(stderr, "failed to read nzc!\n");
-            readnzc[i] = 255;
-          } else {
-            readnzc[i] = res.first;
-            // pNonZeroCount[i] = readnzc[i];
-          }
+          SWelsNeighAvail sNeighAvail;
+          GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
+          WelsFillCacheNonZeroCount (
+              &sNeighAvail, rtd.pNonZeroCount, pCurLayer);
         }
 
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
@@ -2098,7 +2085,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
               int numnzc = 0;
               for (int coef = 1; coef < 16; coef++) {
                 if (odata.chromaAC[cbcr * 64 + i * 16 + coef]) {
-                  fprintf(stderr, "Found a nonzero! %d %d %d %d\n", cbcr, i, coef, cbcr * 64 + i * 16 + coef);
                   numnzc++;
                 }
               }
@@ -2106,10 +2092,17 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             }
           }
         }
-      for (int i = 0; i < 48; i++) {
-        fprintf(stderr, "%d, block=%d NZC component % 2d is %d / correct=%d\n",
-                (int)(rtd.pNonZeroCount[i]== readnzc[i]), which_block, i, rtd.pNonZeroCount[i], readnzc[i]);
-      }
+        if ((rtd.uiCbpC || rtd.uiCbpL) && MB_TYPE_INTRA16x16 != rtd.uiMbType) {
+          for (int iId8x8 = 0; iId8x8 < 4; iId8x8++) {
+            if (!(rtd.uiCbpL & (1 << iId8x8))) {
+              rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[iId8x8 << 2]] = 0;
+              rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[iId8x8 << 2] + 1] = 0;
+              rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[(iId8x8 << 2) + 2]] = 0;
+              rtd.pNonZeroCount[g_kuiCache48CountScan4Idx[(iId8x8 << 2) + 2] + 1] = 0;
+            }
+          }
+        }
+
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "uiCbpC=%d, L=%d\n", (int)rtd.uiCbpC, (int)rtd.uiCbpL);
         fprintf(stderr, "block %d nzc ", which_block);
@@ -2256,9 +2249,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(1).emitBits(rtd.uiNumRefIdxL0Active, 8);
         oMovie().tag(1).emitBits(rtd.uiChmaI8x8Mode, 8);
         oMovie().tag(1).emitBits(rtd.uiLumaI16x16Mode, 8);
-        for (int i = 0; i < 48; i++) {
-          oMovie().tag(1).emitBits(rtd.pNonZeroCount[i], 8);
-        }
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
             oMovie().tag(1).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i], 8);
@@ -2386,7 +2376,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpL, &uiCbpC);
+  CopyOnExit coe(rtd, &uiCbpL, &uiCbpC);
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;
   pCurLayer->pResidualPredFlag[iMbXy] = pSlice->sSliceHeaderExt.bDefaultResidualPredFlag;
@@ -2717,7 +2707,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
-  CopyOnExit coe(rtd, pNonZeroCount, &uiCbpL, &uiCbpC);
+  CopyOnExit coe(rtd, &uiCbpL, &uiCbpC);
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;//2009.10.23
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
