@@ -58,6 +58,7 @@
 #include <sstream>
 
 using namespace std;
+extern void test_arithmetic_coding();
 
 #if defined (WINDOWS_PHONE)
 double g_dDecTime = 0.0;
@@ -408,7 +409,7 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
   int iLevelSetting = (int) WELS_LOG_WARNING;
 
   sDecParam.sVideoProperty.size = sizeof (sDecParam.sVideoProperty);
-
+  test_arithmetic_coding();
   if (iArgC < 2) {
     printf ("usage 1: h264dec.exe welsdec.cfg\n");
     printf ("usage 2: h264dec.exe welsdec.264 out.yuv\n");

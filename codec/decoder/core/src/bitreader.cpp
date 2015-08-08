@@ -50,11 +50,11 @@ void vpx_reader_fill(vpx_reader *r) {
       BD_VALUE nv;
       BD_VALUE big_endian_values;
       memcpy(&big_endian_values, buffer, sizeof(BD_VALUE));
-#if SIZE_MAX == 0xffffffffffffffffULL
-        big_endian_values = htobe64(big_endian_values);
-#else
+      if (sizeof(BD_VALUE) == 8) {
+          big_endian_values = htobe64(big_endian_values);
+      } else {
         big_endian_values = htobe32(big_endian_values);
-#endif
+      }
       nv = big_endian_values >> (BD_VALUE_SIZE - bits);
       count += bits;
       buffer += (bits >> 3);
