@@ -3,6 +3,13 @@
 #include <string>
 #include <vector>
 #include <map>
+
+//#define ROUNDTRIP_TEST
+
+#ifdef ROUNDTRIP_TEST
+#  define DEBUG_PRINTS
+#endif
+
 typedef int32_t H264Error;
 class CompressedReader {
 public:
@@ -121,7 +128,6 @@ namespace WelsDec {
     typedef TagSlice* PSlice;
 }
 extern WelsEnc::SWelsFuncPtrList *gFuncPtrList;
-#define ROUNDTRIP_TEST
 void InitEncFuncPtrList();
 
 struct RoundTripData {
