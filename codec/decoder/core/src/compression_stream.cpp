@@ -114,7 +114,7 @@ void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
 
 void BitStream::padToByte() {
     for (int i = nBits; (i & 0x07) != 0; ++i) {
-        oMovie().def().emitBit(0);
+        emitBit(0);
     }
 }
 
