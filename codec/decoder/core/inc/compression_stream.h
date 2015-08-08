@@ -133,7 +133,6 @@ void InitEncFuncPtrList();
 struct RoundTripData {
   uint8_t eSliceType;
   int uiChromaQpIndexOffset;
-  uint8_t pNonZeroCount[48];
   int32_t iPrevIntra4x4PredMode[16];
   int32_t iRemIntra4x4PredMode[16];
   int16_t sMbMvp[16][2];
@@ -149,14 +148,11 @@ struct RoundTripData {
   uint32_t uiLumaQp;
 
   RoundTripData()
-      : eSliceType(), uiChromaQpIndexOffset(), pNonZeroCount(),
+      : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
         uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0),
         uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
         uiNumRefIdxL0Active(), uiLumaQp() {
-      for (size_t i = 0; i < sizeof(pNonZeroCount) / sizeof(pNonZeroCount[0]); ++i) {
-          pNonZeroCount[i] = 0;
-      }
   }
   void preInit(const WelsDec::PSlice);
 };
