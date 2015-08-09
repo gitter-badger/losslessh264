@@ -51,6 +51,7 @@
 #include "cpu_core.h"
 #include "compression_stream.h"
 #include "decoded_macroblock.h"
+#include "macroblock_model.h"
 
 #include "encoder_from_decoder.h"
 
@@ -1901,6 +1902,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCtx->bMbRefConcealed = false;
     DecodedMacroblock rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
+    oMovie().model().initCurrentMacroblock(&rtd, pCtx);
     woffset = 0;
     if (oMovie().isRecoding) {
 #ifdef DEBUG_PRINTS

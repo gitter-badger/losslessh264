@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include "error_code.h"
+#include "macroblock_model.h"
 #include "compression_stream.h"
 #include <sstream>
 using namespace WelsDec;
@@ -9,21 +10,6 @@ void warnme() {
 fprintf(stderr, "DOING 431\n");
 }
 #define H264ErrorNil ERR_NONE
-std::pair<uint32_t, H264Error> RawFileWriter::Write(int streamId, const uint8_t*data, unsigned int size) {
-    // Ignores streamId.
-    signed long nwritten = fwrite(data, size, 1, fp);
-    if (nwritten == 0) {
-        return std::pair<uint32_t, H264Error>(0, WelsDec::ERR_BOUND);
-    }
-    return std::pair<uint32_t, H264Error>(size, WelsDec::ERR_NONE);
-}
-std::pair<uint32_t, H264Error> RawFileReader::Read(uint8_t*data, unsigned int size) {
-    signed long nread = fread(data, 1, size, fp);
-    if (nread <= 0) {
-        return std::pair<uint32_t, H264Error>(0, WelsDec::ERR_BOUND);
-    }
-    return std::pair<uint32_t, H264Error>(nread, WelsDec::ERR_NONE);
-}
 
 namespace {
 static CompressionStream css;
@@ -38,6 +24,10 @@ InputCompressionStream &iMovie() {
 
 CompressionStream::CompressionStream() {
     isRecoding = false;
+    pModel = new MacroblockModel;
+}
+CompressionStream::~CompressionStream() {
+    delete pModel;
 }
 BitStream::BitStream() {
     bitsWrittenSinceFlush = false;

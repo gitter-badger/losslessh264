@@ -15,6 +15,7 @@ DECODER_CPP_SRCS=\
 	$(DECODER_SRCDIR)/core/src/error_concealment.cpp\
 	$(DECODER_SRCDIR)/core/src/fmo.cpp\
 	$(DECODER_SRCDIR)/core/src/get_intra_predictor.cpp\
+	$(DECODER_SRCDIR)/core/src/macroblock_model.cpp\
 	$(DECODER_SRCDIR)/core/src/manage_dec_ref.cpp\
 	$(DECODER_SRCDIR)/core/src/memmgr_nal_unit.cpp\
 	$(DECODER_SRCDIR)/core/src/mv_pred.cpp\

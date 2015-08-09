@@ -28,25 +28,6 @@ public:
     virtual void Close() = 0;
     virtual ~CompressedWriter(){}
 };
-class RawFileWriter : public CompressedWriter {
-    FILE * fp;
-public:
-    RawFileWriter(FILE * ff){
-        fp = ff;
-    }
-    std::pair<uint32_t, H264Error> Write(int, const uint8_t*data, unsigned int size);
-    void Close() {
-        fclose(fp);
-    }
-};
-class RawFileReader : public CompressedReader {
-    FILE * fp;
-public:
-    RawFileReader(FILE * ff){
-        fp = ff;
-    }
-    std::pair<uint32_t, H264Error> Read(uint8_t*data, unsigned int size);
-};
 
 struct BitStream {
     bool escapingEnabled;
@@ -231,6 +212,8 @@ public:
     }
 };
 
+class MacroblockModel;
+
 struct CompressionStream {
     enum {
         DEFAULT_STREAM = 0x7fffffff
@@ -238,7 +221,15 @@ struct CompressionStream {
     BitStream defaultStream;
     std::map<int32_t, ArithmeticCodedOutput> taggedStreams;
     bool isRecoding;
+    MacroblockModel *pModel;
+
     CompressionStream();
+    ~CompressionStream();
+
+    MacroblockModel &model() {
+        return *pModel;
+    }
+
     BitStream&def() {
         return defaultStream;
     }
