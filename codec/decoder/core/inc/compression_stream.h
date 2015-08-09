@@ -107,7 +107,7 @@ public:
     inline void updateProb(bool bit) {
         counts[bit]++;
 
-        prob = (counts[0] + 1) / (counts[1] + counts[0] + 2);
+        prob = (256 * (counts[0] + 1)) / (counts[1] + counts[0] + 2);
 
         if (counts[0] + counts[1] > RESCALE_CONST) {
             counts[0] = (counts[0] + 1) >> 1;
@@ -116,7 +116,7 @@ public:
     }
 
     uint8_t getProb() {
-        return 127; //return prob;
+        return prob;
     }
 };
 
@@ -151,9 +151,9 @@ public:
     }
 
     bool scanBit(DynProb *prob) {
-        static int count = 0;
         bool bit = !!vpx_read(&reader, prob->getProb());
 #ifdef CONTEXT_DIFF
+        static int count = 0;
         fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
 #endif
         prob->updateProb(bit);
