@@ -43,6 +43,7 @@
 #include "error_code.h"
 #include "mv_pred.h"
 #include "compression_stream.h"
+#include "decoded_macroblock.h"
 
 namespace WelsDec {
 #define MAX_LEVEL_PREFIX 15
@@ -1018,7 +1019,7 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
 }
 
 int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][MV_A], int8_t iRefIdxArray[LIST_A][30],
-                        PBitStringAux pBs, RoundTripData *rtd) {
+                        PBitStringAux pBs, DecodedMacroblock *rtd) {
   PSlice pSlice                 = &pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader     = &pSlice->sSliceHeaderExt.sSliceHeader;
   PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];

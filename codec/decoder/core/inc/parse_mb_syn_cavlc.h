@@ -47,7 +47,7 @@
 #include "dec_frame.h"
 #include "slice.h"
 
-struct RoundTripData;
+struct DecodedMacroblock;
 
 namespace WelsDec {
 
@@ -130,7 +130,7 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable,
  * \param   output: 0 indicating decoding correctly; -1 means error
  */
 int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][MV_A], int8_t iRefIdxArray[LIST_A][30],
-                        PBitStringAux pBs, RoundTripData *rtd);
+                        PBitStringAux pBs, DecodedMacroblock *rtd);
 
 } // namespace WelsDec
 #endif//WELS_PARSE_MB_SYN_CAVLC_H__

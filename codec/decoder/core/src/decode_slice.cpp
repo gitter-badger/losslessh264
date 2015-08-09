@@ -50,10 +50,11 @@
 
 #include "cpu_core.h"
 #include "compression_stream.h"
+#include "decoded_macroblock.h"
 
 #include "encoder_from_decoder.h"
 
-void RoundTripData::preInit(const WelsDec::PSlice pSlice) {
+void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
     WelsDec::PSliceHeader pSliceHeader = &pSlice->sSliceHeaderExt.sSliceHeader;
     iLastMbQp = pSlice->iLastMbQp;
     eSliceType = pSliceHeader->eSliceType;
@@ -61,7 +62,8 @@ void RoundTripData::preInit(const WelsDec::PSlice pSlice) {
 }
 
 namespace WelsDec {
- 
+
+#define GENERATE_LZMA_MODE_FILE 1
 #if GENERATE_LZMA_MODE_FILE
 enum {
     PIP_DEFAULT_TAG,
@@ -128,14 +130,8 @@ enum {
     PIP_NZC_TAG=1
 };
 #endif
-struct RawDCTData {
-    int16_t lumaDC[16];
-    int16_t chromaDC[8];
-    int16_t lumaAC[256];
-    int16_t chromaAC[128];
-};
 
-static void initRTDFromDecoderState(RoundTripData &rtd, RawDCTData &odata,
+static void initRTDFromDecoderState(DecodedMacroblock &rtd,
         PDqLayer pCurLayer) {
     uint32_t iMbXy = pCurLayer->iMbXyIndex;
     PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -159,13 +155,13 @@ static void initRTDFromDecoderState(RoundTripData &rtd, RawDCTData &odata,
     rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
     rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
 
-    memcpy(odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(odata.lumaAC));
-    memcpy(odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(odata.lumaAC) / sizeof(odata.lumaAC[0]), sizeof(odata.chromaAC));
+    memcpy(rtd.odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(rtd.odata.lumaAC));
+    memcpy(rtd.odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(rtd.odata.lumaAC) / sizeof(rtd.odata.lumaAC[0]), sizeof(rtd.odata.chromaAC));
     for (int i = 0; i < 256; i += 16) {
-        odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        rtd.odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
     }
     for (int i = 256; i < 384; i += 16) {
-        odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        rtd.odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
     }
 }
 
@@ -523,7 +519,7 @@ void WelsMap16x16NeighToSampleConstrain1 (PWelsNeighAvail pNeighAvail, uint8_t* 
 }
 
 int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, int8_t* pIntraPredMode,
-                           PBitStringAux pBs, PDqLayer pCurDqLayer, RoundTripData *rtd) {
+                           PBitStringAux pBs, PDqLayer pCurDqLayer, DecodedMacroblock *rtd) {
   int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
   int32_t iMbXy = pCurDqLayer->iMbXyIndex;
   int32_t iFinalMode, i;
@@ -603,7 +599,7 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
 }
 
 int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, int8_t* pIntraPredMode,
-                           PBitStringAux pBs, PDqLayer pCurDqLayer, RoundTripData *rtd) {
+                           PBitStringAux pBs, PDqLayer pCurDqLayer, DecodedMacroblock *rtd) {
   // Similar with Intra_4x4, can put them together when needed
   int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
   int32_t iMbXy = pCurDqLayer->iMbXyIndex;
@@ -721,7 +717,7 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& uiEosFlag, RoundTripData*rtd) {
+int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& uiEosFlag, DecodedMacroblock*rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBsAux           = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -928,12 +924,12 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
+int32_t WelsDecodeMbCabacISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, DecodedMacroblock *rtd) {
   WELS_READ_VERIFY (WelsDecodeMbCabacISliceBaseMode0 (pCtx, uiEosFlag, rtd));
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag, RoundTripData *rtd) {
+int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiEosFlag, DecodedMacroblock *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBsAux           = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
@@ -1169,7 +1165,7 @@ int32_t WelsDecodeMbCabacPSliceBaseMode0 (PWelsDecoderContext pCtx, PWelsNeighAv
   return ERR_NONE;
 }
 
-int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
+int32_t WelsDecodeMbCabacPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, DecodedMacroblock *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader      = &pSlice->sSliceHeaderExt.sSliceHeader;
@@ -1493,15 +1489,15 @@ struct EncoderState {
         }
     }
 
-    void setupCoefficientsFromOdata(const RawDCTData&odata) {
-        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(RawDCTData::lumaAC)/ sizeof(RawDCTData::lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
-        zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(RawDCTData::chromaAC)/ sizeof(RawDCTData::chromaAC[0]), false);
+    void setupCoefficientsFromOdata(const DecodedMacroblock::RawDCTData&odata) {
+        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]), pCurMb.uiMbType != MB_TYPE_INTRA16x16);
+        zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(odata.chromaAC)/ sizeof(odata.chromaAC[0]), false);
         //memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
-        lZigCopyDC(&pDct.iLumaI16x16Dc[0], odata.lumaDC, sizeof(RawDCTData::lumaDC)/ sizeof(RawDCTData::lumaDC[0]));
+        lZigCopyDC(&pDct.iLumaI16x16Dc[0], odata.lumaDC, sizeof(odata.lumaDC)/ sizeof(odata.lumaDC[0]));
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
     }
 
-    void initNonZeroCount(PDqLayer pCurLayer, const RawDCTData &odata) {
+    void initNonZeroCount(PDqLayer pCurLayer, const DecodedMacroblock::RawDCTData &odata) {
       int8_t *pNonZeroCount = pSlice.sMbCacheInfo.iNonZeroCoeffCount;
       memset(pNonZeroCount, 0xe7, 48);
       {
@@ -1550,7 +1546,7 @@ struct EncoderState {
       }
     }
 
-    void init(RoundTripData *rtd) {
+    void init(DecodedMacroblock *rtd) {
 
         pPpsP.uiChromaQpIndexOffset = rtd->uiChromaQpIndexOffset;
 
@@ -1613,7 +1609,7 @@ struct EncoderState {
 
 };
 
-bool knownCodeUnitTest(RawDCTData &odata,
+bool knownCodeUnitTest(DecodedMacroblock::RawDCTData &odata,
                        const std::vector<bititem> expectedPrefix) {
     SBitStringAux wrBs;
     uint8_t buf[MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2] = {0}; // Cannot be larger than raw input.
@@ -1679,7 +1675,7 @@ bool knownCodeUnitTest(RawDCTData &odata,
 }
 
 bool knownCodeUnitTest0() {
-    RawDCTData odata;
+    DecodedMacroblock::RawDCTData odata;
     memset(&odata, 0, sizeof(odata));
 
     std::vector<bititem> expectedPrefix;
@@ -1702,7 +1698,7 @@ bool knownCodeUnitTest0() {
 }
 
 bool knownCodeUnitTest1() {
-    RawDCTData odata;
+    DecodedMacroblock::RawDCTData odata;
     memset(&odata, 0, sizeof(odata));
     odata.lumaAC[0] = 0;
     odata.lumaAC[1] = 3;
@@ -1750,7 +1746,7 @@ bool knownCodeUnitTest1() {
     return knownCodeUnitTest(odata, expectedPrefix);
 }
 bool knownCodeUnitTest2() {
-    RawDCTData odata;
+    DecodedMacroblock::RawDCTData odata;
     memset(&odata, 0, sizeof(odata));
     odata.lumaAC[0] = -2;
     odata.lumaAC[1] = 4;
@@ -1903,7 +1899,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
-    RoundTripData rtd;
+    DecodedMacroblock rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     woffset = 0;
     if (oMovie().isRecoding) {
@@ -1913,8 +1909,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       if (curSkipped == -1) {
         origSkipped = -1;
       }
-      RawDCTData odata;
-      memset(&odata, 0, sizeof(odata));
       BitStream::uint32E res;
       rtd.uiMbType = MB_TYPE_SKIP;
       if (curSkipped == -1) {
@@ -2134,7 +2128,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             if (res.second) {
               fprintf(stderr, "failed to read ldc!\n");
             }
-            odata.lumaDC[i] = res.first;
+            rtd.odata.lumaDC[i] = res.first;
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
@@ -2143,7 +2137,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             if (res.second) {
               fprintf(stderr, "failed to read crdc!\n");
             }
-            odata.chromaDC[i] = res.first;
+            rtd.odata.chromaDC[i] = res.first;
           }
         }
         if (rtd.uiCbpL) {
@@ -2153,7 +2147,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             if (res.second) {
               fprintf(stderr, "failed to read lac!\n");
             }
-            odata.lumaAC[i] = res.first;
+            rtd.odata.lumaAC[i] = res.first;
           }
         }
         if (rtd.uiCbpC == 2) {
@@ -2163,7 +2157,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             if (res.second) {
               fprintf(stderr, "failed to read crac!\n");
             }
-            odata.chromaAC[i] = res.first;
+            rtd.odata.chromaAC[i] = res.first;
           }
         }
 
@@ -2185,8 +2179,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           WelsEnc::WelsInitSliceCabac (&esCabac.pEncCtx, &esCabac.pSlice);
       }
       esCabac.init(&rtd);
-      esCabac.setupCoefficientsFromOdata(odata);
-      esCabac.initNonZeroCount(pCurLayer, odata);
+      esCabac.setupCoefficientsFromOdata(rtd.odata);
+      esCabac.initNonZeroCount(pCurLayer, rtd.odata);
       WelsEnc::WelsSpatialWriteMbSynCabac (
           &esCabac.pEncCtx, &esCabac.pSlice, &esCabac.pCurMb);
       fprintf(stderr, "block %d: Cabac size: %ld\n", which_block,
@@ -2195,8 +2189,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       EncoderState es;
       rtd.iMbSkipRun = origSkipped;
       es.init(&rtd);
-      es.setupCoefficientsFromOdata(odata);
-      es.initNonZeroCount(pCurLayer, odata);
+      es.setupCoefficientsFromOdata(rtd.odata);
+      es.initNonZeroCount(pCurLayer, rtd.odata);
       WelsEnc::WelsSpatialWriteMbSyn (
           &es.pEncCtx, &es.pSlice, &es.pCurMb);
 
@@ -2254,13 +2248,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
 #ifdef ROUNDTRIP_TEST
       {
-        memset(&odata, 0, sizeof(odata));
-        initRTDFromDecoderState(rtd, odata, pCurLayer);
+        initRTDFromDecoderState(rtd, pCurLayer);
         rtd.iMbSkipRun = origSkipped;
         EncoderState es2;
         es2.init(&rtd);
-        es2.setupCoefficientsFromOdata(odata);
-        es2.initNonZeroCount(pCurLayer, odata);
+        es2.setupCoefficientsFromOdata(rtd.odata);
+        es2.initNonZeroCount(pCurLayer, rtd.odata);
         woffset = 0;
         WelsEnc::WelsSpatialWriteMbSyn (
             &es2.pEncCtx, &es2.pSlice, &es2.pCurMb);
@@ -2313,8 +2306,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         return iRet;
       }
       if (writeBlock) {
-        RawDCTData odata;
-        initRTDFromDecoderState(rtd, odata, pCurLayer);
+        initRTDFromDecoderState(rtd, pCurLayer);
 
         oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
         if (pCtx->pSps->uiChromaFormatIdc != 0) {
@@ -2377,22 +2369,22 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(PIP_LDC_TAG).emitBits((uint16_t)odata.lumaDC[i], 16);
+            oMovie().tag(PIP_LDC_TAG).emitBits((uint16_t)rtd.odata.lumaDC[i], 16);
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
           for (int i = 0; i < 8; i++) {
-            oMovie().tag(PIP_CRDC_TAG).emitBits((uint16_t)odata.chromaDC[i], 16);
+            oMovie().tag(PIP_CRDC_TAG).emitBits((uint16_t)rtd.odata.chromaDC[i], 16);
           }
         }
         if (rtd.uiCbpL) {
           for (int i = 0; i < 256; i++) {
-            oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)odata.lumaAC[i], 16);
+            oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
           }
         }
         if (rtd.uiCbpC == 2) {
           for (int i = 0; i < 128; i++) {
-            oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)odata.chromaAC[i], 16);
+            oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
           }
         }
 #ifdef DEBUG_PRINTS
@@ -2405,8 +2397,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         {
           EncoderState es;
           es.init(&rtd);
-          es.setupCoefficientsFromOdata(odata);
-          es.initNonZeroCount(pCurLayer, odata);
+          es.setupCoefficientsFromOdata(rtd.odata);
+          es.initNonZeroCount(pCurLayer, rtd.odata);
           woffset = 0;
           WelsEnc::WelsSpatialWriteMbSyn (
               &es.pEncCtx, &es.pSlice, &es.pCurMb);
@@ -2433,7 +2425,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   return ERR_NONE;
 }
-int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, RoundTripData *rtd) {
+int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, DecodedMacroblock *rtd) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
@@ -2722,7 +2714,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
   return 0;
 }
 
-int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
+int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, DecodedMacroblock *rtd) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PBitStringAux pBs = pCurLayer->pBitStringAux;
   PSliceHeaderExt pSliceHeaderExt = &pCurLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt;
@@ -2763,7 +2755,7 @@ int32_t WelsDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
   return 0;
 }
 
-int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *rtd) {
+int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblock *rtd) {
   SVlcTable* pVlcTable     = &pCtx->sVlcTable;
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
@@ -3104,7 +3096,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, RoundTripData *
   return 0;
 }
 
-int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, RoundTripData *rtd) {
+int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uint32_t& uiEosFlag, DecodedMacroblock *rtd) {
   PDqLayer pCurLayer             = pCtx->pCurDqLayer;
   PBitStringAux pBs              = pCurLayer->pBitStringAux;
   PSlice pSlice                  = &pCurLayer->sLayerInfo.sSliceInLayer;
