@@ -1576,8 +1576,13 @@ struct EncoderState {
             pCurMb.uiSubMbType[i] = rtd->uiSubMbType[i];
         }
 
-        for (int i = 0; i < 4; i++) {
+        if (rtd->uiMbType == MB_TYPE_16x8) {
+          pCurMb.pRefIndex[0] = rtd->iRefIdx[0];
+          pCurMb.pRefIndex[2] = rtd->iRefIdx[1];
+        } else {
+          for (int i = 0; i < 4; i++) {
             pCurMb.pRefIndex[i] = rtd->iRefIdx[i];
+          }
         }
         pCurMb.sMv = &sMv[0];
         for (int i = 0; i < 16; i++) {
@@ -2012,8 +2017,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
               rtd.iRemIntra4x4PredMode[i] = res.first;
             }
           }
-        }
-        if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
+        } else if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
           for (int i = 0; i < 4; i++) {
             res = iMovie().tag(PIP_PREV_PRED_MODE_TAG).scanBits(8);
             if (res.second) {
@@ -2078,6 +2082,25 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             } else {
               rtd.uiSubMbType[i] = res.first;
             }
+          }
+        } else if (MB_TYPE_8x16 == rtd.uiMbType ||
+            MB_TYPE_16x8 == rtd.uiMbType) {
+          for (int i = 0; i < 2; i++) {
+            res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+            if (res.second) {
+              fprintf(stderr, "failed to read iRefIdx!\n");
+              rtd.iRefIdx[i] = 0;
+            } else {
+              rtd.iRefIdx[i] = res.first;
+            }
+          }
+        } else if (MB_TYPE_16x16 == rtd.uiMbType) {
+          res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+          if (res.second) {
+            fprintf(stderr, "failed to read iRefIdx!\n");
+            rtd.iRefIdx[0] = 0;
+          } else {
+            rtd.iRefIdx[0] = res.first;
           }
         }
         if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
@@ -2311,6 +2334,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           for (int i = 0; i < 4; i++) {
             oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
           }
+        } else if (MB_TYPE_8x16 == rtd.uiMbType ||
+            MB_TYPE_16x8 == rtd.uiMbType) {
+          for (int i = 0; i < 2; i++) {
+            oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[i], 8);
+          }
+        } else if (MB_TYPE_16x16 == rtd.uiMbType) {
+          oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[0], 8);
         }
         if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
             MB_TYPE_INTRA8x8 != rtd.uiMbType &&
