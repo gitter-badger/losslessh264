@@ -204,6 +204,17 @@ void BitStream::flushBits() {
     bitsWrittenSinceFlush = false;
 }
 
+DynProb ArithmeticCodedInput::TEST_PROB;
+DynProb ArithmeticCodedOutput::TEST_PROB;
+
+void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
+    vpx_stop_encode(&writer);
+    if (!buffer.empty()) {
+        w.Write(streamId, &buffer[0], writer.pos);
+    }
+    buffer.clear();
+}
+
 std::vector<uint8_t> streamLenToBE(uint32_t streamLen) {
     uint8_t retval[5] = {uint8_t(streamLen >> 24), uint8_t((streamLen >> 16) & 0xff),
                        uint8_t((streamLen >> 8) & 0xff), uint8_t(streamLen & 0xff), 0};
@@ -219,17 +230,18 @@ uint32_t bufferBEToStreamLength(uint8_t *buf) {
 }
 
 void CompressionStream::flushToWriter(CompressedWriter&w) {
-    for (std::map<int32_t, BitStream>::iterator i = taggedStreams.begin(), ie = taggedStreams.end();
+    def().padToByte();
+    def().flushToWriter(DEFAULT_STREAM, w);
+    for (std::map<int32_t, ArithmeticCodedOutput>::iterator i = taggedStreams.begin(), ie = taggedStreams.end();
          i != ie;
          ++i) {
-        i->second.padToByte();
         i->second.flushToWriter(i->first, w);
     }
 }
 
-BitStream& InputCompressionStream::tag(int32_t tag) {
+ArithmeticCodedInput& InputCompressionStream::tag(int32_t tag) {
     bool mustReadData = taggedStreams.find(tag) == taggedStreams.end();
-    BitStream &bs = taggedStreams[tag];
+    ArithmeticCodedInput &bs = taggedStreams[tag];
     if (filenamePrefix.empty()) {
         fprintf(stderr, "Attempting to read %d without input file set\n", tag);
         assert(!filenamePrefix.empty());
@@ -253,7 +265,9 @@ BitStream& InputCompressionStream::tag(int32_t tag) {
         }
         if (nread == 0) {
             fprintf(stderr, "Failed to read from file %s\n", thisfilename.c_str());
+            assert(false && "failed to open input");
         }
+        bs.init();
     }
     return bs;
 }

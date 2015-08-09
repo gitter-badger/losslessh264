@@ -3,6 +3,10 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "bitreader.h"
+#include "bitwriter.h"
+
+//#define CONTEXT_DIFF
 
 //#define ROUNDTRIP_TEST
 
@@ -85,26 +89,171 @@ struct BitStream {
         appendBytes(buffer, size);
     }
 };
+
+class DynProb {
+    uint8_t prob;
+    unsigned counts[2];
+
+    enum {
+        RESCALE_CONST = 4096,
+    };
+public:
+
+    DynProb() {
+        counts[0] = counts[1] = 0;
+        prob = 128;
+    }
+
+    inline void updateProb(bool bit) {
+        counts[bit]++;
+
+        prob = (counts[0] + 1) / (counts[1] + counts[0] + 2);
+
+        if (counts[0] + counts[1] > RESCALE_CONST) {
+            counts[0] = (counts[0] + 1) >> 1;
+            counts[1] = (counts[1] + 1) >> 1;
+        }
+    }
+
+    uint8_t getProb() {
+        return 127; //return prob;
+    }
+};
+
+class ArithmeticCodedInput {
+public:
+    std::vector<uint8_t> buffer;
+    vpx_reader reader;
+
+    static DynProb TEST_PROB;
+
+    ArithmeticCodedInput() : reader() {
+        // init() will be called by InputCompressionStream::tag()
+        // after the file has been read and inserted into buffer.
+        (void)vpx_reader_has_error;
+        (void)vpx_read_literal;
+        (void)vpx_write_literal;
+    }
+
+    ArithmeticCodedInput(const ArithmeticCodedInput &orig) {
+      *this = orig;
+    }
+
+    ArithmeticCodedInput &operator=(const ArithmeticCodedInput &orig) {
+      reader = orig.reader;
+      buffer = orig.buffer;
+      reader.buffer = &buffer.front();
+      return *this;
+    }
+
+    void init() {
+        vpx_reader_init(&reader, buffer.data(), buffer.size());
+    }
+
+    bool scanBit(DynProb *prob) {
+        static int count = 0;
+        bool bit = !!vpx_read(&reader, prob->getProb());
+#ifdef CONTEXT_DIFF
+        fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
+#endif
+        prob->updateProb(bit);
+
+        return bit;
+    }
+    std::pair<uint32_t, H264Error> scanBits(int nBits) {
+        uint16_t out = 0;
+        for (int i = 0; i < nBits; ++i) {
+            out |= ((uint16_t)scanBit(&TEST_PROB)) << (nBits - i - 1);
+        }
+#ifdef CONTEXT_DIFF
+        fprintf(stderr, "out %d\n", (int)out);
+#endif
+        return std::make_pair(out, 0);
+    }
+};
+
+class ArithmeticCodedOutput {
+public:
+    std::vector<uint8_t> buffer;
+    vpx_writer writer;
+
+    static DynProb TEST_PROB;
+
+    ArithmeticCodedOutput() : writer() {
+    }
+
+    void init() {
+        buffer.resize(1000);
+        vpx_start_encode(&writer, &buffer.front());
+    }
+
+    ArithmeticCodedOutput(const ArithmeticCodedOutput &orig) {
+      *this = orig;
+    }
+
+    ArithmeticCodedOutput &operator=(const ArithmeticCodedOutput &orig) {
+      writer = orig.writer;
+      buffer = orig.buffer;
+      writer.buffer = &buffer.front();
+      return *this;
+    }
+
+    void flushToWriter(int streamId, CompressedWriter&);
+
+    void emitBit(bool bit, DynProb *prob) {
+        if (writer.pos + 512 > buffer.size()) {
+            buffer.resize(buffer.size() * 2);
+            writer.buffer = &buffer.front();
+        }
+
+#ifdef CONTEXT_DIFF
+        static int count = 0;
+        fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
+#endif
+        vpx_write(&writer, bit, prob->getProb());
+
+        prob->updateProb(bit);
+    }
+
+    void emitBit(bool bit) {
+        emitBit(bit, &TEST_PROB);
+    }
+
+    void emitBits(uint16_t data, int nBits) {
+        for (int i = 0; i < nBits; ++i) {
+            emitBit(data & (1 << (nBits - 1 - i)), &TEST_PROB);
+        }
+#ifdef CONTEXT_DIFF
+        fprintf(stderr, "out %d\n", (int)data);
+#endif
+    }
+};
+
 struct CompressionStream {
     enum {
         DEFAULT_STREAM = 0x7fffffff
     };
-    std::map<int32_t, BitStream> taggedStreams;
+    BitStream defaultStream;
+    std::map<int32_t, ArithmeticCodedOutput> taggedStreams;
     bool isRecoding;
     CompressionStream();
     BitStream&def() {
-        return taggedStreams[DEFAULT_STREAM];
+        return defaultStream;
     }
-    BitStream&tag(int32_t tag) {
+    ArithmeticCodedOutput&tag(int32_t tag) {
+        if (taggedStreams.find(tag) == taggedStreams.end()) {
+            taggedStreams[tag].init();
+        }
         return taggedStreams[tag];
     }
     void flushToWriter(CompressedWriter&);
 };
 CompressionStream &oMovie();
+
 struct InputCompressionStream {
     std::string filenamePrefix;
-    std::map<int32_t, BitStream> taggedStreams;
-    BitStream&tag(int32_t tag);
+    std::map<int32_t, ArithmeticCodedInput> taggedStreams;
+    ArithmeticCodedInput&tag(int32_t tag);
 };
 InputCompressionStream &iMovie();
 
