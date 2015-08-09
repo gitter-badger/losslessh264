@@ -10,6 +10,8 @@
 
 //#define ROUNDTRIP_TEST
 
+//#define CABAC_HACK
+
 #ifdef ROUNDTRIP_TEST
 #  define DEBUG_PRINTS
 #endif
@@ -270,6 +272,8 @@ namespace WelsEnc {
 
     struct TagMB;
     typedef struct TagMB SMB;
+    void WelsInitSliceCabac (sWelsEncCtx* pEncCtx, SSlice* pSlice);
+    void WelsCabacInit (void *ctx);
 }
 
 namespace WelsDec {

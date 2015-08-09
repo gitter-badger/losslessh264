@@ -42,6 +42,7 @@
 #include "../../../encoder/core/inc/md.h"
 
 namespace WelsEnc {
+int32_t WelsSpatialWriteMbSynCabac (sWelsEncCtx* pCtx, SSlice* pSlice, SMB* pCurMb);
 int32_t WelsSpatialWriteMbSyn (sWelsEncCtx* pCtx, SSlice* pSlice, SMB* pCurMb);
 }
 

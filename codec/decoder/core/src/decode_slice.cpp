@@ -1440,12 +1440,16 @@ struct EncoderState {
     WelsEnc::SWelsPPS pPpsP;
     WelsEnc::SMVUnitXY sMv[16];
     SBitStringAux wrBs;
+#ifdef CABAC_HACK
+    std::vector<uint8_t> buf;
+#else
     uint8_t buf[MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2];
+#endif
     bool prevIntra4x4PredModeFlag[16];
     int8_t remIntra4x4PredModeFlag[16];
     int8_t pRefIndex[4];
 
-    EncoderState()
+    EncoderState(size_t size=MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2)
             : pDct(), pEncCtx(), pSlice(), pCurMb(), pCurDqLayer(), pPpsP(),
              wrBs(), buf(), prevIntra4x4PredModeFlag(),
              remIntra4x4PredModeFlag(), pRefIndex() {
@@ -1454,6 +1458,18 @@ struct EncoderState {
         pEncCtx.pFuncList = gFuncPtrList;
         pSlice.sMbCacheInfo.pDct = &pDct;
         pCurMb.pRefIndex = &pRefIndex[0];
+
+        pSlice.sMbCacheInfo.pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
+        pSlice.sMbCacheInfo.pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
+
+#ifdef CABAC_HACK
+        buf.resize(size);
+        InitBits (&wrBs, &buf[0], buf.size());
+#else
+        InitBits (&wrBs, buf, sizeof(buf));
+#endif
+        pSlice.sMbCacheInfo.pDct = &pDct;
+        pSlice.pSliceBsa = &wrBs;
     }
     void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components, bool dc) {
         for (size_t i = 0; i < num_components; ++i) {
@@ -1536,18 +1552,13 @@ struct EncoderState {
 
     void init(RoundTripData *rtd) {
 
-        InitBits (&wrBs, buf, sizeof(buf));
-
         pPpsP.uiChromaQpIndexOffset = rtd->uiChromaQpIndexOffset;
 
         // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset FIXME?
         pEncCtx.eSliceType = WelsCommon::EWelsSliceType(rtd->eSliceType);
         pSlice.sSliceHeaderExt.sSliceHeader.eSliceType = pEncCtx.eSliceType;
-        pEncCtx.pFuncList = gFuncPtrList;
 
         // pSlice.sMbCacheInfo.sMvComponents may be need for cabac
-        pSlice.sMbCacheInfo.pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
-        pSlice.sMbCacheInfo.pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
 
         size_t num_components = 0;
         if (rtd->uiMbType == MB_TYPE_INTRA8x8) {
@@ -1565,8 +1576,6 @@ struct EncoderState {
         pSlice.sMbCacheInfo.uiLumaI16x16Mode = rtd->uiLumaI16x16Mode;
 
         // pMbCache->sMbMvp is left as 0 so that we can just write the MV deltas we read in.
-        pSlice.sMbCacheInfo.pDct = &pDct;
-        pSlice.pSliceBsa = &wrBs;
         pSlice.sSliceHeaderExt.sSliceHeader.uiNumRefIdxL0Active = rtd->uiNumRefIdxL0Active;
         pSlice.uiLastMbQp = rtd->iLastMbQp;
         pSlice.iMbSkipRun = rtd->iMbSkipRun;
@@ -2167,6 +2176,22 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       fprintf(stderr, "READY skiprun=%d ; origSkip%d ; which_block=%d curSkip=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, (int)curSkipped);
 #endif
       // Some state is duplicated in rtd an odata. Just set both for now.
+#ifdef CABAC_HACK
+      static EncoderState esCabac(100000000);
+      static bool firstTime = true;
+      if (firstTime) {
+          firstTime = false;
+          WelsEnc::WelsCabacInit (&esCabac.pEncCtx);
+          WelsEnc::WelsInitSliceCabac (&esCabac.pEncCtx, &esCabac.pSlice);
+      }
+      esCabac.init(&rtd);
+      esCabac.setupCoefficientsFromOdata(odata);
+      esCabac.initNonZeroCount(pCurLayer, odata);
+      WelsEnc::WelsSpatialWriteMbSynCabac (
+          &esCabac.pEncCtx, &esCabac.pSlice, &esCabac.pCurMb);
+      fprintf(stderr, "block %d: Cabac size: %ld\n", which_block,
+              esCabac.pSlice.sCabacCtx.m_pBufCur - esCabac.pSlice.sCabacCtx.m_pBufStart);
+#endif
       EncoderState es;
       rtd.iMbSkipRun = origSkipped;
       es.init(&rtd);
