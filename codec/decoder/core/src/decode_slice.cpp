@@ -1974,12 +1974,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiLumaQp = res.first;
         }
-        res = iMovie().tag(PIP_MB_TYPE_TAG).scanBits(16);
+        res = iMovie().tag(PIP_MB_TYPE_TAG).scanBits(oMovie().model().getMacroblockTypePrior());
         if (res.second) {
           fprintf(stderr, "failed to read iMbType!\n");
           rtd.uiMbType = 0;
         } else {
-          rtd.uiMbType = res.first;
+          rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
         }
         res = iMovie().tag(PIP_REF_TAG).scanBits(8);
         if (res.second) {
@@ -2317,7 +2317,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
         oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
         oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
-        oMovie().tag(PIP_MB_TYPE_TAG).emitBits(rtd.uiMbType, 16);
+        oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
         oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
         oMovie().tag(PIP_8x8_TAG).emitBits(rtd.uiChmaI8x8Mode, 8);
         oMovie().tag(PIP_16x16_TAG).emitBits(rtd.uiLumaI16x16Mode, 8);

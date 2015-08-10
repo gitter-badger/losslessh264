@@ -6,6 +6,9 @@
 #include "bitreader.h"
 #include "bitwriter.h"
 
+#include <assert.h>
+#include "array_nd.h"
+
 //#define CONTEXT_DIFF
 
 //#define ROUNDTRIP_TEST
@@ -103,6 +106,58 @@ public:
     }
 };
 
+template <int nBits>
+class Branch {
+    enum {
+        NUM_CHILDREN = (1 << (nBits - 1)) - 1
+    };
+    typedef typename Sirikata::Array1d<DynProb, (1 << nBits) - 1>::Slice ArrayType;
+    ArrayType array;
+    uint32_t val;
+public:
+    Branch(ArrayType array) : array(array), val(0) {
+    }
+
+    Branch(uint32_t val, ArrayType array) : array(array), val(val) {
+    }
+
+    inline Branch<nBits - 1> selectBranch(bool which) {
+        if (which) {
+            return Branch<nBits - 1>((val << 1) | 1,
+                    array.template slice<NUM_CHILDREN + 1, NUM_CHILDREN * 2 + 1>());
+        } else {
+            return Branch<nBits - 1>((val << 1),
+                    array.template slice<1, NUM_CHILDREN + 1>());
+        }
+    }
+
+
+    DynProb *getProb() {
+        return &(array[0]);
+    }
+};
+
+template <> class Branch<1> {
+    typedef typename Sirikata::Array1d<DynProb, 1>::Slice ArrayType;
+    DynProb *prob;
+    uint32_t val;
+public:
+    Branch(ArrayType array) : prob(&(array[0])), val(0) {
+    }
+
+    Branch(uint32_t val, ArrayType array) : prob(&(array[0])), val(val) {
+    }
+
+    DynProb *getProb() {
+        return prob;
+    }
+
+    uint32_t getVal(bool result) {
+        return (val << 1) | (int)result;
+    }
+};
+
+
 class ArithmeticCodedInput {
 public:
     std::vector<uint8_t> buffer;
@@ -153,7 +208,22 @@ public:
 #endif
         return std::make_pair(out, 0);
     }
+
+    template <int nBits>
+    std::pair<uint32_t, H264Error> scanBits(Branch<nBits> priors);
 };
+
+template <>
+inline std::pair<uint32_t, H264Error> ArithmeticCodedInput::scanBits(Branch<1> priors) {
+    bool res = scanBit(priors.getProb());
+    return std::make_pair(priors.getVal(res), 0);
+}
+
+template <int nBits>
+inline std::pair<uint32_t, H264Error> ArithmeticCodedInput::scanBits(Branch<nBits> priors) {
+    bool res = scanBit(priors.getProb());
+    return scanBits<nBits - 1>(priors.selectBranch(res));
+}
 
 class ArithmeticCodedOutput {
 public:
@@ -210,7 +280,22 @@ public:
         fprintf(stderr, "out %d\n", (int)data);
 #endif
     }
+
+    template <int nBits>
+    void emitBits(uint32_t data, Branch<nBits> priors);
 };
+
+template <int nBits>
+inline void ArithmeticCodedOutput::emitBits(uint32_t data, Branch<nBits> priors) {
+    bool curBit = !!(data & (1 << (nBits - 1)));
+    emitBit(curBit, priors.getProb());
+    emitBits<nBits - 1>(data & ((1 << (nBits - 1)) - 1), priors.selectBranch(curBit));
+}
+
+template <>
+inline void ArithmeticCodedOutput::emitBits(uint32_t data, Branch<1> priors) {
+    emitBit(!!data, priors.getProb());
+}
 
 class MacroblockModel;
 
