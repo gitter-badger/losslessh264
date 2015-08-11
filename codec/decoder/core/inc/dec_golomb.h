@@ -46,7 +46,7 @@
 //#include <assert.h>
 #include "ls_defines.h"
 #include "error_code.h"
-
+#include "macroblock_model.h"
 namespace WelsDec {
 
 #define WELS_READ_VERIFY(uiRet) do{ \
@@ -68,10 +68,16 @@ namespace WelsDec {
   } \
 }
 #define UBITS(iCurBits, iNumBits) (iCurBits>>(32-(iNumBits)))
+#ifdef BILLING
+#define BILL_BITS(num) bill[curBillTag] += (num)
+#else
+#define BILL_BITS(num)
+#endif
 #define DUMP_BITS(iCurBits, pBufPtr, iLeftBits, iNumBits, iAllowedBytes, iReadBytes) { \
   iCurBits <<= (iNumBits); \
   iLeftBits += (iNumBits); \
   NEED_BITS(iCurBits, pBufPtr, iLeftBits, iAllowedBytes, iReadBytes); \
+  BILL_BITS(iNumBits); \
 }
 
 static inline int32_t BsGetBits (PBitStringAux pBs, int32_t iNumBits, uint32_t* pCode) {

@@ -199,6 +199,14 @@ DynProb ArithmeticCodedOutput::TEST_PROB;
 
 void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     vpx_stop_encode(&writer);
+#ifdef BILLING
+    static int total = 0;
+    fprintf(stderr, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
+    total += writer.pos;
+    if (streamId == PIP_PREV_PRED_TAG || streamId == PIP_NZC_TAG) {
+        fprintf(stderr, "TOTAL written %d\n", total);
+    }
+#endif
     if (!buffer.empty()) {
         w.Write(streamId, &buffer[0], writer.pos);
     }

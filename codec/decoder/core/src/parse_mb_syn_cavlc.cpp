@@ -44,6 +44,8 @@
 #include "mv_pred.h"
 #include "compression_stream.h"
 #include "decoded_macroblock.h"
+//for enums
+#include "macroblock_model.h"
 
 namespace WelsDec {
 #define MAX_LEVEL_PREFIX 15
@@ -643,7 +645,18 @@ void BsEndCavlc (PBitStringAux pBs) {
   // fprintf(stderr, "%16lx[%d..%d]/%d %d\n", (intptr_t)pBs->pStartBuf, iBegin, iEnd, pBs->iBits, 8*(int)(pBs->pEndBuf - pBs->pStartBuf));
 }
 
-
+#ifdef BILLING
+unsigned int total_coeff_trailing_ones_and_num_zeros_cost = 0;
+unsigned int level_cost[16] = {0};
+unsigned int run_cost[16] = {0};
+void CLEAR_TEMP_BILL() {
+    memset(run_cost, 0, sizeof(run_cost));
+    memset(level_cost, 0, sizeof(level_cost));
+    total_coeff_trailing_ones_and_num_zeros_cost = 0;
+    curBillTag = 0;
+}
+#define ADD_ALL_BILL(tag) do {for (int i = 0; i< 16; ++i) {bill[tag] += run_cost[i] + level_cost[i];}bill[tag] += total_coeff_trailing_ones_and_num_zeros_cost;} while(0)
+#endif
 // return: used bits
 static int32_t CavlcGetTrailingOnesAndTotalCoeff (uint8_t& uiTotalCoeff, uint8_t& uiTrailingOnes,
     SReadBitsCache* pBitsCache, SVlcTable* pVlcTable, bool bChromaDc, int8_t nC) {
@@ -659,6 +672,9 @@ static int32_t CavlcGetTrailingOnesAndTotalCoeff (uint8_t& uiTotalCoeff, uint8_t
     uiCount        = pVlcTable->kpChromaCoeffTokenVlcTable[uiValue][1];
     POP_BUFFER (pBitsCache, uiCount);
     iUsedBits     += uiCount;
+#ifdef BILLING
+    total_coeff_trailing_ones_and_num_zeros_cost += uiCount;
+#endif
     uiTrailingOnes = g_kuiVlcTrailingOneTotalCoeffTable[iIndexVlc][0];
     uiTotalCoeff   = g_kuiVlcTrailingOneTotalCoeffTable[iIndexVlc][1];
   } else { //luma
@@ -673,18 +689,27 @@ static int32_t CavlcGetTrailingOnesAndTotalCoeff (uint8_t& uiTotalCoeff, uint8_t
         uiCount     = pVlcTable->kpCoeffTokenVlcTable[iNcMapIdx + 1][uiValue][iIndexValue][1];
         POP_BUFFER (pBitsCache, uiCount);
         iUsedBits  += uiCount;
+#ifdef BILLING
+        total_coeff_trailing_ones_and_num_zeros_cost += uiCount + 8;
+#endif
       } else {
         iIndexVlc  = pVlcTable->kpCoeffTokenVlcTable[0][iNcMapIdx][uiValue][0];
         uiCount    = pVlcTable->kpCoeffTokenVlcTable[0][iNcMapIdx][uiValue][1];
         uiValue    = pBitsCache->uiCache32Bit >> (32 - uiCount);
         POP_BUFFER (pBitsCache, uiCount);
         iUsedBits += uiCount;
+#ifdef BILLING
+        total_coeff_trailing_ones_and_num_zeros_cost += uiCount;
+#endif
       }
     } else {
       uiValue    = pBitsCache->uiCache32Bit >> (32 - 6);
       POP_BUFFER (pBitsCache, 6);
       iUsedBits += 6;
       iIndexVlc  = pVlcTable->kpCoeffTokenVlcTable[0][3][uiValue][0];  //differ
+#ifdef BILLING
+        total_coeff_trailing_ones_and_num_zeros_cost += 6;
+#endif
     }
     uiTrailingOnes = g_kuiVlcTrailingOneTotalCoeffTable[iIndexVlc][0];
     uiTotalCoeff  = g_kuiVlcTrailingOneTotalCoeffTable[iIndexVlc][1];
@@ -699,6 +724,9 @@ static int32_t CavlcGetLevelVal (int32_t iLevel[16], SReadBitsCache* pBitsCache,
   int32_t iSuffixLength, iSuffixLengthSize, iLevelPrefix, iPrefixBits, iLevelCode, iThreshold;
   for (i = 0; i < uiTrailingOnes; i++) {
     iLevel[i] = 1 - ((pBitsCache->uiCache32Bit >> (30 - i)) & 0x02);
+#ifdef BILLING
+    level_cost[i] += 1;
+#endif
   }
   POP_BUFFER (pBitsCache, uiTrailingOnes);
   iUsedBits += uiTrailingOnes;
@@ -712,6 +740,9 @@ static int32_t CavlcGetLevelVal (int32_t iLevel[16], SReadBitsCache* pBitsCache,
       return -1;
     POP_BUFFER (pBitsCache, iPrefixBits);
     iUsedBits   += iPrefixBits;
+#ifdef BILLING
+    level_cost[i] += iPrefixBits;
+#endif
     iLevelPrefix = iPrefixBits - 1;
 
     iLevelCode = iLevelPrefix << iSuffixLength; //differ
@@ -732,6 +763,9 @@ static int32_t CavlcGetLevelVal (int32_t iLevel[16], SReadBitsCache* pBitsCache,
       iLevelCode += (pBitsCache->uiCache32Bit >> (32 - iSuffixLengthSize));
       POP_BUFFER (pBitsCache, iSuffixLengthSize);
       iUsedBits  += iSuffixLengthSize;
+#ifdef BILLING
+      level_cost[i] += iSuffixLengthSize;
+#endif
     }
 
     iLevelCode += ((i == uiTrailingOnes) && (uiTrailingOnes < 3)) << 1;
@@ -773,6 +807,9 @@ static int32_t CavlcGetTotalZeros (int32_t& iZerosLeft, SReadBitsCache* pBitsCac
   iCount     = pVlcTable->kpTotalZerosTable[uiTableType][iTotalZeroVlcIdx - 1][uiValue][1];
   POP_BUFFER (pBitsCache, iCount);
   iUsedBits += iCount;
+#ifdef BILLING
+  total_coeff_trailing_ones_and_num_zeros_cost += iCount;
+#endif
   iZerosLeft = pVlcTable->kpTotalZerosTable[uiTableType][iTotalZeroVlcIdx - 1][uiValue][0];
 
   return iUsedBits;
@@ -792,9 +829,15 @@ static int32_t CavlcGetRunBefore (int32_t iRun[16], SReadBitsCache* pBitsCache, 
         POP_BUFFER (pBitsCache, uiCount);
         iUsedBits += uiCount;
         iRun[i] = pVlcTable->kpZeroTable[iZerosLeft - 1][uiValue][0];
+#ifdef BILLING
+        run_cost[i] += uiCount;
+#endif
       } else {
         POP_BUFFER (pBitsCache, uiCount);
         iUsedBits += uiCount;
+#ifdef BILLING
+        run_cost[i] += uiCount;
+#endif
         if (pVlcTable->kpZeroTable[6][uiValue][0] < 7) {
           iRun[i] = pVlcTable->kpZeroTable[6][uiValue][0];
         } else {
@@ -805,6 +848,10 @@ static int32_t CavlcGetRunBefore (int32_t iRun[16], SReadBitsCache* pBitsCache, 
             return -1;
           POP_BUFFER (pBitsCache, iPrefixBits);
           iUsedBits += iPrefixBits;
+#ifdef BILLING
+          run_cost[i] += iPrefixBits;
+#endif
+
         }
       }
     } else {
@@ -907,24 +954,46 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       pTCoeff[j] = iLevel[i];
       // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[0] : kpDequantCoeff[0] << 4;
     }
+#ifdef BILLING
+    ADD_ALL_BILL(PIP_CRDC_TAG);
+#endif
   } else if (iResidualProperty == I16_LUMA_DC) { //DC coefficent, only call in Intra_16x16, base_mode_flag = 0
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into rundecode?
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
       pTCoeff[j] = iLevel[i];
+#ifdef BILLING
+    ADD_ALL_BILL(PIP_LDC_TAG);
+#endif
       // pTDequantCoeffx16[j] = 16;
     }
   } else {
+#ifdef BILLING
+    bill[PIP_NZC_TAG] += total_coeff_trailing_ones_and_num_zeros_cost;
+    int bill_base = PIP_LAC_TAG0;
+    if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {
+        bill_base =  PIP_CRAC_TAG0;
+    }
+#endif
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode?
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
       pTCoeff[j] = iLevel[i];
+#ifdef BILLING
+      for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
+          int jj          = kpZigzagTable[ k ];
+          bill[bill_base + jj] += run_cost[i]/(double)iRun[i];
+      }
+      bill[bill_base + j] += level_cost[i];
+#endif
       // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[j] : kpDequantCoeff[j & 0x07] << 4;
     }
   }
-
+#ifdef BILLING
+  CLEAR_TEMP_BILL();
+#endif
   return 0;
 }
 
@@ -1003,7 +1072,7 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
   pBs->iIndex += iUsedBits;
   iCoeffNum = -1;
 
-  for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode?
+  for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode1?
     int32_t j;
     iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
     j = (iCoeffNum << 2) + iIdx4x4;
@@ -1013,8 +1082,21 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
     pTCoeff[j] = iLevel[i];
     // pTDequantCoeffx16[j] = uiQp >= 36 ? kpDequantCoeff[j] << (uiQp / 6 - 2)
     //             : (iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6);
+#ifdef BILLING
+      int bill_base = PIP_LAC_TAG0;
+      if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {
+          bill_base =  PIP_CRAC_TAG0;
+      }
+      for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
+          int jj          = kpZigzagTable[ k ];
+          bill[bill_base + jj] += run_cost[i]/(double)iRun[i];
+      }
+      bill[bill_base + j] += level_cost[i];
+#endif
   }
-
+#ifdef BILLING
+  CLEAR_TEMP_BILL();
+#endif
   return 0;
 }
 
@@ -1042,10 +1124,16 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
   case MB_TYPE_16x16: {
     int32_t iRefIdx = 0;
     if (pSlice->sSliceHeaderExt.bAdaptiveMotionPredFlag) {
+#ifdef BILLING
+      curBillTag = PIP_PRED_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //motion_prediction_flag_l0[ mbPartIdx ]
       iMotionPredFlag[0] = uiCode;
     }
     if (iMotionPredFlag[0] == 0) {
+#ifdef BILLING
+        curBillTag = PIP_REF_TAG;
+#endif
       WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //motion_prediction_flag_l1[ mbPartIdx ]
       iRefIdx = uiCode;
       // Security check: iRefIdx should be in range 0 to num_ref_idx_l0_active_minus1, includsive
@@ -1067,10 +1155,15 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     }
     rtd->iRefIdx[0] = iRefIdx;
     PredMv (iMvArray, iRefIdxArray, 0, 4, iRefIdx, iMv);
-
+#ifdef BILLING
+    curBillTag = PIP_MVX_TAG;
+#endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][0] = iCode;
     iMv[0] += iCode;
+#ifdef BILLING
+    curBillTag = PIP_MVY_TAG;
+#endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][1] = iCode;
     iMv[1] += iCode;
@@ -1082,6 +1175,9 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     int32_t iRefIdx[2];
     for (i = 0; i < 2; i++) {
       if (pSlice->sSliceHeaderExt.bAdaptiveMotionPredFlag) {
+#ifdef BILLING
+        curBillTag = PIP_PRED_TAG;
+#endif
         WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //motion_prediction_flag_l0[ mbPartIdx ]
         iMotionPredFlag[i] = uiCode;
       }
@@ -1092,6 +1188,9 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
         return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
       }
+#ifdef BILLING
+      curBillTag = PIP_REF_TAG;
+#endif
       WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
       iRefIdx[i] = uiCode;
       if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
@@ -1109,10 +1208,15 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     }
     for (i = 0; i < 2; i++) {
       PredInter16x8Mv (iMvArray, iRefIdxArray, i << 3, iRefIdx[i], iMv);
-
+#ifdef BILLING
+      curBillTag = PIP_MVX_TAG;
+#endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][0] = iCode; // MV is [8*i]. Cache is [i]
       iMv[0] += iCode;
+#ifdef BILLING
+      curBillTag = PIP_MVY_TAG;
+#endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][1] = iCode; // MV is [8*i]. Cache is [i]
       iMv[1] += iCode;
@@ -1125,6 +1229,9 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     int32_t iRefIdx[2];
     for (i = 0; i < 2; i++) {
       if (pSlice->sSliceHeaderExt.bAdaptiveMotionPredFlag) {
+#ifdef BILLING
+          curBillTag = PIP_PRED_TAG;
+#endif
         WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //motion_prediction_flag_l0[ mbPartIdx ]
         iMotionPredFlag[i] = uiCode;
       }
@@ -1132,6 +1239,9 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 
     for (i = 0; i < 2; i++) {
       if (iMotionPredFlag[i] == 0) {
+#ifdef BILLING
+          curBillTag = PIP_REF_TAG;
+#endif
         WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
         iRefIdx[i] = uiCode;
         if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
@@ -1155,9 +1265,15 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     for (i = 0; i < 2; i++) {
       PredInter8x16Mv (iMvArray, iRefIdxArray, i << 2, iRefIdx[i], iMv);
 
+#ifdef BILLING
+      curBillTag = PIP_MVX_TAG;
+#endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][0] = iCode; // MV is [2*i]. Cache is [i]
       iMv[0] += iCode;
+#ifdef BILLING
+      curBillTag = PIP_MVY_TAG;
+#endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][1] = iCode; // MV is [2*i]. Cache is [i]
       iMv[1] += iCode;
@@ -1178,6 +1294,10 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 
     //uiSubMbType, partition
     for (i = 0; i < 4; i++) {
+#ifdef BILLING
+      curBillTag = PIP_SUB_MB_TAG;
+#endif
+
       WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //sub_mb_type[ mbPartIdx ]
       uiSubMbType = uiCode;
       if (uiSubMbType >= 4) { //invalid uiSubMbType
@@ -1193,6 +1313,10 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 
     if (pSlice->sSliceHeaderExt.bAdaptiveMotionPredFlag) {
       for (i = 0; i < 4; i++) {
+#ifdef BILLING
+        curBillTag = PIP_PRED_TAG;
+#endif
+
         WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //motion_prediction_flag_l0[ mbPartIdx ]
         iMotionPredFlag[i] = uiCode;
       }
@@ -1207,6 +1331,9 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         uint8_t uiScan4Idx = g_kuiScan4[iIndex8];
 
         if (iMotionPredFlag[i] == 0) {
+#ifdef BILLING
+        curBillTag = PIP_REF_TAG;
+#endif
           WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
           iRefIdx[i] = uiCode;
           if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
@@ -1248,10 +1375,15 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         uiScan4Idx = g_kuiScan4[iPartIdx];
         uiCacheIdx = g_kuiCache30ScanIdx[iPartIdx];
         PredMv (iMvArray, iRefIdxArray, iPartIdx, iBlockWidth, iRefIdx[i], iMv);
-
+#ifdef BILLING
+        curBillTag = PIP_MVX_TAG;
+#endif
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[0] += iCode;
         rtd->sMbMvp[uiScan4Idx][0] = iCode;
+#ifdef BILLING
+        curBillTag = PIP_MVY_TAG;
+#endif
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[1] += iCode;
         rtd->sMbMvp[uiScan4Idx][1] = iCode;

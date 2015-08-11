@@ -64,73 +64,6 @@ void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
 
 namespace WelsDec {
 
-#define GENERATE_LZMA_MODE_FILE 1
-#if GENERATE_LZMA_MODE_FILE
-enum {
-    PIP_DEFAULT_TAG,
-    PIP_SKIP_TAG,
-    PIP_SKIP_END_TAG,
-    PIP_CBPC_TAG,
-    PIP_CBPL_TAG,
-    PIP_LAST_MB_TAG,
-    PIP_QPL_TAG,
-    PIP_MB_TYPE_TAG,
-    PIP_REF_TAG,
-    PIP_8x8_TAG,
-    PIP_16x16_TAG,
-    PIP_PRED_TAG,
-    PIP_PRED_MODE_TAG,
-    PIP_SUB_MB_TAG,
-    PIP_MVX_TAG,
-    PIP_MVY_TAG,
-    PIP_LDC_TAG,
-    PIP_CRDC_TAG,
-    PIP_LAST_NONVAR_TAG
-};
-const int PIP_AC_STEP = 1;
-enum {
-    PIP_LAC_TAG0 = PIP_LAST_NONVAR_TAG,
-    PIP_CRAC_TAG0 = PIP_LAST_NONVAR_TAG + 16,
-    PIP_LAST_VAR_TAG = PIP_LAST_NONVAR_TAG + 24
-};
-enum {
-    PIP_PREV_PRED_TAG = PIP_LAST_VAR_TAG,
-    PIP_PREV_PRED_MODE_TAG,
-    PIP_NZC_TAG
-};
-#else
-enum {
-    PIP_DEFAULT_TAG=1,
-    PIP_SKIP_TAG=1,
-    PIP_SKIP_END_TAG=1,
-    PIP_CBPC_TAG=1,
-    PIP_CBPL_TAG=1,
-    PIP_LAST_MB_TAG=1,
-    PIP_QPL_TAG=1,
-    PIP_QPC_TAG=1,
-    PIP_MB_TYPE_TAG=1,
-    PIP_REF_TAG=1,
-    PIP_8x8_TAG=1,
-    PIP_16x16_TAG=1,
-    PIP_PRED_TAG=1,
-    PIP_PRED_MODE_TAG=1,
-    PIP_SUB_MB_TAG=1,
-    PIP_MVX_TAG=1,
-    PIP_MVY_TAG=1,
-    PIP_LDC_TAG=1,
-    PIP_CRDC_TAG=1,
-};
-const int PIP_AC_STEP = 0;
-enum {
-    PIP_LAC_TAG0 = 1,
-    PIP_CRAC_TAG0 = 1,
-};
-enum {
-    PIP_PREV_PRED_TAG = 1,
-    PIP_PREV_PRED_MODE_TAG=1,
-    PIP_NZC_TAG=1
-};
-#endif
 
 static void initRTDFromDecoderState(DecodedMacroblock &rtd,
         PDqLayer pCurLayer) {
@@ -534,9 +467,15 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     int32_t iPrevIntra4x4PredMode = 0;
     rtd->iRemIntra4x4PredMode[i] = 0;
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
       iPrevIntra4x4PredMode = iCode;
     } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
     }
@@ -552,6 +491,10 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       if (iPrevIntra4x4PredMode) {
         iBestMode = kiPredMode;
       } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
+
         WELS_READ_VERIFY (BsGetBits (pBs, 3, &uiCode));
         rtd->iRemIntra4x4PredMode[i] = uiCode;
         iBestMode = uiCode + ((int32_t) uiCode >= kiPredMode);
@@ -585,6 +528,10 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     }
     pCurDqLayer->pChromaPredMode[iMbXy] = iCode;
   } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
+
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //intra_chroma_pred_mode
     if (uiCode > MAX_PRED_MODE_ID_CHROMA) {
       return ERR_INFO_INVALID_I_CHROMA_PRED_MODE;
@@ -622,6 +569,9 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
       iPrevIntra4x4PredMode = iCode;
     } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
     }
@@ -637,6 +587,9 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       if (iPrevIntra4x4PredMode) {
         iBestMode = kiPredMode;
       } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
         WELS_READ_VERIFY (BsGetBits (pBs, 3, &uiCode));
         rtd->iRemIntra4x4PredMode[i] = uiCode;
         iBestMode = uiCode + ((int32_t) uiCode >= kiPredMode);
@@ -667,6 +620,9 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     }
     pCurDqLayer->pChromaPredMode[iMbXy] = iCode;
   } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //intra_chroma_pred_mode
     if (uiCode > MAX_PRED_MODE_ID_CHROMA) {
       return ERR_INFO_INVALID_I_CHROMA_PRED_MODE;
@@ -704,6 +660,9 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
     }
     pCurDqLayer->pChromaPredMode[iMbXy] = iCode;
   } else {
+#ifdef BILLING
+      curBillTag = PIP_PRED_MODE_TAG;
+#endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //intra_chroma_pred_mode
     if (uiCode > MAX_PRED_MODE_ID_CHROMA) {
       return ERR_INFO_INVALID_I_CHROMA_PRED_MODE;
@@ -2200,6 +2159,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       if (curSkipped == 1 && endOfSlice) {
         // If we end a slice with a skip, we need to output the first part of
         // a macroblock containing the length of the skip.
+#ifdef BILLING
+      curBillTag = PIP_SKIP_TAG;
+#endif
         BsWriteUE (&es.wrBs, origSkipped);
       }
       EmitDefBitsToOMovie emission;
@@ -2213,10 +2175,16 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       // We always will need at least one stop bit.
       // This bit value is not actually read, just used to compare the
       // size of the input bitstring to determine the uiEosFlag.
+#ifdef BILLING
+      curBillTag = PIP_SKIP_END_TAG;
+#endif
       BsWriteOneBit (&es.wrBs, 0);
       if (!endOfSlice) {
         // This extra bit tells the deoder that there is at least one more
         // bit before the stop bit, hence not end of slice.
+#ifdef BILLING
+      curBillTag = PIP_SKIP_END_TAG;
+#endif
         BsWriteOneBit (&es.wrBs, 0);
       }
       size_t len = ((es.wrBs.pCurBuf - es.wrBs.pStartBuf) << 3) + (32 - es.wrBs.iLeftBits);
@@ -2457,7 +2425,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
-
+#ifdef BILLING
+  curBillTag = PIP_MB_TYPE_TAG;
+#endif
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
   if (uiMbType > 25)
@@ -2520,6 +2490,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
     pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
     if (pCtx->pPps->bTransform8x8ModeFlag) {
+#ifdef BILLING
+      curBillTag = PIP_8x8_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
       pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;
       if (pCurLayer->pTransformSize8x8Flag[iMbXy]) {
@@ -2535,6 +2508,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     }
 
     //uiCbp
+#ifdef BILLING
+      curBillTag = PIP_16x16_TAG;
+#endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //coded_block_pattern
     uiCbp = uiCode;
     //G.9.1 Alternative parsing process for coded pBlock pattern
@@ -2585,6 +2561,9 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
   if (pCurLayer->pCbp[iMbXy] || MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, 384 * sizeof (pCurLayer->pScaledTCoeff[iMbXy][0]));
     int32_t iQpDelta, iId8x8, iId4x4;
+#ifdef BILLING
+      curBillTag = PIP_QPL_TAG;
+#endif
 
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mb_qp_delta
     iQpDelta = iCode;
@@ -2782,6 +2761,10 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
   {
   pCurLayer->pInterPredictionDoneFlag[iMbXy] = 0;//2009.10.23
+#ifdef BILLING
+      curBillTag = PIP_MB_TYPE_TAG;
+#endif
+
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //uiMbType
   uiMbType = uiCode;
   if (uiMbType < 5) { //inter MB type
@@ -2795,6 +2778,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
     }
 
     if (pSlice->sSliceHeaderExt.bAdaptiveResidualPredFlag == 1) {
+#ifdef BILLING
+      curBillTag = PIP_PRED_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //residual_prediction_flag
       pCurLayer->pResidualPredFlag[iMbXy] =  uiCode;
     } else {
@@ -2876,6 +2862,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
         ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
         pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
         if (pCtx->pPps->bTransform8x8ModeFlag) {
+#ifdef BILLING
+            curBillTag = PIP_8x8_TAG;
+#endif
           WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
           pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;
           if (pCurLayer->pTransformSize8x8Flag[iMbXy]) {
@@ -2908,6 +2897,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   }
 
   if (MB_TYPE_INTRA16x16 != pCurLayer->pMbType[iMbXy]) {
+#ifdef BILLING
+      curBillTag = PIP_16x16_TAG;
+#endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //coded_block_pattern
     uiCbp = uiCode;
     {
@@ -2938,6 +2930,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
        && (pCtx->pPps->bTransform8x8ModeFlag));
 
     if (bNeedParseTransformSize8x8Flag) {
+#ifdef BILLING
+      curBillTag = PIP_8x8_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
       pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;
     }
@@ -2960,6 +2955,9 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   if (pCurLayer->pCbp[iMbXy] || MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
     int32_t iQpDelta, iId8x8, iId4x4;
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
+#ifdef BILLING
+      curBillTag = PIP_16x16_TAG;
+#endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mb_qp_delta
     iQpDelta = iCode;
 
@@ -3114,6 +3112,9 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
   pCurLayer->pNoSubMbPartSizeLessThan8x8Flag[iMbXy] = true;
   pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
   if (-1 == pSlice->iMbSkipRun) {
+#ifdef BILLING
+      curBillTag = PIP_SKIP_TAG;
+#endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //mb_skip_run
     pSlice->iMbSkipRun = uiCode;
     if (-1 == pSlice->iMbSkipRun) {
@@ -3167,6 +3168,9 @@ int32_t WelsDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, PNalUnit pNalCur, uin
     pCurLayer->pCbp[iMbXy] = 0;
   } else {
     if (pSlice->sSliceHeaderExt.bAdaptiveBaseModeFlag == 1) {
+#ifdef BILLING
+      curBillTag = PIP_MB_TYPE_TAG;
+#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //base_mode_flag
       iBaseModeFlag = uiCode;
     } else {
