@@ -34,4 +34,50 @@ struct DecodedMacroblock {
   void preInit(const WelsDec::PSlice);
 };
 
+
+struct FreqImage {
+    std::vector<DecodedMacroblock>frame[2];
+    unsigned int width;
+    unsigned int height;
+    bool priorValid;
+    unsigned char cur;
+    int lastFrameId;
+    FreqImage () {
+        cur = lastFrameId = 0;
+        width = 0;
+        height = 0;
+        priorValid = false;
+    }
+    void updateFrame(int frame) {
+        if (frame != lastFrameId) {
+            cur = cur?0:1;
+            lastFrameId = frame;
+        }
+    }
+    DecodedMacroblock& at(int x, int y) {
+        return frame[cur][y * width + x];
+    }
+    DecodedMacroblock& at(int mb_index) {
+        return frame[cur][mb_index];
+    }
+    DecodedMacroblock& last(int x, int y) {
+        return frame[1 - cur][y * width + x];
+    }
+    DecodedMacroblock& last(int mb_index) {
+        return frame[1 - cur][mb_index];
+    }
+    const DecodedMacroblock& at(int x, int y) const{
+        return frame[cur][y * width + x];
+    }
+    const DecodedMacroblock& at(int mb_index) const{
+        return frame[cur][mb_index];
+    }
+    const DecodedMacroblock& last(int x, int y) const{
+        return frame[1 - cur][y * width + x];
+    }
+    const DecodedMacroblock& last(int mb_index) const{
+        return frame[1 - cur][mb_index];
+    }
+};
+
 #endif

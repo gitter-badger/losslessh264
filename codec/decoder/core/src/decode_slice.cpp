@@ -63,7 +63,17 @@ void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
 }
 
 namespace WelsDec {
-
+static void initCoeffsFromCoefPtr(DecodedMacroblock &rtd,
+                                  int16_t * pScaledTCoeffQorNot) {
+    memcpy(rtd.odata.lumaAC, pScaledTCoeffQorNot, sizeof(rtd.odata.lumaAC));
+    memcpy(rtd.odata.chromaAC, pScaledTCoeffQorNot + sizeof(rtd.odata.lumaAC) / sizeof(rtd.odata.lumaAC[0]), sizeof(rtd.odata.chromaAC));
+    for (int i = 0; i < 256; i += 16) {
+        rtd.odata.lumaDC[i / 16] = pScaledTCoeffQorNot[i];
+    }
+    for (int i = 256; i < 384; i += 16) {
+        rtd.odata.chromaDC[(i / 16) - 16] = pScaledTCoeffQorNot[i];
+    }
+}
 
 static void initRTDFromDecoderState(DecodedMacroblock &rtd,
         PDqLayer pCurLayer) {
@@ -89,14 +99,7 @@ static void initRTDFromDecoderState(DecodedMacroblock &rtd,
     rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
     rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
 
-    memcpy(rtd.odata.lumaAC, pCurLayer->pScaledTCoeffQuant[iMbXy], sizeof(rtd.odata.lumaAC));
-    memcpy(rtd.odata.chromaAC, pCurLayer->pScaledTCoeffQuant[iMbXy] + sizeof(rtd.odata.lumaAC) / sizeof(rtd.odata.lumaAC[0]), sizeof(rtd.odata.chromaAC));
-    for (int i = 0; i < 256; i += 16) {
-        rtd.odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeffQuant[iMbXy][i];
-    }
-    for (int i = 256; i < 384; i += 16) {
-        rtd.odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeffQuant[iMbXy][i];
-    }
+    initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeffQuant[iMbXy]);
 }
 
 int32_t WelsTargetSliceConstruction (PWelsDecoderContext pCtx) {
@@ -1842,6 +1845,21 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   iNextMbXyIndex = pSliceHeader->iFirstMbInSlice;
   iMbX = iNextMbXyIndex % pCurLayer->iMbWidth;
   iMbY = iNextMbXyIndex / pCurLayer->iMbWidth; // error is introduced by multiple slices case, 11/23/2009
+  static FreqImage imageCache;
+  imageCache.priorValid = true;
+  imageCache.updateFrame(pCtx->iFrameNum);
+  if ((int)imageCache.width != pCurLayer->iMbWidth
+      ||(int)imageCache.height != pCurLayer->iMbHeight) {
+      if (imageCache.width) {
+          fprintf(stderr, "Warning suboptimal resolution switch %d %d -> %d %d, throwing out prior (maybe want to resize?)\n",
+                  imageCache.width, imageCache.height, pCurLayer->iMbWidth, pCurLayer->iMbHeight);
+      }
+      imageCache.priorValid = false;// should we splay the data across and resize it?
+      imageCache.width = pCurLayer->iMbWidth;
+      imageCache.height = pCurLayer->iMbHeight;
+      imageCache.frame[0].resize(imageCache.width * imageCache.height);
+      imageCache.frame[1].resize(imageCache.width * imageCache.height);      
+  }
   pSlice->iMbSkipRun = -1;
   iSliceIdc = (pSliceHeader->iFirstMbInSlice << 7) + pCurLayer->uiLayerDqId;
   static int slice_group = 0;
@@ -2377,6 +2395,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
 #endif
       }
+    }
+
+    {
+        // save out dequantized values instead
+        initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeff[pCurLayer->iMbXyIndex]);
+        imageCache.at(iMbX, iMbY) = rtd;
     }
     ++which_block;
     ++pSlice->iTotalMbInCurSlice;
