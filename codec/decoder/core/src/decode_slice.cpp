@@ -89,13 +89,13 @@ static void initRTDFromDecoderState(DecodedMacroblock &rtd,
     rtd.uiNumRefIdxL0Active = pSliceHeader->uiRefCount[0]; // Number of reference frames.
     rtd.uiLumaQp = pCurLayer->pLumaQp[iMbXy];
 
-    memcpy(rtd.odata.lumaAC, pCurLayer->pScaledTCoeff[iMbXy], sizeof(rtd.odata.lumaAC));
-    memcpy(rtd.odata.chromaAC, pCurLayer->pScaledTCoeff[iMbXy] + sizeof(rtd.odata.lumaAC) / sizeof(rtd.odata.lumaAC[0]), sizeof(rtd.odata.chromaAC));
+    memcpy(rtd.odata.lumaAC, pCurLayer->pScaledTCoeffQuant[iMbXy], sizeof(rtd.odata.lumaAC));
+    memcpy(rtd.odata.chromaAC, pCurLayer->pScaledTCoeffQuant[iMbXy] + sizeof(rtd.odata.lumaAC) / sizeof(rtd.odata.lumaAC[0]), sizeof(rtd.odata.chromaAC));
     for (int i = 0; i < 256; i += 16) {
-        rtd.odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        rtd.odata.lumaDC[i / 16] = pCurLayer->pScaledTCoeffQuant[iMbXy][i];
     }
     for (int i = 256; i < 384; i += 16) {
-        rtd.odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeff[iMbXy][i];
+        rtd.odata.chromaDC[(i / 16) - 16] = pCurLayer->pScaledTCoeffQuant[iMbXy][i];
     }
 }
 
@@ -763,6 +763,7 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
 
   if (pCurLayer->pCbp[iMbXy] || MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, 384 * sizeof (pCurLayer->pScaledTCoeff[iMbXy][0]));
+    memset (pCurLayer->pScaledTCoeffQuant[iMbXy], 0, 384 * sizeof (pCurLayer->pScaledTCoeffQuant[iMbXy][0]));
     int32_t iQpDelta, iId8x8, iId4x4;
     WELS_READ_VERIFY (ParseDeltaQpCabac (pCtx, iQpDelta));
     if (iQpDelta > 25 || iQpDelta < -26) {//out of iQpDelta range
@@ -2560,6 +2561,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
   if (pCurLayer->pCbp[iMbXy] || MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, 384 * sizeof (pCurLayer->pScaledTCoeff[iMbXy][0]));
+    memset (pCurLayer->pScaledTCoeffQuant[iMbXy], 0, 384 * sizeof (pCurLayer->pScaledTCoeffQuant[iMbXy][0]));
     int32_t iQpDelta, iId8x8, iId4x4;
 #ifdef BILLING
       curBillTag = PIP_QPL_TAG;
@@ -2585,7 +2587,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     if (MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
       //step1: Luma DC
       if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, 0, 16,
-                                  g_kuiLumaDcZigzagScan, I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                  g_kuiLumaDcZigzagScan, I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pScaledTCoeffQuant[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
         return -1;//abnormal
       }
       //step2: Luma AC
@@ -2593,7 +2595,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
         for (i = 0; i < 16; i++) {
           if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, i,
                                       iScanIdxEnd - WELS_MAX (iScanIdxStart, 1) + 1, g_kuiZigzagScan + WELS_MAX (iScanIdxStart, 1),
-                                      I16_LUMA_AC, pCurLayer->pScaledTCoeff[iMbXy] + (i << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                      I16_LUMA_AC, pCurLayer->pScaledTCoeff[iMbXy] + (i << 4), pCurLayer->pScaledTCoeffQuant[iMbXy] + (i << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
             return -1;//abnormal
           }
         }
@@ -2611,7 +2613,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
             for (iId4x4 = 0; iId4x4 < 4; iId4x4++) {
               if (WelsResidualBlockCavlc8x8 (pVlcTable, pNonZeroCount, pBs, iIndex,
                                              iScanIdxEnd - iScanIdxStart + 1, g_kuiZigzagScan8x8 + iScanIdxStart, iMbResProperty,
-                                             pCurLayer->pScaledTCoeff[iMbXy] + (iId8x8 << 6), iId4x4, pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                             pCurLayer->pScaledTCoeff[iMbXy] + (iId8x8 << 6), pCurLayer->pScaledTCoeffQuant[iMbXy] + (iId8x8 << 6), iId4x4, pCurLayer->pLumaQp[iMbXy], pCtx)) {
                 return -1;
               }
               iIndex++;
@@ -2633,7 +2635,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
               //Luma (DC and AC decoding together)
               if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, iIndex,
                                           iScanIdxEnd - iScanIdxStart + 1, g_kuiZigzagScan + iScanIdxStart,
-                                          LUMA_DC_AC_INTRA, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                          LUMA_DC_AC_INTRA, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pScaledTCoeffQuant[iMbXy] + (iIndex << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
                 return -1;//abnormal
               }
               iIndex++;
@@ -2656,7 +2658,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
       for (i = 0; i < 2; i++) { //Cb Cr
         iMbResProperty = i ? CHROMA_DC_V : CHROMA_DC_U;
         if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs,
-                                    16 + (i << 2), 4, g_kuiChromaDcScan, iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + 256 + (i << 6),
+                                    16 + (i << 2), 4, g_kuiChromaDcScan, iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + 256 + (i << 6), pCurLayer->pScaledTCoeffQuant[iMbXy] + 256 + (i << 6),
                                     pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
           return -1;//abnormal
         }
@@ -2675,7 +2677,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
         for (iId4x4 = 0; iId4x4 < 4; iId4x4++) {
           if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, iIndex,
                                       iScanIdxEnd - WELS_MAX (iScanIdxStart, 1) + 1, g_kuiZigzagScan + WELS_MAX (iScanIdxStart, 1),
-                                      iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
+                                      iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pScaledTCoeffQuant[iMbXy] + (iIndex << 4), pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
             return -1;//abnormal
           }
           iIndex++;
@@ -2955,6 +2957,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   if (pCurLayer->pCbp[iMbXy] || MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
     int32_t iQpDelta, iId8x8, iId4x4;
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
+    memset (pCurLayer->pScaledTCoeffQuant[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
 #ifdef BILLING
       curBillTag = PIP_16x16_TAG;
 #endif
@@ -2978,7 +2981,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
     if (MB_TYPE_INTRA16x16 == pCurLayer->pMbType[iMbXy]) {
       //step1: Luma DC
       if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, 0, 16, g_kuiLumaDcZigzagScan,
-                                  I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                  I16_LUMA_DC, pCurLayer->pScaledTCoeff[iMbXy], pCurLayer->pScaledTCoeffQuant[iMbXy], pCurLayer->pLumaQp[iMbXy], pCtx)) {
         return -1;//abnormal
       }
       //step2: Luma AC
@@ -2986,7 +2989,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
         for (i = 0; i < 16; i++) {
           if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, i,
                                       iScanIdxEnd - WELS_MAX (iScanIdxStart, 1) + 1, g_kuiZigzagScan + WELS_MAX (iScanIdxStart, 1),
-                                      I16_LUMA_AC, pCurLayer->pScaledTCoeff[iMbXy] + (i << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                      I16_LUMA_AC, pCurLayer->pScaledTCoeff[iMbXy] + (i << 4), pCurLayer->pScaledTCoeffQuant[iMbXy] + (i << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
             return -1;//abnormal
           }
         }
@@ -3004,7 +3007,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
             for (iId4x4 = 0; iId4x4 < 4; iId4x4++) {
               if (WelsResidualBlockCavlc8x8 (pVlcTable, pNonZeroCount, pBs, iIndex,
                                              iScanIdxEnd - iScanIdxStart + 1, g_kuiZigzagScan8x8 + iScanIdxStart, iMbResProperty,
-                                             pCurLayer->pScaledTCoeff[iMbXy] + (iId8x8 << 6), iId4x4, pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                             pCurLayer->pScaledTCoeff[iMbXy] + (iId8x8 << 6),pCurLayer->pScaledTCoeffQuant[iMbXy] + (iId8x8 << 6), iId4x4, pCurLayer->pLumaQp[iMbXy], pCtx)) {
                 return -1;
               }
               iIndex++;
@@ -3027,7 +3030,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
               //Luma (DC and AC decoding together)
               if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, iIndex,
                                           iScanIdxEnd - iScanIdxStart + 1, g_kuiZigzagScan + iScanIdxStart, iMbResProperty,
-                                          pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
+                                          pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4),pCurLayer->pScaledTCoeffQuant[iMbXy] + (iIndex << 4), pCurLayer->pLumaQp[iMbXy], pCtx)) {
                 return -1;//abnormal
               }
               iIndex++;
@@ -3055,7 +3058,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
           iMbResProperty = i ? CHROMA_DC_V_INTER : CHROMA_DC_U_INTER;
 
         if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs,
-                                    16 + (i << 2), 4, g_kuiChromaDcScan, iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + 256 + (i << 6),
+                                    16 + (i << 2), 4, g_kuiChromaDcScan, iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + 256 + (i << 6), pCurLayer->pScaledTCoeffQuant[iMbXy] + 256 + (i << 6),
                                     pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
           return -1;//abnormal
         }
@@ -3077,7 +3080,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
         for (iId4x4 = 0; iId4x4 < 4; iId4x4++) {
           if (WelsResidualBlockCavlc (pVlcTable, pNonZeroCount, pBs, iIndex,
                                       iScanIdxEnd - WELS_MAX (iScanIdxStart, 1) + 1, g_kuiZigzagScan + WELS_MAX (iScanIdxStart, 1),
-                                      iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
+                                      iMbResProperty, pCurLayer->pScaledTCoeff[iMbXy] + (iIndex << 4), pCurLayer->pScaledTCoeffQuant[iMbXy] + (iIndex << 4), pCurLayer->pChromaQp[iMbXy][i], pCtx)) {
             return -1;//abnormal
           }
           iIndex++;

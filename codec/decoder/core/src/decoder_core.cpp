@@ -1266,6 +1266,9 @@ int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWid
     pCtx->sMb.pScaledTCoeff[i] = (int16_t (*)[MB_COEFF_LIST_SIZE])pMa->WelsMallocz (pCtx->sMb.iMbWidth *
                                  pCtx->sMb.iMbHeight *
                                  sizeof (int16_t) * MB_COEFF_LIST_SIZE, "pCtx->sMb.pScaledTCoeff[]");
+    pCtx->sMb.pScaledTCoeffQuant[i] = (int16_t (*)[MB_COEFF_LIST_SIZE])pMa->WelsMallocz (pCtx->sMb.iMbWidth *
+                                 pCtx->sMb.iMbHeight *
+                                 sizeof (int16_t) * MB_COEFF_LIST_SIZE, "pCtx->sMb.pScaledTCoeffQuant[]");
     pCtx->sMb.pIntraPredMode[i] = (int8_t (*)[8])pMa->WelsMallocz (pCtx->sMb.iMbWidth * pCtx->sMb.iMbHeight * sizeof (
                                     int8_t) * 8,
                                   "pCtx->sMb.pIntraPredMode[]");
@@ -1308,6 +1311,7 @@ int32_t InitialDqLayersContext (PWelsDecoderContext pCtx, const int32_t kiMaxWid
                             (NULL == pCtx->sMb.pNzc[i]) ||
                             (NULL == pCtx->sMb.pNzcRs[i]) ||
                             (NULL == pCtx->sMb.pScaledTCoeff[i]) ||
+                            (NULL == pCtx->sMb.pScaledTCoeffQuant[i]) ||
                             (NULL == pCtx->sMb.pIntraPredMode[i]) ||
                             (NULL == pCtx->sMb.pIntra4x4FinalMode[i]) ||
                             (NULL == pCtx->sMb.pChromaPredMode[i]) ||
@@ -1413,6 +1417,12 @@ void UninitialDqLayersContext (PWelsDecoderContext pCtx) {
       pMa->WelsFree (pCtx->sMb.pScaledTCoeff[i], "pCtx->sMb.pScaledTCoeff[]");
 
       pCtx->sMb.pScaledTCoeff[i] = NULL;
+    }
+
+    if (pCtx->sMb.pScaledTCoeffQuant[i]) {
+      pMa->WelsFree (pCtx->sMb.pScaledTCoeffQuant[i], "pCtx->sMb.pScaledTCoeff[]");
+
+      pCtx->sMb.pScaledTCoeffQuant[i] = NULL;
     }
 
     if (pCtx->sMb.pIntraPredMode[i]) {
@@ -2078,6 +2088,7 @@ void InitCurDqLayerData (PWelsDecoderContext pCtx, PDqLayer pCurDq) {
     pCurDq->pNzc            = pCtx->sMb.pNzc[0];
     pCurDq->pNzcRs          = pCtx->sMb.pNzcRs[0];
     pCurDq->pScaledTCoeff   = pCtx->sMb.pScaledTCoeff[0];
+    pCurDq->pScaledTCoeffQuant   = pCtx->sMb.pScaledTCoeffQuant[0];
     pCurDq->pIntraPredMode  = pCtx->sMb.pIntraPredMode[0];
     pCurDq->pIntra4x4FinalMode = pCtx->sMb.pIntra4x4FinalMode[0];
     pCurDq->pIntraNxNAvailFlag = pCtx->sMb.pIntraNxNAvailFlag[0];

@@ -81,6 +81,7 @@ struct TagDqLayer {
   bool*    pMbCorrectlyDecodedFlag;
   bool*    pMbRefConcealedFlag;
   int16_t (*pScaledTCoeff)[MB_COEFF_LIST_SIZE];
+  int16_t (*pScaledTCoeffQuant)[MB_COEFF_LIST_SIZE];
   int8_t (*pIntraPredMode)[8];  //0~3 top4x4 ; 4~6 left 4x4; 7 intra16x16
   int8_t (*pIntra4x4FinalMode)[MB_BLOCK4x4_NUM];
   uint8_t  *pIntraNxNAvailFlag;

@@ -871,7 +871,7 @@ static int32_t CavlcGetRunBefore (int32_t iRun[16], SReadBitsCache* pBitsCache, 
 
 int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCache, PBitStringAux pBs, int32_t iIndex,
                                 int32_t iMaxNumCoeff,
-                                const uint8_t* kpZigzagTable, int32_t iResidualProperty, int16_t* pTCoeff, uint8_t uiQp,
+                                const uint8_t* kpZigzagTable, int32_t iResidualProperty, int16_t* pTCoeff, int16_t *pTCoeffRaw, uint8_t uiQp,
                                 PWelsDecoderContext pCtx) {
   int32_t iLevel[16], iZerosLeft, iCoeffNum;
   int32_t  iRun[16];
@@ -880,8 +880,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
 
   int32_t iMbResProperty = 0;
   GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
-  //const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
-  //                                 g_kuiDequantCoeff[uiQp];
+  const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
+                                   g_kuiDequantCoeff[uiQp];
 
   int8_t nA, nB, nC;
   uint8_t uiTotalCoeff, uiTrailingOnes;
@@ -951,8 +951,9 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
-      pTCoeff[j] = iLevel[i];
-      // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[0] : kpDequantCoeff[0] << 4;
+      pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[0]) >> 4 : (iLevel[i] * kpDequantCoeff[0]);
+      pTCoeffRaw[j] = iLevel[i];
+      //pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[0] : kpDequantCoeff[0] << 4;
     }
 #ifdef BILLING
     ADD_ALL_BILL(PIP_CRDC_TAG);
@@ -962,11 +963,10 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
-      pTCoeff[j] = iLevel[i];
+      pTCoeff[j] = pTCoeffRaw[j] = iLevel[i];
 #ifdef BILLING
-    ADD_ALL_BILL(PIP_LDC_TAG);
+      ADD_ALL_BILL(PIP_LDC_TAG);
 #endif
-      // pTDequantCoeffx16[j] = 16;
     }
   } else {
 #ifdef BILLING
@@ -980,7 +980,9 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       int32_t j;
       iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
       j          = kpZigzagTable[ iCoeffNum ];
-      pTCoeff[j] = iLevel[i];
+      pTCoeffRaw[j] = iLevel[i];
+      pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[j]) >> 4 : (iLevel[i] * kpDequantCoeff[j & 0x07]);
+
 #ifdef BILLING
       for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
           int jj          = kpZigzagTable[ k ];
@@ -988,7 +990,6 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       }
       bill[bill_base + j] += level_cost[i];
 #endif
-      // pTDequantCoeffx16[j] = pCtx->bUseScalingList ? kpDequantCoeff[j] : kpDequantCoeff[j & 0x07] << 4;
     }
   }
 #ifdef BILLING
@@ -999,7 +1000,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
 
 int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCache, PBitStringAux pBs, int32_t iIndex,
                                    int32_t iMaxNumCoeff, const uint8_t* kpZigzagTable, int32_t iResidualProperty,
-                                   int16_t* pTCoeff, int32_t  iIdx4x4, uint8_t uiQp,
+                                   int16_t* pTCoeff, int16_t *pTCoeffRaw, int32_t  iIdx4x4, uint8_t uiQp,
                                    PWelsDecoderContext pCtx) {
   int32_t iLevel[16], iZerosLeft, iCoeffNum;
   int32_t  iRun[16];
@@ -1008,8 +1009,8 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
   int32_t iMbResProperty = 0;
   GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
 
-  //const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
-  //                                 g_kuiDequantCoeff8x8[uiQp];
+  const uint16_t* kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
+                                   g_kuiDequantCoeff8x8[uiQp];
 
   int8_t nA, nB, nC;
   uint8_t uiTotalCoeff, uiTrailingOnes;
@@ -1077,11 +1078,9 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
     iCoeffNum += iRun[i] + 1; //FIXME add 1 earlier ?
     j = (iCoeffNum << 2) + iIdx4x4;
     j          = kpZigzagTable[ j ];
-    // pTCoeff[j] = uiQp >= 36 ? ((iLevel[i] * kpDequantCoeff[j]) << (uiQp / 6 - 6))
-    //             : ((iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6));
-    pTCoeff[j] = iLevel[i];
-    // pTDequantCoeffx16[j] = uiQp >= 36 ? kpDequantCoeff[j] << (uiQp / 6 - 2)
-    //             : (iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6);
+    pTCoeff[j] = uiQp >= 36 ? ((iLevel[i] * kpDequantCoeff[j]) << (uiQp / 6 - 6))
+                 : ((iLevel[i] * kpDequantCoeff[j] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6));
+    pTCoeffRaw[j] = iLevel[i];
 #ifdef BILLING
       int bill_base = PIP_LAC_TAG0;
       if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {

@@ -106,6 +106,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable,
                                 int32_t iResidualProperty,
                                 /*short *tCoeffLevel,*/
                                 int16_t* pTCoeff,
+                                int16_t* pTCoeffRaw,
                                 uint8_t uiQp,
                                 PWelsDecoderContext pCtx);
 
@@ -120,6 +121,7 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable,
                                 int32_t iResidualProperty,
                                 /*short *tCoeffLevel,*/
                                 int16_t* pTCoeff,
+                                int16_t* pTCoeffRaw,
                                 int32_t  iIdx4x4,
                                 uint8_t uiQp,
                                 PWelsDecoderContext pCtx);
