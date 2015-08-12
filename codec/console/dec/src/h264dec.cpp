@@ -117,7 +117,7 @@ public:
     }
 };
 
-void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, const char* kpOuputFileName,
+void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, const char* kpOuputFileName, const char * yuvFileName,
                          int32_t& iWidth, int32_t& iHeight, const char* pOptionFileName, const char* pLengthFileName) {
   FILE* pH264File   = NULL;
   FILE* pYuvFile    = NULL;
@@ -190,7 +190,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   }
 
   if (kpOuputFileName) {
-    pYuvFile = fopen ("/dev/null", "wb");
+    pYuvFile = fopen (yuvFileName, "wb");
     if (pYuvFile == NULL) {
       fprintf (stderr, "Can not open yuv file to output result of decoding..\n");
       // any options
@@ -406,6 +406,7 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
 
   SDecodingParam sDecParam = {0};
   string strInputFile (""), strOutputFile (""), strOptionFile (""), strLengthFile ("");
+  string yuvFile("/dev/null");
   int iLevelSetting = (int) WELS_LOG_WARNING;
 
   sDecParam.sVideoProperty.size = sizeof (sDecParam.sVideoProperty);
@@ -475,32 +476,35 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
     sDecParam.eEcActiveIdc = ERROR_CON_SLICE_COPY;
     sDecParam.sVideoProperty.eVideoBsType = VIDEO_BITSTREAM_DEFAULT;
     if (iArgC > 3) {
-      for (int i = 3; i < iArgC; i++) {
-        char* cmd = pArgV[i];
-
-        if (!strcmp (cmd, "-options")) {
-          if (i + 1 < iArgC)
-            strOptionFile = pArgV[++i];
-          else {
-            printf ("options file not specified.\n");
-            return 1;
-          }
-        } else if (!strcmp (cmd, "-trace")) {
-          if (i + 1 < iArgC)
-            iLevelSetting = atoi (pArgV[++i]);
-          else {
-            printf ("trace level not specified.\n");
-            return 1;
-          }
-        } else if (!strcmp (cmd, "-length")) {
-          if (i + 1 < iArgC)
-            strLengthFile = pArgV[++i];
-          else {
-            printf ("lenght file not specified.\n");
-            return 1;
-          }
+        yuvFile = pArgV[3];
+        if (iArgC > 4) {
+            for (int i = 3; i < iArgC; i++) {
+                char* cmd = pArgV[i];
+                
+                if (!strcmp (cmd, "-options")) {
+                    if (i + 1 < iArgC)
+                        strOptionFile = pArgV[++i];
+                    else {
+                        printf ("options file not specified.\n");
+                        return 1;
+                    }
+                } else if (!strcmp (cmd, "-trace")) {
+                    if (i + 1 < iArgC)
+                        iLevelSetting = atoi (pArgV[++i]);
+                    else {
+                        printf ("trace level not specified.\n");
+                        return 1;
+                    }
+                } else if (!strcmp (cmd, "-length")) {
+                    if (i + 1 < iArgC)
+                        strLengthFile = pArgV[++i];
+                    else {
+                        printf ("lenght file not specified.\n");
+                        return 1;
+                    }
+                }
+            }
         }
-      }
     }
 
     if (strOutputFile.empty()) {
@@ -535,7 +539,7 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
   int32_t iHeight = 0;
 
 
-  H264DecodeInstance (pDecoder, strInputFile.c_str(), !strOutputFile.empty() ? strOutputFile.c_str() : NULL, iWidth,
+  H264DecodeInstance (pDecoder, strInputFile.c_str(), !strOutputFile.empty() ? strOutputFile.c_str() : NULL, yuvFile.c_str(), iWidth,
                       iHeight,
                       (!strOptionFile.empty() ? strOptionFile.c_str() : NULL), (!strLengthFile.empty() ? strLengthFile.c_str() : NULL));
 
