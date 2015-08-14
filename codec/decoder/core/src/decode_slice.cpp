@@ -1858,7 +1858,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       imageCache.width = pCurLayer->iMbWidth;
       imageCache.height = pCurLayer->iMbHeight;
       imageCache.frame[0].resize(imageCache.width * imageCache.height);
-      imageCache.frame[1].resize(imageCache.width * imageCache.height);      
+      imageCache.frame[1].resize(imageCache.width * imageCache.height);
   }
   pSlice->iMbSkipRun = -1;
   iSliceIdc = (pSliceHeader->iFirstMbInSlice << 7) + pCurLayer->uiLayerDqId;
@@ -1875,12 +1875,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       break;
     }
     static int which_block = 0;
-
+    //Neighbors neighbors(&imageCache, iMbX, iMbY);
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
     DecodedMacroblock rtd;
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
-    oMovie().model().initCurrentMacroblock(&rtd, pCtx);
+    oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
     woffset = 0;
     if (oMovie().isRecoding) {
 #ifdef DEBUG_PRINTS

@@ -3,6 +3,7 @@
 
 #include "array_nd.h"
 #include "compression_stream.h"
+
 const char *billEnumToName(int en);
 #define GENERATE_LZMA_MODE_FILE 1
 #if GENERATE_LZMA_MODE_FILE
@@ -75,7 +76,18 @@ enum {
     PIP_NZC_TAG=1
 };
 #endif
-class DecodedMacroblock;
+struct DecodedMacroblock;
+struct FreqImage;
+namespace Nei {
+    enum NeighborType{LEFT, ABOVE, ABOVELEFT, ABOVERIGHT, PAST, NUMNEIGHBORS};
+}
+struct Neighbors {
+
+    const DecodedMacroblock *n[Nei::NUMNEIGHBORS];
+    const DecodedMacroblock *operator[](Nei::NeighborType index) const {return n[index];}
+    void init(const FreqImage *f, int x, int y);
+};
+
 namespace WelsDec{
     struct TagWelsDecoderContext;
     typedef struct TagWelsDecoderContext *PWelsDecoderContext;
@@ -85,11 +97,11 @@ class MacroblockModel {
 
     DecodedMacroblock *mb;
     WelsDec::PWelsDecoderContext pCtx;
-
-    Sirikata::Array2d<DynProb, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
+    Neighbors n;
+    Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
 public:
-    void initCurrentMacroblock(
-            DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx);
+    void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
+                               const FreqImage *, int mbx, int mby);
 
     Branch<4> getMacroblockTypePrior();
     int encodeMacroblockType(int welsType);

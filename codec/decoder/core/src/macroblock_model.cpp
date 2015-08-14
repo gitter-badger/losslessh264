@@ -4,6 +4,30 @@
 #include "macroblock_model.h"
 #include "decoder_context.h"
 #include "wels_common_defs.h"
+#include "decoded_macroblock.h"
+
+void Neighbors::init(const FreqImage *f, int x, int y) {
+    using namespace Nei;
+    for (int i = 0; i < Nei::NUMNEIGHBORS; ++i) {
+        n[i] = nullptr;
+    }
+    if (x > 0) {
+        n[Nei::LEFT] = &f->at(x-1, y);
+        if (y > 0) {
+            n[Nei::ABOVELEFT] = &f->at(x-1, y-1);
+        }
+    }
+    if (y > 0) {
+        n[Nei::ABOVE] = &f->at(x, y-1);
+        if (x + 1 < f->width) {
+            n[Nei::ABOVERIGHT] = &f->at(x + 1, y - 1);
+        }
+    }
+    if (f->priorValid) {
+        n[Nei::PAST] = &f->last(x, y);
+    }
+}
+
 int curBillTag = 0;
 double bill[NUM_TOTAL_TAGS] = {0};
 const char * billEnumToName(int en) {
@@ -81,13 +105,35 @@ struct BillTally {
 } tallyAtEnd;
 #endif
 void MacroblockModel::initCurrentMacroblock(
-            DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx) {
+                                            DecodedMacroblock *curMb,
+                                            WelsDec::PWelsDecoderContext pCtx,
+                                            const FreqImage*f,
+                                            int mbx, int mby) {
     this->mb = curMb;
     this->pCtx = pCtx;
+    this->n.init(f, mbx, mby);
 }
 
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
-    return mbTypePriors.at((uint32_t)(
+    using namespace Nei;
+    int leftType = 15;
+    int aboveType = 15;
+    int prevType = 15;
+    int prior = 15;
+    if (n[ABOVE]) {
+        aboveType = encodeMacroblockType(n[ABOVE]->uiMbType);
+        prior = aboveType;
+    }
+    if (n[LEFT]) {
+        leftType = encodeMacroblockType(n[LEFT]->uiMbType);
+        prior = leftType;
+    }
+    if (n[PAST]) {
+        prevType = encodeMacroblockType(n[PAST]->uiMbType);
+    }
+
+    prior += prevType;
+    return mbTypePriors.at(prior,(uint32_t)(
         pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
              .sSliceHeader.eSliceType == P_SLICE));
 }
@@ -116,6 +162,8 @@ int MacroblockModel::encodeMacroblockType(int welsType) {
         case MB_TYPE_DIRECT2:
             return 10;
         case MB_TYPE_SKIP:
+        case 0: // this doesn't get set in the roundtrip
+            return 11;
         default:
             fprintf(stderr, "Invalid macroblock type %d\n", welsType);
             assert(false && "Invalid macroblock type");

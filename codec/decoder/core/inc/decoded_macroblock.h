@@ -23,17 +23,20 @@ struct DecodedMacroblock {
   uint32_t uiMbType;
   uint32_t uiNumRefIdxL0Active;
   uint32_t uiLumaQp;
-
+  uint8_t numLumaNonzeros;
+  uint8_t numChromaNonzeros;
+  uint8_t numSubLumaNonzeros[16];
+  uint8_t numSubChromaNonzeros[16];
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
         uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0),
         uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
-        uiNumRefIdxL0Active(), uiLumaQp() {
+        uiNumRefIdxL0Active(), uiLumaQp(),
+        numLumaNonzeros(0), numChromaNonzeros(0), numSubLumaNonzeros(), numSubChromaNonzeros() {
   }
   void preInit(const WelsDec::PSlice);
 };
-
 
 struct FreqImage {
     std::vector<DecodedMacroblock>frame[2];
