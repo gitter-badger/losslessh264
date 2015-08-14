@@ -131,7 +131,7 @@ uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
     mb->numChromaNonzeros_ = retval;
     return retval;
 }
-Branch<9> MacroblockModel::getLumaNumNonzerosPrior() {
+Branch<8> MacroblockModel::getLumaNumNonzerosPrior() {
     int prior = 0;
     using namespace Nei;
 
@@ -153,10 +153,19 @@ Branch<9> MacroblockModel::getLumaNumNonzerosPrior() {
             }
         }
     }
-    return numNonZerosLumaPriors.at(prior,encodeMacroblockType(mb->uiMbType));
+    return numNonZerosLumaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
 }
-Branch<8> MacroblockModel::getChromaNumNonzerosPrior() {
-    return numNonZerosChromaPriors.at(0,0);
+Branch<7> MacroblockModel::getChromaNumNonzerosPrior() {
+
+    int prior = 0;
+    using namespace Nei;
+
+    if (n[PAST]) {
+        prior = n[PAST]->numChromaNonzeros_;
+    } else {
+        prior = mb->numLumaNonzeros_ / 2;
+    }
+    return numNonZerosChromaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
 }
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;

@@ -100,14 +100,14 @@ class MacroblockModel {
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
      Sirikata::Array3d<DynProb,
-        257, // neighbor 4x16 + 16x4
+        257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
-        511 // number of nonzero values possible
+        255 // number of nonzero values possible
         > numNonZerosLumaPriors;
     Sirikata::Array3d<DynProb,
-                      32,  // (2x4 + 4x2) * 2 (U, V) num nonzeros for this macroblock
+                      129, // prev frame num nonzeros
                       16, // mbType
-                      255> numNonZerosChromaPriors;
+                      127> numNonZerosChromaPriors;
     Sirikata::Array3d<DynProb,
         256, // num nonzeros for this macroblock
         16, //mbType
@@ -121,8 +121,8 @@ public:
                                const FreqImage *, int mbx, int mby);
 
     Branch<4> getMacroblockTypePrior();
-    Branch<9> getLumaNumNonzerosPrior();
-    Branch<8> getChromaNumNonzerosPrior();
+    Branch<8> getLumaNumNonzerosPrior();
+    Branch<7> getChromaNumNonzerosPrior();
     uint16_t getAndUpdateMacroblockLumaNumNonzeros(); // between 0 and 256, inclusive
     uint8_t getAndUpdateMacroblockChromaNumNonzeros(); // between 0 and 128, inclusive
     int encodeMacroblockType(int welsType);
