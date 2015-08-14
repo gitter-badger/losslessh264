@@ -114,6 +114,50 @@ void MacroblockModel::initCurrentMacroblock(
     this->n.init(f, mbx, mby);
 }
 
+uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
+    uint16_t retval = 0;
+    for (int i = 0; i < 256; ++i) {
+        retval += mb->odata.lumaAC[i] ? 1 : 0;
+    }
+    mb->numLumaNonzeros_ = retval;
+    return retval;
+}
+
+uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
+    uint8_t retval = 0;
+    for (int i = 0; i < 128; ++i) {
+        retval += mb->odata.chromaAC[i] ? 1 : 0;
+    }
+    mb->numChromaNonzeros_ = retval;
+    return retval;
+}
+Branch<9> MacroblockModel::getLumaNumNonzerosPrior() {
+    int prior = 0;
+    using namespace Nei;
+
+    if (n[PAST]) {
+        prior = n[PAST]->numLumaNonzeros_;
+    } else {
+        if (n[LEFT]) {
+            for (int i = 0; i < 4; ++i) {
+                for (int j = 0; j < 16; ++j) {
+                    prior += n[LEFT]->odata.lumaAC[i * 64 + 48 + j]  ? 1 : 0;
+                }
+            }
+        }
+        if (n[ABOVE]) {
+            for (int i = 0; i < 4; ++i) {
+                for (int j = 0; j < 16; ++j) {
+                    prior += n[ABOVE]->odata.lumaAC[64 * 3 + i * 16 + j] ? 1 : 0;
+                }
+            }
+        }
+    }
+    return numNonZerosLumaPriors.at(prior,encodeMacroblockType(mb->uiMbType));
+}
+Branch<8> MacroblockModel::getChromaNumNonzerosPrior() {
+    return numNonZerosChromaPriors.at(0,0);
+}
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;
     int leftType = 15;
