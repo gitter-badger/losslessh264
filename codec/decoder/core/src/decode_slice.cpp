@@ -1771,15 +1771,31 @@ bool knownCodeUnitTest2() {
     return knownCodeUnitTest(odata, expectedPrefix);
 }
 
+const uint8_t kzz[16] ={
+    0, 1,  4, 8,
+    5, 2, 3, 6,
+    9, 12, 13, 10,
+    7, 11, 14, 15
+};
+const uint8_t unzz[16] ={
+    0, 1, 5, 6,
+    2, 4, 7, 12,
+    3, 8, 11, 13,
+    9, 10, 14, 15
+};
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
-    for (int coef = emit_dc ? 0 : 1; coef < 16; ++coef) {
+    (void)unzz;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+        int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
         oMovie().tag(stream_id).emitBits(ac[coef], 16);
     }
 }
+
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
-    for (int coef = emit_dc ? 0 : 1; coef < 16; ++coef) {
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+        int coef = kzz[coef_uzz];
         BitStream::uint32E res;
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
         res = iMovie().tag(stream_id).scanBits(16);
