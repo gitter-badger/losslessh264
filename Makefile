@@ -62,6 +62,9 @@ CFLAGS += -fsanitize=address
 LDFLAGS += -fsanitize=address
 endif
 
+LDFLAGS += -Lx264
+LDFLAGS += -lx264
+
 # Make sure the all target is the first one
 all: libraries binaries
 
@@ -98,7 +101,8 @@ DECODER_INCLUDES += \
 ENCODER_INCLUDES += \
     -I$(SRC_PATH)codec/encoder/core/inc \
     -I$(SRC_PATH)codec/encoder/plus/inc \
-    -I$(SRC_PATH)codec/processing/interface
+    -I$(SRC_PATH)codec/processing/interface \
+    -I$(SRC_PATH)x264
 
 PROCESSING_INCLUDES += \
     -I$(SRC_PATH)codec/processing/interface \

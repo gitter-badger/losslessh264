@@ -54,6 +54,9 @@
 #include "compression_stream.h"
 #include "error_code.h"
 
+#include "../../../encoder/core/inc/xencoder.h"
+
+
 #include <string>
 #include <sstream>
 
@@ -170,6 +173,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
     InitEncFuncPtrList();
     oMovie().isRecoding = true;
     iMovie().filenamePrefix = kpH264FileName;
+      XEncoder();
   } else {
     fprintf(stderr, "Either input or output filename must end with .pip!\n");
     return;
