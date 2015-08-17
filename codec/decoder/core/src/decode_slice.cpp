@@ -2141,7 +2141,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             rtd.sMbMvp[i][1] = res.first;
           }
         }
+        bool scanned_luma_dc = false;
+        bool scanned_chroma_dc = false;
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
+          scanned_luma_dc = true;
           for (int i = 0; i < 16; i++) {
             res = iMovie().tag(PIP_LDC_TAG).scanBits(16);
             if (res.second) {
@@ -2151,6 +2154,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
+          scanned_chroma_dc = true;
           for (int i = 0; i < 8; i++) {
             res = iMovie().tag(PIP_CRDC_TAG).scanBits(16);
             if (res.second) {
@@ -2162,21 +2166,25 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         if (rtd.uiCbpL) {
           // FIXME: Do not serialize the 16th coefficient if it is garbage.
           for (int i = 0; i < 256; i++) {
-            res = iMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).scanBits(16);
-            if (res.second) {
-              fprintf(stderr, "failed to read lac!\n");
+            if ((i & 15) != 0 || !scanned_luma_dc) { // the dc hasn't been emitted, we need to scan it now (or any AC's)
+                res = iMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).scanBits(16);
+                if (res.second) {
+                    fprintf(stderr, "failed to read lac!\n");
+                }
+                rtd.odata.lumaAC[i] = res.first;
             }
-            rtd.odata.lumaAC[i] = res.first;
           }
         }
         if (rtd.uiCbpC == 2) {
           // FIXME: Do not serialize the 16th coefficient if it is garbage.
           for (int i = 0; i < 128; i++) {
-            res = iMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).scanBits(16);
-            if (res.second) {
-              fprintf(stderr, "failed to read crac!\n");
+            if ((i & 15) != 0 || !scanned_chroma_dc) { // the dc hasn't been scanned, we need to scan it now (or any of the AC's)
+                res = iMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).scanBits(16);
+                if (res.second) {
+                  fprintf(stderr, "failed to read crac!\n");
+                }
+                rtd.odata.chromaAC[i] = res.first;
             }
-            rtd.odata.chromaAC[i] = res.first;
           }
         }
 
@@ -2418,24 +2426,32 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             oMovie().tag(PIP_MVY_TAG).emitBits((uint16_t)rtd.sMbMvp[i][1], 16);
           }
         }
+        bool emitted_luma_dc = false;
+        bool emitted_chroma_dc = false;
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
+            emitted_luma_dc = true;
           for (int i = 0; i < 16; i++) {
             oMovie().tag(PIP_LDC_TAG).emitBits((uint16_t)rtd.odata.lumaDC[i], 16);
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
+          emitted_chroma_dc = true;
           for (int i = 0; i < 8; i++) {
             oMovie().tag(PIP_CRDC_TAG).emitBits((uint16_t)rtd.odata.chromaDC[i], 16);
           }
         }
         if (rtd.uiCbpL) {
           for (int i = 0; i < 256; i++) {
-            oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
+              if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
+                  oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
+              }
           }
         }
         if (rtd.uiCbpC == 2) {
           for (int i = 0; i < 128; i++) {
-            oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
+              if ((i & 15) != 0 || !emitted_chroma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
+                  oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
+              }
           }
         }
 #ifdef DEBUG_PRINTS
