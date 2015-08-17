@@ -184,10 +184,25 @@ Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubLumaNumNonzerosPrio
     } else {
         prior = 0;
     }
-    int hprior = mb->numLumaNonzeros_ - runningSubCount;
-    hprior *=16;
-    hprior /= 16 - i;
-    return numSubNonZerosLumaPriors.at(hprior, prior, encodeMacroblockType(mb->uiMbType));
+    int hprior = 0;
+    if ((i & 3) == 0) {
+        if (n[LEFT]) {
+            hprior = n[LEFT]->numSubLumaNonzeros_[3 + i];
+        }
+    } else {
+        hprior = mb->numSubLumaNonzeros_[i - 1];
+    }
+
+    int vprior = 0;
+    if (i < 4) {
+        if (n[ABOVE]) {
+            vprior = n[ABOVE]->numSubLumaNonzeros_[12 + i];
+        }
+    } else {
+        vprior = mb->numSubLumaNonzeros_[i - 4];
+    }
+    (void)vprior;
+    return numSubNonZerosLumaPriors.at(hprior, vprior, prior);
 }
 Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubChromaNumNonzerosPrior(uint8_t i, uint8_t runningSubCount) {
 
@@ -197,13 +212,27 @@ Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubChromaNumNonzerosPr
     if (n[PAST]) {
         prior = n[PAST]->numSubChromaNonzeros_[i];
     } else {
-        prior = mb->numSubLumaNonzeros_[i] / 2;
+        prior = mb->numSubLumaNonzeros_[(i / 2) * 4];
     }
-    int hprior = mb->numChromaNonzeros_ - runningSubCount;
-    hprior *=8;
-    hprior /= 16-i;
+    int hprior = 0;
+    if ((i & 1) == 0) {
+        if (n[LEFT]) {
+            hprior = n[LEFT]->numSubChromaNonzeros_[1 + i];
+        }
+    } else {
+        hprior = mb->numSubChromaNonzeros_[i - 1];
+    }
 
-    return numSubNonZerosChromaPriors.at(hprior, prior, encodeMacroblockType(mb->uiMbType));
+    int vprior = 0;
+    if (i == 0 || i == 1 || i == 4 || i == 5) {
+        if (n[ABOVE]) {
+            vprior = n[ABOVE]->numSubChromaNonzeros_[2 + i];
+        }
+    } else {
+        vprior = mb->numSubChromaNonzeros_[i - 2];
+    }
+    (void)vprior;
+    return numSubNonZerosChromaPriors.at(hprior, vprior, prior);
 }
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;

@@ -109,14 +109,14 @@ class MacroblockModel {
                       16, // mbType
                       128> numNonZerosChromaPriors;
     Sirikata::Array4d<DynProb,
-        257, // num nonzeros for this macroblock //FIXME
         17,
-        16, //mbType
+        17,
+        17,
         16> numSubNonZerosLumaPriors;
     Sirikata::Array4d<DynProb,
-        257,//FIXME
         17,//FIXME
-        16, //mbType
+        17,//FIXME
+        17, //mbType
         16> numSubNonZerosChromaPriors;
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,

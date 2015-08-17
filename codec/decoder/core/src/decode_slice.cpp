@@ -1932,6 +1932,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
         }
 
+#ifdef HIERARCHICAL_NONZEROS
         res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<8>(oMovie().model().getLumaNumNonzerosPrior());
         rtd.numLumaNonzeros_ = res.first;
         if (res.second) {
@@ -1943,12 +1944,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         if (res.second) {
           fprintf(stderr, "failed to read Chroma Nonzeros!\n");
         }
+#endif
+
         uint8_t runningCount = 0;
         for (int i = 0; i < 16; ++i) {
-            if ( i == 15) {
-                rtd.numSubLumaNonzeros_[i] = rtd.numLumaNonzeros_ - runningCount;
-                break;
-            }
             res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
             rtd.numSubLumaNonzeros_[i] = res.first;
             runningCount += res.first;
@@ -1956,13 +1955,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                 fprintf(stderr, "failed to read Sub Luma Nonzeros!\n");
             }
         }
+        rtd.numLumaNonzeros_ = runningCount;
         runningCount = 0;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 8; j += 4) {
-                if ( j == 4 && i == 3) {
-                    rtd.numSubChromaNonzeros_[i + j] = rtd.numChromaNonzeros_ - runningCount;
-                    break;
-                }
                 res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
                 rtd.numSubChromaNonzeros_[i + j] = res.first;
                 runningCount += res.first;
@@ -1971,6 +1967,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                 }
             }
         }
+        rtd.numChromaNonzeros_ = runningCount;
         if (pCtx->pSps->uiChromaFormatIdc != 0) {
           res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
           if (res.second) {
@@ -2342,11 +2339,16 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
         oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
         uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
-        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<8>(numNonzerosL, oMovie().model().getLumaNumNonzerosPrior()); //Valid values are 0..256 incl
         uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
+#ifdef HIERARCHICAL_NONZEROS
+        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<8>(numNonzerosL, oMovie().model().getLumaNumNonzerosPrior()); //Valid values are 0..256 incl
         oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<7>(numNonzerosC, oMovie().model().getChromaNumNonzerosPrior()); //Valid values are 0..128 incl
+#else
+        (void)numNonzerosL;
+        (void)numNonzerosC;
+#endif
         uint8_t runningCount = 0;
-        for (int i = 0; i < 15; ++i) {
+        for (int i = 0; i < 16; ++i) {
             oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
                                                                      oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
             runningCount += rtd.numSubLumaNonzeros_[i];
@@ -2354,9 +2356,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         runningCount = 0;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 8; j += 4) {
-                if (i == 3 && j == 4) {
-                    break;
-                }
                 oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubChromaNonzeros_[i + j],
                                                                          oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
                 runningCount += rtd.numSubChromaNonzeros_[i + j];
