@@ -211,6 +211,31 @@ public:
 
     template <int nBits>
     std::pair<uint32_t, H264Error> scanBits(Branch<nBits> priors);
+    template <int nBits> struct Ident {
+        enum {VALUE =  nBits};
+    };
+    template <int nBits> struct IdentPow {
+        enum {VALUE =  (1<<nBits)};
+    };
+    template <int nBits> struct IdentPow_1 {
+        enum {VALUE =  (1<<nBits) - 1};
+    };
+    template<int start, int end> struct SliceRange{
+        enum {START=start, END=end};
+    };
+
+    template<int nBits>
+    std::pair<uint32_t, H264Error> scanBitsZeroToPow2Inclusive(typename Sirikata::Array1d<DynProb, (1<< nBits) >::Slice priors) {
+        bool zeroBit = scanBit(&priors.at(0));
+        std::pair<uint32_t, H264Error> retval (0,0);
+        if (!zeroBit) {
+            return retval;
+        }
+        SliceRange<1, (1<<nBits)> sr;
+        retval = scanBits(Branch<nBits>(priors.slice(sr)));
+        retval.first += 1;
+        return retval;
+    }
 };
 
 template <>
@@ -283,6 +308,18 @@ public:
 
     template <int nBits>
     void emitBits(uint32_t data, Branch<nBits> priors);
+    template<int start, int end> struct SliceRange{
+        enum {START=start, END=end};
+    };
+    template <int nBits>
+    void emitBitsZeroToPow2Inclusive(uint32_t data, typename Sirikata::Array1d<DynProb, (1<< nBits)>::Slice priors) {
+        bool zeroBit = (data != 0);
+        emitBit(zeroBit, &priors.at(0));
+        if (data) {
+            SliceRange<1, (1<<nBits)>sr;
+            emitBits(data - 1, Branch<nBits>(priors.slice(sr)));
+        }
+    }
 };
 
 template <int nBits>

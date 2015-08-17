@@ -9,7 +9,7 @@
 void Neighbors::init(const FreqImage *f, int x, int y) {
     using namespace Nei;
     for (int i = 0; i < Nei::NUMNEIGHBORS; ++i) {
-        n[i] = nullptr;
+        n[i] = NULL;
     }
     if (x > 0) {
         n[Nei::LEFT] = &f->at(x-1, y);
@@ -116,8 +116,12 @@ void MacroblockModel::initCurrentMacroblock(
 
 uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
     uint16_t retval = 0;
+    memset(mb->numSubLumaNonzeros_, 0, sizeof(mb->numSubLumaNonzeros_));
     for (int i = 0; i < 256; ++i) {
-        retval += mb->odata.lumaAC[i] ? 1 : 0;
+        if (mb->odata.lumaAC[i]) {
+            ++retval;
+            ++mb->numSubLumaNonzeros_[i / 16];
+        }
     }
     mb->numLumaNonzeros_ = retval;
     return retval;
@@ -125,13 +129,17 @@ uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
 
 uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
     uint8_t retval = 0;
+    memset(mb->numSubChromaNonzeros_, 0, sizeof(mb->numSubChromaNonzeros_));
     for (int i = 0; i < 128; ++i) {
-        retval += mb->odata.chromaAC[i] ? 1 : 0;
+        if (mb->odata.chromaAC[i]) {
+            ++retval;
+            ++mb->numSubChromaNonzeros_[i / 16];
+        }
     }
     mb->numChromaNonzeros_ = retval;
     return retval;
 }
-Branch<8> MacroblockModel::getLumaNumNonzerosPrior() {
+Sirikata::Array1d<DynProb, 256>::Slice  MacroblockModel::getLumaNumNonzerosPrior() {
     int prior = 0;
     using namespace Nei;
 
@@ -155,8 +163,7 @@ Branch<8> MacroblockModel::getLumaNumNonzerosPrior() {
     }
     return numNonZerosLumaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
 }
-Branch<7> MacroblockModel::getChromaNumNonzerosPrior() {
-
+Sirikata::Array1d<DynProb, 128>::Slice  MacroblockModel::getChromaNumNonzerosPrior() {
     int prior = 0;
     using namespace Nei;
 
@@ -166,6 +173,30 @@ Branch<7> MacroblockModel::getChromaNumNonzerosPrior() {
         prior = mb->numLumaNonzeros_ / 2;
     }
     return numNonZerosChromaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
+}
+Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubLumaNumNonzerosPrior(uint8_t i) {
+
+    int prior = 0;
+    using namespace Nei;
+
+    if (n[PAST]) {
+        prior = n[PAST]->numSubLumaNonzeros_[i];
+    } else {
+        prior = 0;
+    }
+    return numSubNonZerosLumaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
+}
+Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubChromaNumNonzerosPrior(uint8_t i) {
+
+    int prior = 0;
+    using namespace Nei;
+
+    if (n[PAST]) {
+        prior = n[PAST]->numSubChromaNonzeros_[i];
+    } else {
+        prior = mb->numSubLumaNonzeros_[i] / 2;
+    }
+    return numSubNonZerosChromaPriors.at(prior, encodeMacroblockType(mb->uiMbType));
 }
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;

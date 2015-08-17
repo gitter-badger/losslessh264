@@ -1306,7 +1306,9 @@ bool stringBitCompare(const std::vector<bititem> &ovec,
     size_t longest_offset = 0;
     size_t longest_rt_offset = 0;
     std::vector<bititem>::const_iterator oi = ovec.begin() + offset;
+    (void)oi;
     std::vector<bititem>::const_iterator oend = ovec.end();
+    (void)oend;
     std::vector<bititem>::const_iterator ri = rvec.begin(), rend = rvec.end();
     for (std::vector<bititem>::const_iterator oi = ovec.begin(), oend = ovec.end(); oi != oend;++oi) {
         /*for (std::vector<bititem>::const_iterator ri = rvec.begin(),
@@ -1930,38 +1932,20 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
         }
 
-        res = iMovie().tag(PIP_NZC_TAG).scanBits(oMovie().model().getLumaNumNonzerosPrior());
+        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<8>(oMovie().model().getLumaNumNonzerosPrior());
         if (res.second) {
           fprintf(stderr, "failed to read Luma Nonzeros!\n");
           rtd.numLumaNonzeros_ = 0;
         } else {
           rtd.numLumaNonzeros_ = res.first;
         }
-        if (res.first == 255) {
-            res = iMovie().tag(PIP_NZC_TAG).scanBits(1);
-            if (res.second) {
-              fprintf(stderr, "failed to read ending bit for luma nonzeros!\n");
-            } else if (res.first) {
-                ++rtd.numLumaNonzeros_;
-            }
-        }
-
-        res = iMovie().tag(PIP_NZC_TAG).scanBits(oMovie().model().getChromaNumNonzerosPrior());
+        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getChromaNumNonzerosPrior());
         if (res.second) {
           fprintf(stderr, "failed to read Chroma Nonzeros!\n");
           rtd.numChromaNonzeros_ = 0;
         } else {
           rtd.numChromaNonzeros_ = res.first;
         }
-        if (res.first == 127) { // if every one of the items is nonzero...
-            res = iMovie().tag(PIP_NZC_TAG).scanBits(1);// then we need another bit
-            if (res.second) { // this hasn't happened in our sample test movies
-              fprintf(stderr, "failed to read ending bit for chroma nonzeros!\n");
-            } else if (res.first) {
-                ++rtd.numChromaNonzeros_;
-            }
-        }
-
         if (pCtx->pSps->uiChromaFormatIdc != 0) {
           res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
           if (res.second) {
@@ -2333,27 +2317,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
         oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
         uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
-        bool trailingBit = false;
-        if (numNonzerosL == 256) {
-            numNonzerosL = 255;
-            trailingBit = true;
-        }
-        oMovie().tag(PIP_NZC_TAG).emitBits(numNonzerosL,
-                                           oMovie().model().getLumaNumNonzerosPrior());
-        if (numNonzerosL == 255) {
-            oMovie().tag(PIP_NZC_TAG).emitBits(trailingBit, 1); // Valid values are 0..1
-        }
+        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<8>(numNonzerosL, oMovie().model().getLumaNumNonzerosPrior()); //Valid values are 0..256 incl
         uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
-        trailingBit = false;
-        if (numNonzerosC == 128) {
-            numNonzerosC = 127;
-            trailingBit = true;
-        }
-        oMovie().tag(PIP_NZC_TAG).emitBits(numNonzerosC,
-                                           oMovie().model().getChromaNumNonzerosPrior());
-        if (numNonzerosC == 127) {
-            oMovie().tag(PIP_NZC_TAG).emitBits(trailingBit, 1); // Valid values are 0..1
-        }
+        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<7>(numNonzerosC, oMovie().model().getChromaNumNonzerosPrior()); //Valid values are 0..128 incl
         if (pCtx->pSps->uiChromaFormatIdc != 0) {
           oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
         }

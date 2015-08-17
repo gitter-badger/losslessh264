@@ -102,27 +102,35 @@ class MacroblockModel {
      Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
-        255 // number of nonzero values possible
+        256 // number of nonzero values possible
         > numNonZerosLumaPriors;
     Sirikata::Array3d<DynProb,
                       129, // prev frame num nonzeros
                       16, // mbType
-                      127> numNonZerosChromaPriors;
+                      128> numNonZerosChromaPriors;
     Sirikata::Array3d<DynProb,
-        256, // num nonzeros for this macroblock
+        256, // num nonzeros for this macroblock //FIXME
         16, //mbType
         16> numSubNonZerosLumaPriors;
     Sirikata::Array3d<DynProb,
-        128,
+        128,//FIXME
         16, //mbType
-        8> numSubNonZerosChromaPriors;
+        16> numSubNonZerosChromaPriors;
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
                                const FreqImage *, int mbx, int mby);
 
     Branch<4> getMacroblockTypePrior();
-    Branch<8> getLumaNumNonzerosPrior();
-    Branch<7> getChromaNumNonzerosPrior();
+    Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
+    Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
+    Branch<8> getLumaNumNonzerosPriorBranch() {
+        return getLumaNumNonzerosPrior().slice<1, 256>();
+    }
+    Branch<7> getChromaNumNonzerosPriorBranch() {
+        return getChromaNumNonzerosPrior().slice<1, 128>();
+    }
+    Sirikata::Array1d<DynProb, 16>::Slice getSubLumaNumNonzerosPrior(uint8_t i);
+    Sirikata::Array1d<DynProb, 16>::Slice getSubChromaNumNonzerosPrior(uint8_t i);
     uint16_t getAndUpdateMacroblockLumaNumNonzeros(); // between 0 and 256, inclusive
     uint8_t getAndUpdateMacroblockChromaNumNonzeros(); // between 0 and 128, inclusive
     int encodeMacroblockType(int welsType);
