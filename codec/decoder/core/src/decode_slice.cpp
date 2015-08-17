@@ -1943,17 +1943,29 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         if (res.second) {
           fprintf(stderr, "failed to read Chroma Nonzeros!\n");
         }
+        uint8_t runningCount = 0;
         for (int i = 0; i < 16; ++i) {
-            res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubLumaNumNonzerosPrior(i));
+            if ( i == 15) {
+                rtd.numSubLumaNonzeros_[i] = rtd.numLumaNonzeros_ - runningCount;
+                break;
+            }
+            res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
             rtd.numSubLumaNonzeros_[i] = res.first;
+            runningCount += res.first;
             if (res.second) {
                 fprintf(stderr, "failed to read Sub Luma Nonzeros!\n");
             }
         }
+        runningCount = 0;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 8; j += 4) {
-                res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubChromaNumNonzerosPrior(i + j));
+                if ( j == 4 && i == 3) {
+                    rtd.numSubChromaNonzeros_[i + j] = rtd.numChromaNonzeros_ - runningCount;
+                    break;
+                }
+                res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
                 rtd.numSubChromaNonzeros_[i + j] = res.first;
+                runningCount += res.first;
                 if (res.second) {
                     fprintf(stderr, "failed to read Sub Chroma Nonzeros!\n");
                 }
@@ -2333,14 +2345,21 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<8>(numNonzerosL, oMovie().model().getLumaNumNonzerosPrior()); //Valid values are 0..256 incl
         uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
         oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<7>(numNonzerosC, oMovie().model().getChromaNumNonzerosPrior()); //Valid values are 0..128 incl
-        for (int i = 0; i < 16; ++i) {
+        uint8_t runningCount = 0;
+        for (int i = 0; i < 15; ++i) {
             oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
-                                                                     oMovie().model().getSubLumaNumNonzerosPrior(i));
+                                                                     oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
+            runningCount += rtd.numSubLumaNonzeros_[i];
         }
+        runningCount = 0;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 8; j += 4) {
+                if (i == 3 && j == 4) {
+                    break;
+                }
                 oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubChromaNonzeros_[i + j],
-                                                                         oMovie().model().getSubChromaNumNonzerosPrior(i + j));
+                                                                         oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
+                runningCount += rtd.numSubChromaNonzeros_[i + j];
             }
         }
         if (pCtx->pSps->uiChromaFormatIdc != 0) {
