@@ -26,7 +26,7 @@ struct DecodedMacroblock {
   uint8_t numLumaNonzeros_;
   uint8_t numChromaNonzeros_;
   uint8_t numSubLumaNonzeros_[16];
-  uint8_t numSubChromaNonzeros_[16];
+  uint8_t numSubChromaNonzeros_[8];
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
