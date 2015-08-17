@@ -30,6 +30,8 @@
  *
  *      parse_mb_syn_cabac.cpp: cabac parse for syntax elements
  */
+#include "compression_stream.h"
+#include "decoded_macroblock.h"
 #include "parse_mb_syn_cabac.h"
 #include "mv_pred.h"
 #include "error_code.h"
@@ -373,7 +375,8 @@ int32_t ParseIntraPredModeChromaCabac (PWelsDecoderContext pCtx, uint8_t uiNeigh
 }
 
 int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCount,
-                                   int16_t pMotionVector[LIST_A][30][MV_A], int16_t pMvdCache[LIST_A][30][MV_A], int8_t pRefIndex[LIST_A][30]) {
+                                   int16_t pMotionVector[LIST_A][30][MV_A], int16_t pMvdCache[LIST_A][30][MV_A], int8_t pRefIndex[LIST_A][30],
+                                   DecodedMacroblock *rtd) {
   PSlice pSlice                 = &pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader     = &pSlice->sSliceHeaderExt.sSliceHeader;
   PDqLayer pCurDqLayer = pCtx->pCurDqLayer;
@@ -404,11 +407,14 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         return ERR_INFO_INVALID_REF_INDEX;
       }
     }
+    rtd->iRefIdx[0] = iRef[0];
     pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[0]]
                             && ppRefPic[iRef[0]]->bIsComplete);
     PredMv (pMotionVector, pRefIndex, 0, 4, iRef[0], pMv);
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
+    rtd->sMbMvp[0][0] = pMvd[0];
+    rtd->sMbMvp[0][1] = pMvd[1];
     pMv[0] += pMvd[0];
     pMv[1] += pMvd[1];
     WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
@@ -430,6 +436,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
           return ERR_INFO_INVALID_REF_INDEX;
         }
       }
+      rtd->iRefIdx[i] = iRef[i];
       pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[i]]
                               && ppRefPic[iRef[i]]->bIsComplete);
       UpdateP16x8RefIdxCabac (pCurDqLayer, pRefIndex, iPartIdx, iRef[i], LIST_0);
@@ -439,6 +446,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       PredInter16x8Mv (pMotionVector, pRefIndex, iPartIdx, iRef[i], pMv);
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
+      rtd->sMbMvp[8 * i][0] = pMvd[0];
+      rtd->sMbMvp[8 * i][1] = pMvd[1];
       pMv[0] += pMvd[0];
       pMv[1] += pMvd[1];
       WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
@@ -460,6 +469,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
           return ERR_INFO_INVALID_REF_INDEX;
         }
       }
+      rtd->iRefIdx[i] = iRef[i];
       pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[i]]
                               && ppRefPic[iRef[i]]->bIsComplete);
       UpdateP8x16RefIdxCabac (pCurDqLayer, pRefIndex, iPartIdx, iRef[i], LIST_0);
@@ -470,6 +480,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
 
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
+      rtd->sMbMvp[2 * i][0] = pMvd[0];
+      rtd->sMbMvp[2 * i][1] = pMvd[1];
       pMv[0] += pMvd[0];
       pMv[1] += pMvd[1];
       WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
@@ -508,6 +520,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
           return ERR_INFO_INVALID_REF_INDEX;
         }
       }
+      rtd->iRefIdx[i] = pRefIdx[i];
       pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[pRefIdx[i]]
                               && ppRefPic[pRefIdx[i]]->bIsComplete);
       UpdateP8x8RefIdxCabac (pCurDqLayer, pRefIndex, iIdx8, pRefIdx[i], LIST_0);
@@ -529,6 +542,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         PredMv (pMotionVector, pRefIndex, iPartIdx, iBlockW, pRefIdx[i], pMv);
         WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
         WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
+        rtd->sMbMvp[iScan4Idx][0] = pMvd[0];
+        rtd->sMbMvp[iScan4Idx][1] = pMvd[1];
         pMv[0] += pMvd[0];
         pMv[1] += pMvd[1];
         WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
@@ -861,7 +876,7 @@ int32_t ParseSignificantCoeffCabac (int32_t* pSignificant, int32_t iResProperty,
 
 int32_t ParseResidualBlockCabac8x8 (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCountCache, SBitStringAux* pBsAux,
                                     int32_t iIndex, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty,
-                                    short* sTCoeff, /*int mb_mode*/ uint8_t uiQp, PWelsDecoderContext pCtx) {
+                                    short* sTCoeff, short* sTCoeffRaw, /*int mb_mode*/ uint8_t uiQp, PWelsDecoderContext pCtx) {
   uint32_t uiTotalCoeffNum = 0;
   uint32_t uiCbpBit;
   int32_t pSignificantMap[64] = {0};
@@ -891,6 +906,7 @@ int32_t ParseResidualBlockCabac8x8 (PWelsNeighAvail pNeighAvail, uint8_t* pNonZe
         i = pScanTable[ j ];
         sTCoeff[i] = uiQp >= 36 ? ((pSignificantMap[j] * pDeQuantMul[i]) << (uiQp / 6 - 6)) : ((
                        pSignificantMap[j] * pDeQuantMul[i] + (1 << (5 - uiQp / 6))) >> (6 - uiQp / 6));
+        sTCoeffRaw[i] = pSignificantMap[j];
       }
       ++j;
     } while (j < 64);
@@ -901,7 +917,7 @@ int32_t ParseResidualBlockCabac8x8 (PWelsNeighAvail pNeighAvail, uint8_t* pNonZe
 
 int32_t ParseResidualBlockCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCountCache, SBitStringAux* pBsAux,
                                  int32_t iIndex, int32_t iMaxNumCoeff,
-                                 const uint8_t* pScanTable, int32_t iResProperty, short* sTCoeff, /*int mb_mode*/ uint8_t uiQp,
+                                 const uint8_t* pScanTable, int32_t iResProperty, short* sTCoeff, short* sTCoeffRaw, /*int mb_mode*/ uint8_t uiQp,
                                  PWelsDecoderContext pCtx) {
   int32_t iCurNzCacheIdx;
   uint32_t uiTotalCoeffNum = 0;
@@ -927,22 +943,28 @@ int32_t ParseResidualBlockCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroC
   int32_t j = 0;
   if (iResProperty == I16_LUMA_DC) {
     do {
-      if (pSignificantMap[j] != 0)
+      if (pSignificantMap[j] != 0) {
         sTCoeff[pScanTable[j]] = pSignificantMap[j];
+        sTCoeffRaw[pScanTable[j]] = pSignificantMap[j];
+      }
       ++j;
     } while (j < 16);
   } else if (iResProperty == CHROMA_DC_U || iResProperty == CHROMA_DC_V) {
     do {
-      if (pSignificantMap[j] != 0)
+      if (pSignificantMap[j] != 0) {
         sTCoeff[pScanTable[j]] = pCtx->bUseScalingList ? (pSignificantMap[j] * pDeQuantMul[0]) >> 4 :
                                  (pSignificantMap[j] * pDeQuantMul[0]);
+        sTCoeffRaw[pScanTable[j]] = pSignificantMap[j];
+      }
       ++j;
     } while (j < 16);
   } else { //luma ac, chroma ac
     do {
-      if (pSignificantMap[j] != 0)
+      if (pSignificantMap[j] != 0) {
         sTCoeff[pScanTable[j]] = pCtx->bUseScalingList ? (pSignificantMap[j] * pDeQuantMul[pScanTable[j]] >> 4) :
                                  pSignificantMap[j] * pDeQuantMul[pScanTable[j] & 0x07];
+        sTCoeffRaw[pScanTable[j]] = pSignificantMap[j];
+      }
       ++j;
     } while (j < 16);
   }

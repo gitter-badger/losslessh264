@@ -41,6 +41,9 @@
 
 #include "decoder_context.h"
 #include "cabac_decoder.h"
+
+struct DecodedMacroblock;
+
 namespace WelsDec {
 int32_t ParseEndOfSliceCabac (PWelsDecoderContext pCtx, uint32_t& uiBinVal);
 int32_t ParseSkipFlagCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiSkip);
@@ -51,7 +54,8 @@ int32_t ParseSubMBTypeCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
 int32_t ParseIntraPredModeLumaCabac (PWelsDecoderContext pCtx, int32_t& iBinVal);
 int32_t ParseIntraPredModeChromaCabac (PWelsDecoderContext pCtx, uint8_t uiNeighAvail, int32_t& iBinVal);
 int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCount,
-                                   int16_t pMotionVector[LIST_A][30][MV_A], int16_t pMvdCache[LIST_A][30][MV_A], int8_t pRefIndex[LIST_A][30]);
+                                   int16_t pMotionVector[LIST_A][30][MV_A], int16_t pMvdCache[LIST_A][30][MV_A], int8_t pRefIndex[LIST_A][30],
+                                   DecodedMacroblock *rtd);
 int32_t ParseRefIdxCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint8_t* nzc,
                           int8_t ref_idx[LIST_A][30],
                           int32_t iListIdx, int32_t index, int32_t iActiveRefNum, int32_t b8mode, int8_t& iRefIdxVal);
@@ -65,10 +69,12 @@ int32_t ParseSignificantMapCabac (int32_t* pSignificantMap, int32_t iResProperty
                                   uint32_t& uiBinVal);
 int32_t ParseSignificantCoeffCabac (int32_t* significant, int32_t iResProperty, PWelsDecoderContext pCtx);
 int32_t ParseResidualBlockCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCountCache, SBitStringAux* pBsAux,
-                                 int32_t index, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty, int16_t* sTCoeff, uint8_t uiQp,
+                                 int32_t index, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty,
+                                 int16_t* sTCoeff, int16_t* sTCoeffRaw, uint8_t uiQp,
                                  PWelsDecoderContext pCtx);
 int32_t ParseResidualBlockCabac8x8 (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCountCache, SBitStringAux* pBsAux,
-                                 int32_t index, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty, int16_t* sTCoeff, uint8_t uiQp,
+                                 int32_t index, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty,
+                                 int16_t* sTCoeff, int16_t* sTCoeffRaw, uint8_t uiQp,
                                  PWelsDecoderContext pCtx);
 int32_t ParseIPCMInfoCabac (PWelsDecoderContext pCtx);
 }
