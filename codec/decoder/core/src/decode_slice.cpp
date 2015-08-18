@@ -2294,13 +2294,41 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         bool scanned_luma_dc = false;
         bool scanned_chroma_dc = false;
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
+          // TODO: This logic is duplicated in the chroma DC as well.
           scanned_luma_dc = true;
+          res = iMovie().tag(PIP_LDC_TAG).scanBits(1);
+          if (res.second) {
+            fprintf(stderr, "failed to read ldc!\n");
+          }
+          uint8_t nonzero_first = res.first;
+          uint16_t first = 0u;
+          uint16_t second = 0u;
           for (int i = 0; i < 16; i++) {
-            res = iMovie().tag(PIP_LDC_TAG).scanBits(16);
+            std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+              Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> priors =
+              oMovie().model().getLumaDCPriors(i);
+            if (nonzero_first != 0) {
+              // Decode length.
+              res = iMovie().tag(PIP_LDC_TAG).scanBitsZeroToPow2Inclusive<4>(priors.first);
+              uint8_t bitlength = res.first;
+              // Decode the rest
+              if (bitlength > 0) {
+                res = iMovie().tag(PIP_LDC_TAG).scanBits(bitlength - 1);
+                first = (1 << (bitlength - 1)) | res.first;
+              } else  {
+                first = 0;
+              }
+              if (res.second) {
+                fprintf(stderr, "failed to read ldc!\n");
+              }
+            }
+            res = iMovie().tag(PIP_LDC_TAG).scanBitsZeroToPow2Inclusive<16-DC_SPLIT>(priors.second);
+            second = res.first;
+            res.first = MacroblockModel::mergeDC(first, second);
             if (res.second) {
               fprintf(stderr, "failed to read ldc!\n");
             }
-            rtd.odata.lumaDC[i] = res.first;
+            rtd.odata.lumaDC[i] = (int16_t)res.first;
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
@@ -2314,7 +2342,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           uint16_t second = 0u;
           for (int i = 0; i < 8; i++) {
             std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-              Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> priors =
+              Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> priors =
               oMovie().model().getChromaDCPriors(i);
             if (nonzero_first != 0) {
               // Decode length.
@@ -2331,9 +2359,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                 fprintf(stderr, "failed to read crdc!\n");
               }
             }
-            res = iMovie().tag(PIP_CRDC_TAG).scanBitsZeroToPow2Inclusive<16-CHROMA_DC_SPLIT>(priors.second);
+            res = iMovie().tag(PIP_CRDC_TAG).scanBitsZeroToPow2Inclusive<16-DC_SPLIT>(priors.second);
             second = res.first;
-            res.first = MacroblockModel::mergeChromaDC(first, second);
+            res.first = MacroblockModel::mergeDC(first, second);
             if (res.second) {
               fprintf(stderr, "failed to read crdc!\n");
             }
@@ -2601,18 +2629,32 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         bool emitted_luma_dc = false;
         bool emitted_chroma_dc = false;
         if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
-            emitted_luma_dc = true;
+          emitted_luma_dc = true;
+          MacroblockModel::DCStatistics<16> s = MacroblockModel::computeDCStatistics<16>(rtd.odata.lumaDC);
+          oMovie().tag(PIP_LDC_TAG).emitBits(s.nonzero_first_count == 0 ? 0 : 1, 1);
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(PIP_LDC_TAG).emitBits((uint16_t)rtd.odata.lumaDC[i], 16);
+            std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+              Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> priors =
+              oMovie().model().getLumaDCPriors(i);
+            if (s.nonzero_first_count != 0) {
+              // Encode length.
+              uint8_t bitlength = bit_length(s.first[i]);
+              oMovie().tag(PIP_LDC_TAG).emitBitsZeroToPow2Inclusive<4>(bitlength, priors.first);
+              // Encode the rest
+              if (bitlength > 1) {
+                oMovie().tag(PIP_LDC_TAG).emitBits(s.first[i] ^ (1 << (bitlength - 1)), bitlength - 1);
+              }
+            }
+            oMovie().tag(PIP_LDC_TAG).emitBitsZeroToPow2Inclusive<16-DC_SPLIT>(s.second[i], priors.second);
           }
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
           emitted_chroma_dc = true;
-          MacroblockModel::StructChromaDC s = MacroblockModel::computeStructChromaDC(rtd.odata.chromaDC);
+          MacroblockModel::DCStatistics<8> s = MacroblockModel::computeDCStatistics<8>(rtd.odata.chromaDC);
           oMovie().tag(PIP_CRDC_TAG).emitBits(s.nonzero_first_count == 0 ? 0 : 1, 1);
           for (int i = 0; i < 8; i++) {
             std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-              Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> priors =
+              Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> priors =
               oMovie().model().getChromaDCPriors(i);
             if (s.nonzero_first_count != 0) {
               // Encode length.
@@ -2625,7 +2667,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             }
             // The low-order bits contain some entropy. It's uncommon (10-20%) that all eight coefficients
             // have low-order bits of zero, but the number of nonzero coefficients seems low (1.0-3.0)
-            oMovie().tag(PIP_CRDC_TAG).emitBitsZeroToPow2Inclusive<16-CHROMA_DC_SPLIT>(s.second[i], priors.second);
+            oMovie().tag(PIP_CRDC_TAG).emitBitsZeroToPow2Inclusive<16-DC_SPLIT>(s.second[i], priors.second);
           }
         }
         if (rtd.uiCbpL) {

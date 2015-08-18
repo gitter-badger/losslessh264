@@ -468,7 +468,7 @@ std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getCh
 }
 
 std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-          Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> MacroblockModel::getChromaDCPriors(size_t index) {
+          Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> MacroblockModel::_getDCPriorsHelper(bool is_luma, size_t index) {
   using namespace Nei;
   uint8_t max_bitlength = 0u;
   std::vector<NeighborType> ntypes;
@@ -479,16 +479,31 @@ std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
   for (size_t j = 0; j < ntypes.size(); j++) {
     const DecodedMacroblock* block = n[ntypes[j]];
     if (block) {
-      for (size_t i = 0; i < 8; i++) {
-        int16_t datum = block->odata.chromaDC[i];
+      for (size_t i = 0; i < (is_luma ? 16 : 8); i++) {
+        int16_t datum = is_luma ? block->odata.lumaDC[i] : block->odata.chromaDC[i];
         uint8_t bitlength = bit_length((uint16_t)(datum >= 0 ? datum : -datum));
         if (max_bitlength < bitlength) { max_bitlength = bitlength; }
       }
     }
   }
   max_bitlength = max_bitlength > 15 ? 15 : max_bitlength;
-  return std::make_pair(chromaDCPriors.first.at(index, max_bitlength),
-                        chromaDCPriors.second.at(index, max_bitlength));
+  if (is_luma) {
+    return std::make_pair(lumaDCPriors.first.at(index, max_bitlength),
+                          lumaDCPriors.second.at(index, max_bitlength));
+  } else {
+    return std::make_pair(chromaDCPriors.first.at(index, max_bitlength),
+                          chromaDCPriors.second.at(index, max_bitlength));
+  }
+}
+
+std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+          Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> MacroblockModel::getChromaDCPriors(size_t index) {
+  return _getDCPriorsHelper(false, index);
+}
+
+std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+          Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> MacroblockModel::getLumaDCPriors(size_t index) {
+  return _getDCPriorsHelper(true, index);
 }
 
 int MacroblockModel::encodeMacroblockType(int welsType) {

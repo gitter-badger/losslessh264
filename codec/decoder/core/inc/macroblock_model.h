@@ -102,6 +102,7 @@ class MacroblockModel {
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
     std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
+    std::pair<Sirikata::Array3d<DynProb, 16, 16, 16>, Sirikata::Array3d<DynProb, 16, 16, 16> > lumaDCPriors;
      Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
@@ -167,39 +168,40 @@ public:
                             int color);
     Branch<4> getMacroblockTypePrior();
 
-#define CHROMA_DC_SPLIT 12
-#define CHROMA_DC_LOWER_MASK ((1 << (15 - CHROMA_DC_SPLIT)) - 1)
-    static std::pair<uint16_t, uint16_t> splitChromaDC(int16_t val) {
+#define DC_SPLIT 12
+#define DC_LOWER_MASK ((1 << (15 - DC_SPLIT)) - 1)
+    static std::pair<uint16_t, uint16_t> splitDC(int16_t val) {
       // Follows power distribution. 0 is prevalent, then +/-1, and so on.
       // We will move the sign bit to the end and do a 12-4 split.
       if (val >= 0) {
-	return std::make_pair<uint16_t, uint16_t>(val >> (15 - CHROMA_DC_SPLIT),
-						  val & CHROMA_DC_LOWER_MASK);
+	return std::make_pair<uint16_t, uint16_t>(val >> (15 - DC_SPLIT),
+						  val & DC_LOWER_MASK);
       } else {
-	return std::make_pair<uint16_t, uint16_t>((-val-1) >> (15 - CHROMA_DC_SPLIT),
-						  (1 << (15 - CHROMA_DC_SPLIT)) + ((-val-1) & CHROMA_DC_LOWER_MASK));
+	return std::make_pair<uint16_t, uint16_t>((-val-1) >> (15 - DC_SPLIT),
+						  (1 << (15 - DC_SPLIT)) + ((-val-1) & DC_LOWER_MASK));
       }
     }
-    static int16_t mergeChromaDC(uint16_t first, uint8_t second) {
-      if (second & (1 << (15 - CHROMA_DC_SPLIT))) {
-	return -((first << (15 - CHROMA_DC_SPLIT)) | (second & CHROMA_DC_LOWER_MASK)) - 1;
+    static int16_t mergeDC(uint16_t first, uint8_t second) {
+      if (second & (1 << (15 - DC_SPLIT))) {
+	return -((first << (15 - DC_SPLIT)) | (second & DC_LOWER_MASK)) - 1;
       } else {
-	return (first << (15 - CHROMA_DC_SPLIT)) | second;
+	return (first << (15 - DC_SPLIT)) | second;
       }
     }
 
-    struct StructChromaDC {
+    template<size_t size> struct DCStatistics {
       uint8_t nonzero_first_count;
       uint8_t nonzero_second_count;
-      uint16_t first[8];
-      uint16_t second[8];
+      uint16_t first[size];
+      uint16_t second[size];
     };
-    static StructChromaDC computeStructChromaDC(int16_t* coeffs) {
-      StructChromaDC ret;
+
+    template<size_t size> static DCStatistics<size> computeDCStatistics(int16_t* coeffs) {
+      DCStatistics<size> ret;
       ret.nonzero_first_count = 0u;
       ret.nonzero_second_count = 0u;
-      for (size_t i = 0; i < 8; i++) {
-	std::pair<uint16_t, uint16_t> split = splitChromaDC(coeffs[i]);
+      for (size_t i = 0; i < size; i++) {
+	std::pair<uint16_t, uint16_t> split = splitDC(coeffs[i]);
 	ret.first[i] = split.first;
 	ret.second[i] = split.second;
 	ret.nonzero_first_count += ret.first[i] == 0 ? 0 : 1;
@@ -209,7 +211,11 @@ public:
     }
 
     std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-      Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> getChromaDCPriors(size_t index);
+      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> getChromaDCPriors(size_t index);
+    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> getLumaDCPriors(size_t index);
+    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> _getDCPriorsHelper(bool is_luma, size_t index);
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();
