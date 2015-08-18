@@ -421,7 +421,9 @@ Sirikata::Array1d<DynProb, 511>::Slice MacroblockModel::getSkipRunPrior() {
 
     return mbSkipRunPrior.at(prior, encodeMacroblockType(mb->uiMbType));
 }
-
+Branch<6> MacroblockModel::getQPLPrior() {
+    return mbQPLPrior.slice<0,63>();
+}
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;
     int leftType = 15;

@@ -2147,7 +2147,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.iLastMbQp = res.first;
         }
-        res = iMovie().tag(PIP_QPL_TAG).scanBits(16);
+        //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
+        res = iMovie().tag(PIP_QPL_TAG).scanBits(oMovie().model().getQPLPrior());
+        //res = iMovie().tag(PIP_QPL_TAG).scanBits(16);
         if (res.second) {
           fprintf(stderr, "failed to read uiLumaQp!\n");
           rtd.uiLumaQp = 255;
@@ -2579,7 +2581,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
         oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
-        oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
+        //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
+        oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
+        //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
         oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
         std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
           = oMovie().model().getChromaI8x8ModePrior();
