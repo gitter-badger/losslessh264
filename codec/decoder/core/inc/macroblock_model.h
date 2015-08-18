@@ -101,6 +101,7 @@ class MacroblockModel {
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
+    std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
      Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
@@ -166,6 +167,49 @@ public:
                             int color);
     Branch<4> getMacroblockTypePrior();
 
+#define CHROMA_DC_SPLIT 12
+#define CHROMA_DC_LOWER_MASK ((1 << (15 - CHROMA_DC_SPLIT)) - 1)
+    static std::pair<uint16_t, uint16_t> splitChromaDC(int16_t val) {
+      // Follows power distribution. 0 is prevalent, then +/-1, and so on.
+      // We will move the sign bit to the end and do a 12-4 split.
+      if (val >= 0) {
+	return std::make_pair<uint16_t, uint16_t>(val >> (15 - CHROMA_DC_SPLIT),
+						  val & CHROMA_DC_LOWER_MASK);
+      } else {
+	return std::make_pair<uint16_t, uint16_t>((-val-1) >> (15 - CHROMA_DC_SPLIT),
+						  (1 << (15 - CHROMA_DC_SPLIT)) + ((-val-1) & CHROMA_DC_LOWER_MASK));
+      }
+    }
+    static int16_t mergeChromaDC(uint16_t first, uint8_t second) {
+      if (second & (1 << (15 - CHROMA_DC_SPLIT))) {
+	return -((first << (15 - CHROMA_DC_SPLIT)) | (second & CHROMA_DC_LOWER_MASK)) - 1;
+      } else {
+	return (first << (15 - CHROMA_DC_SPLIT)) | second;
+      }
+    }
+
+    struct StructChromaDC {
+      uint8_t nonzero_first_count;
+      uint8_t nonzero_second_count;
+      uint16_t first[8];
+      uint16_t second[8];
+    };
+    static StructChromaDC computeStructChromaDC(int16_t* coeffs) {
+      StructChromaDC ret;
+      ret.nonzero_first_count = 0u;
+      ret.nonzero_second_count = 0u;
+      for (size_t i = 0; i < 8; i++) {
+	std::pair<uint16_t, uint16_t> split = splitChromaDC(coeffs[i]);
+	ret.first[i] = split.first;
+	ret.second[i] = split.second;
+	ret.nonzero_first_count += ret.first[i] == 0 ? 0 : 1;
+	ret.nonzero_second_count += ret.second[i] == 0 ? 0 : 1;
+      }
+      return ret;
+    }
+
+    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+      Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> getChromaDCPriors(size_t index);
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();
@@ -186,5 +230,8 @@ public:
     uint8_t get4x4NumNonzeros(uint8_t index, uint8_t color/*0 for Y 1 for U, 2 for V*/) const;
 };
 
+// Utility functions for arithmetic
+uint8_t log2(uint16_t v);
+uint8_t bit_length(uint16_t value);
 
 #endif

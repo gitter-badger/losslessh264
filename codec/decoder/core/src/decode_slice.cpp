@@ -1783,27 +1783,6 @@ const uint8_t unzz[16] ={
     3, 8, 11, 13,
     9, 10, 14, 15
 };
-uint8_t log2(uint16_t v) {
-    const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
-    const unsigned int S[] = {1, 2, 4, 8, 16};
-    int i;
-
-    unsigned int r = 0; // result of log2(v) will go here
-    for (i = 3; i >= 0; i--) // unroll for speed...
-    {
-      if (v & b[i])
-      {
-        v >>= S[i];
-        r |= S[i];
-      }
-    }
-    return r;
-}
-uint8_t bit_length(uint16_t value) {
-    if (value == 0) return 0;
-    uint16_t ret = log2(value) + 1;
-    return (uint8_t)ret;
-}
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     (void)unzz;
@@ -2326,8 +2305,35 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
           scanned_chroma_dc = true;
+          res = iMovie().tag(PIP_CRDC_TAG).scanBits(1);
+          if (res.second) {
+            fprintf(stderr, "failed to read crdc!\n");
+          }
+          uint8_t nonzero_first = res.first;
+          uint16_t first = 0u;
+          uint16_t second = 0u;
           for (int i = 0; i < 8; i++) {
-            res = iMovie().tag(PIP_CRDC_TAG).scanBits(16);
+            std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+              Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> priors =
+              oMovie().model().getChromaDCPriors(i);
+            if (nonzero_first != 0) {
+              // Decode length.
+              res = iMovie().tag(PIP_CRDC_TAG).scanBitsZeroToPow2Inclusive<4>(priors.first);
+              uint8_t bitlength = res.first;
+              // Decode the rest
+              if (bitlength > 0) {
+                res = iMovie().tag(PIP_CRDC_TAG).scanBits(bitlength - 1);
+                first = (1 << (bitlength - 1)) | res.first;
+              } else  {
+                first = 0;
+              }
+              if (res.second) {
+                fprintf(stderr, "failed to read crdc!\n");
+              }
+            }
+            res = iMovie().tag(PIP_CRDC_TAG).scanBitsZeroToPow2Inclusive<16-CHROMA_DC_SPLIT>(priors.second);
+            second = res.first;
+            res.first = MacroblockModel::mergeChromaDC(first, second);
             if (res.second) {
               fprintf(stderr, "failed to read crdc!\n");
             }
@@ -2602,8 +2608,24 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         }
         if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
           emitted_chroma_dc = true;
+          MacroblockModel::StructChromaDC s = MacroblockModel::computeStructChromaDC(rtd.odata.chromaDC);
+          oMovie().tag(PIP_CRDC_TAG).emitBits(s.nonzero_first_count == 0 ? 0 : 1, 1);
           for (int i = 0; i < 8; i++) {
-            oMovie().tag(PIP_CRDC_TAG).emitBits((uint16_t)rtd.odata.chromaDC[i], 16);
+            std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+              Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> priors =
+              oMovie().model().getChromaDCPriors(i);
+            if (s.nonzero_first_count != 0) {
+              // Encode length.
+              uint8_t bitlength = bit_length(s.first[i]);
+              oMovie().tag(PIP_CRDC_TAG).emitBitsZeroToPow2Inclusive<4>(bitlength, priors.first);
+              // Encode the rest
+              if (bitlength > 1) {
+                oMovie().tag(PIP_CRDC_TAG).emitBits(s.first[i] ^ (1 << (bitlength - 1)), bitlength - 1);
+              }
+            }
+            // The low-order bits contain some entropy. It's uncommon (10-20%) that all eight coefficients
+            // have low-order bits of zero, but the number of nonzero coefficients seems low (1.0-3.0)
+            oMovie().tag(PIP_CRDC_TAG).emitBitsZeroToPow2Inclusive<16-CHROMA_DC_SPLIT>(s.second[i], priors.second);
           }
         }
         if (rtd.uiCbpL) {

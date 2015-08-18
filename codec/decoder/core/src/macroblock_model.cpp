@@ -467,6 +467,30 @@ std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getCh
   return std::make_pair(chromaI8x8ModePriors.at(prior), (uint32_t)prior);
 }
 
+std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
+          Sirikata::Array1d<DynProb, 1<<(16-CHROMA_DC_SPLIT)>::Slice> MacroblockModel::getChromaDCPriors(size_t index) {
+  using namespace Nei;
+  uint8_t max_bitlength = 0u;
+  std::vector<NeighborType> ntypes;
+  ntypes.push_back(LEFT);
+  ntypes.push_back(ABOVE);
+  ntypes.push_back(PAST);
+  // While the DC components are often nonzero, their magnitudes are often similar, so let's use this in the prior.
+  for (size_t j = 0; j < ntypes.size(); j++) {
+    const DecodedMacroblock* block = n[ntypes[j]];
+    if (block) {
+      for (size_t i = 0; i < 8; i++) {
+        int16_t datum = block->odata.chromaDC[i];
+        uint8_t bitlength = bit_length((uint16_t)(datum >= 0 ? datum : -datum));
+        if (max_bitlength < bitlength) { max_bitlength = bitlength; }
+      }
+    }
+  }
+  max_bitlength = max_bitlength > 15 ? 15 : max_bitlength;
+  return std::make_pair(chromaDCPriors.first.at(index, max_bitlength),
+                        chromaDCPriors.second.at(index, max_bitlength));
+}
+
 int MacroblockModel::encodeMacroblockType(int welsType) {
     switch (welsType) {
         case MB_TYPE_INTRA4x4:
@@ -524,4 +548,27 @@ uint8_t MacroblockModel::get4x4NumNonzeros(uint8_t index, uint8_t color) const {
         index += 4;
     }
     return mb->numSubChromaNonzeros_[index];
+}
+
+uint8_t log2(uint16_t v) {
+    const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
+    const unsigned int S[] = {1, 2, 4, 8, 16};
+    int i;
+
+    unsigned int r = 0; // result of log2(v) will go here
+    for (i = 3; i >= 0; i--) // unroll for speed...
+    {
+      if (v & b[i])
+      {
+        v >>= S[i];
+        r |= S[i];
+      }
+    }
+    return r;
+}
+
+uint8_t bit_length(uint16_t value) {
+    if (value == 0) return 0;
+    uint16_t ret = log2(value) + 1;
+    return (uint8_t)ret;
 }
