@@ -227,6 +227,53 @@ DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int c
                                     left_freq, above_freq);
 }
 
+
+Branch<4> MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
+                                         int index, int coef,
+                                         bool emit_dc, int color) {
+    SingleCoefNeighbors priors = priorCoef(index, coef, color);
+    int past_prior = 2;
+    int left_prior = 2;
+    int above_prior = 2;
+    if (priors.has_past) {
+        past_prior = priors.past ? 1 : 0;
+    }
+    if (priors.has_left) {
+        left_prior = priors.left ? 1 : 0;
+    }
+    if (priors.has_above) {
+        above_prior = priors.above ? 1 : 0;
+    }
+    int coef_x = coef & 3;
+    int coef_y = coef >> 2;
+    int left_freq = 0;
+    int above_freq = 0;
+    if (coef_x > 0) {
+        left_freq = !!nonzeros[coef - 1];
+    }
+    if (coef_y > 0) {
+        above_freq = !!nonzeros[coef - 4];
+    }
+    int16_t below = 0;
+    int16_t right = 0;
+    if ((coef_x & 3) != 3) {
+        right = ac[coef + 1];
+    }
+    if (coef_y < 12) {
+        below = ac[coef + 4];
+    }
+    int nz = 0;
+    if (color) {
+        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
+    }else {
+        nz = mb->numSubLumaNonzeros_[index];
+    }
+    return acExpPriors.at(coef, nz,
+                           past_prior,
+                           left_freq, above_freq);
+}
+
+
 uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
     uint8_t retval = 0;
     memset(mb->numSubChromaNonzeros_, 0, sizeof(mb->numSubChromaNonzeros_));

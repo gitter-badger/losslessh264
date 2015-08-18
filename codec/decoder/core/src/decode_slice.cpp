@@ -1832,7 +1832,13 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             abs_ac -= 1; // we know it ain't zero
             int bit_len = bit_length(abs_ac);
             //fprintf(stderr, "Encoding %d(%d) ", bit_len, abs_ac);
-            oMovie().tag(stream_id).emitBits(bit_len, 4);
+            oMovie().tag(stream_id).emitBits(bit_len,
+                                             oMovie().model().getAcExpPrior(nonzero,
+                                                                             ac,
+                                                                             index,
+                                                                             coef,
+                                                                             emit_dc,
+                                                                             color));
             if (bit_len > 1) {
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
                     oMovie().tag(stream_id).emitBits((abs_ac & (1 << which_bit)) ? 1 : 0, 1);
@@ -1868,7 +1874,12 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
         if (nonzero[coef]) {
             BitStream::uint32E res;
             int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-            res = iMovie().tag(stream_id).scanBits(4);
+            res = iMovie().tag(stream_id).scanBits(oMovie().model().getAcExpPrior(nonzero,
+                                                                                   ac,
+                                                                                   index,
+                                                                                   coef,
+                                                                                   emit_dc,
+                                                                                   color));
             if (res.second) {
                 fprintf(stderr, "Cannot decode AC component %d, %d\n", coef, (int)res.second);
             }
