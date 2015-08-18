@@ -1,0 +1,16 @@
+#!/bin/bash
+
+
+# compiling x264
+cd x264
+if [ ! -e x264/config.h ]
+	then
+		./configure --disable-lavf --disable-asm
+fi
+make
+cd ..
+
+#compiling losslessh264
+make
+
+
