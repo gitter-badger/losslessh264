@@ -99,11 +99,12 @@ class MacroblockModel {
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
+    Sirikata::Array1d<DynProb, 1<<16> motionVectorPriors;
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
     std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
     std::pair<Sirikata::Array3d<DynProb, 16, 16, 16>, Sirikata::Array3d<DynProb, 16, 16, 16> > lumaDCPriors;
-     Sirikata::Array3d<DynProb,
+    Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
         256 // number of nonzero values possible
@@ -216,6 +217,8 @@ public:
       Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> getLumaDCPriors(size_t index);
     std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
       Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> _getDCPriorsHelper(bool is_luma, size_t index);
+
+    Sirikata::Array1d<DynProb, (1<<16)>::Slice getMotionVectorPrior(int subblockIndex);
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();

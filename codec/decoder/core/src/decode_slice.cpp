@@ -2279,12 +2279,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             MB_TYPE_INTRA8x8 != rtd.uiMbType &&
             MB_TYPE_INTRA4x4 != rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            res = iMovie().tag(PIP_MVX_TAG).scanBits(16);
+            auto prior = oMovie().model().getMotionVectorPrior(i);
+            res = iMovie().tag(PIP_MVX_TAG).scanBitsZeroToPow2Inclusive<16>(prior);
             if (res.second) {
               fprintf(stderr, "failed to read mv x!\n");
             }
             rtd.sMbMvp[i][0] = res.first;
-            res = iMovie().tag(PIP_MVY_TAG).scanBits(16);
+            res = iMovie().tag(PIP_MVY_TAG).scanBitsZeroToPow2Inclusive<16>(prior);
             if (res.second) {
               fprintf(stderr, "failed to read mv y!\n");
             }
@@ -2622,8 +2623,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             MB_TYPE_INTRA8x8 != rtd.uiMbType &&
             MB_TYPE_INTRA4x4 != rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            oMovie().tag(PIP_MVX_TAG).emitBits((uint16_t)rtd.sMbMvp[i][0], 16);
-            oMovie().tag(PIP_MVY_TAG).emitBits((uint16_t)rtd.sMbMvp[i][1], 16);
+            auto prior = oMovie().model().getMotionVectorPrior(i);
+            oMovie().tag(PIP_MVX_TAG).emitBitsZeroToPow2Inclusive<16>((uint16_t)rtd.sMbMvp[i][0], prior);
+            oMovie().tag(PIP_MVY_TAG).emitBitsZeroToPow2Inclusive<16>((uint16_t)rtd.sMbMvp[i][1], prior);
           }
         }
         bool emitted_luma_dc = false;
