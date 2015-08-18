@@ -239,10 +239,14 @@ Sirikata::Array1d<DynProb, 511>::Slice MacroblockModel::getSkipRunPrior() {
     using namespace Nei;
     int prior;
     if (n[PAST]) {
-        prior = n[PAST]->iMbSkipRun;
+        prior = n[PAST]->cachedSkips / 8 + (n[PAST]->cachedSkips % 8 ? 1 : 0);
+        //prior = 0;
+        //prior = n[PAST]->numLumaNonzeros_ + n[PAST]->numChromaNonzeros_;
     } else {
         prior = 0; // if no past macro exists, can we say it has 0 skip runs?
     }
+    //fprintf(stderr, "p=%d t=%d\n", prior, encodeMacroblockType(mb->uiMbType));
+
     return mbSkipRunPrior.at(prior, encodeMacroblockType(mb->uiMbType));
 }
 

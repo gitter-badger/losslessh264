@@ -1940,19 +1940,21 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
         }
 
-#ifdef HIERARCHICAL_NONZEROS
-        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<8>(oMovie().model().getLumaNumNonzerosPrior());
-        rtd.numLumaNonzeros_ = res.first;
-        if (res.second) {
-          fprintf(stderr, "failed to read Luma Nonzeros!\n");
-          rtd.numLumaNonzeros_ = 0;
+        #ifdef HIERARCHICAL_NONZEROS
+        {
+          res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<8>(oMovie().model().getLumaNumNonzerosPrior());
+          rtd.numLumaNonzeros_ = res.first;
+          if (res.second) {
+            fprintf(stderr, "failed to read Luma Nonzeros!\n");
+            rtd.numLumaNonzeros_ = 0;
+          }
+          res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getChromaNumNonzerosPrior());
+          rtd.numChromaNonzeros_ = res.first;
+          if (res.second) {
+            fprintf(stderr, "failed to read Chroma Nonzeros!\n");
+          }
         }
-        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getChromaNumNonzerosPrior());
-        rtd.numChromaNonzeros_ = res.first;
-        if (res.second) {
-          fprintf(stderr, "failed to read Chroma Nonzeros!\n");
-        }
-#endif
+        #endif
 
         uint8_t runningCount = 0;
         for (int i = 0; i < 16; ++i) {
@@ -2314,7 +2316,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "block=%d write skip&eos!\n", which_block);
 #endif
-        fprintf(stderr, "skip_run=%d write skip&eos!\n", rtd.iMbSkipRun);
+        //fprintf(stderr, "skip_run=%d\n", rtd.iMbSkipRun);
         //oMovie().tag(PIP_SKIP_TAG).emitBits(rtd.iMbSkipRun, 12);
         //oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior()
         oMovie().tag(PIP_SKIP_TAG).emitBits(rtd.iMbSkipRun, oMovie().model().getSkipRunPriorBranch());
