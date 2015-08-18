@@ -1783,26 +1783,62 @@ const uint8_t unzz[16] ={
     3, 8, 11, 13,
     9, 10, 14, 15
 };
-
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     (void)unzz;
-    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+    int num_nonzeros = oMovie().model().get4x4NumNonzeros(index, color);
+    int num_nonzeros_left = num_nonzeros;
+    bool nonzero[16] = {0};
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-        oMovie().tag(stream_id).emitBits(ac[coef], 16);
+        if (ac[coef]) {
+            nonzero[coef] = true;
+            --num_nonzeros_left;
+        }
+        oMovie().tag(stream_id).emitBits(nonzero[coef] ? 1 : 0, 1);
+        //fprintf(stderr,"Coeff %d emitting bits %d for nz %d\n", coef,nonzero[coef] ? 1 : 0, index);
+    }
+    for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
+        int coef = kzz[coef_uzz];
+        if (nonzero[coef]) {
+            int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
+            oMovie().tag(stream_id).emitBits(ac[coef], 16);
+            //fprintf(stderr,"Coeff %d emitting bits %d for dat %d\n", coef,ac[coef], index);
+        }
     }
 }
 
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
-    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+    memset(ac, 0, sizeof(int16_t)*16);
+    int num_nonzeros = oMovie().model().get4x4NumNonzeros(index, color);
+    int num_nonzeros_left = num_nonzeros;
+    bool nonzero[16] = {0};
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
-        BitStream::uint32E res;
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-        res = iMovie().tag(stream_id).scanBits(16);
+        std::pair<uint32_t, H264Error> res = iMovie().tag(stream_id).scanBits(1);
         if (res.second) {
-            fprintf(stderr, "Cannot decode AC component %d, %d\n", coef, (int)res.second);
+            fprintf(stderr,"Cannot scan bit for nonzero %d \n", index);
         }
-        ac[coef] = res.first;
+        if (res.first) {
+            nonzero[coef] = true;
+            --num_nonzeros_left;
+        }
+        //fprintf(stderr, "Coeff %d  scan bits %d for nz %d\n", coef, nonzero[coef] ? 1 : 0, index);
+    }
+    for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
+        int coef = kzz[coef_uzz];
+        if (nonzero[coef]) {
+            BitStream::uint32E res;
+            int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
+            res = iMovie().tag(stream_id).scanBits(16);
+            if (res.second) {
+                fprintf(stderr, "Cannot decode AC component %d, %d\n", coef, (int)res.second);
+            }
+            ac[coef] = res.first;
+            //fprintf(stderr,"Coeff %d  scan bits %d for dat %d\n", coef, ac[coef], index);
+        } else
+        assert(ac[coef] == 0);
     }
 }
 
