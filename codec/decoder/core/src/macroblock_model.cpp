@@ -206,7 +206,13 @@ DynProb *MacroblockModel::getNonzeroPrior(int index, int coef, bool emit_dc, int
     if (priors.has_above) {
         above_prior = priors.above ? 1 : 0;
     }
-    return &nonzeroBitmaskPriors.at(coef,past_prior, left_prior, above_prior);
+    int nz = 0;
+    if (color) {
+        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
+    }else {
+        nz = mb->numSubLumaNonzeros_[index];
+    }
+    return &nonzeroBitmaskPriors.at(coef,nz, past_prior, left_prior, above_prior, color);
 }
 
 uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {

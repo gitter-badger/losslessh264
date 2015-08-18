@@ -120,11 +120,13 @@ class MacroblockModel {
         17,//left
         17,//above
         16> numSubNonZerosChromaPriors;
-    Sirikata::Array4d<DynProb,
+    Sirikata::Array6d<DynProb,
         16,//which coef
+        17,//num_nonzeros
         3,//left_zero
         3,//above_zero
-        3//past_zero
+        3,//past_zero
+        3 //color
         > nonzeroBitmaskPriors;
     struct SingleCoefNeighbors {
         int16_t past;
