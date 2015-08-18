@@ -228,6 +228,20 @@ DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int c
 }
 
 
+DynProb* MacroblockModel::getAcSignificandPrior(const bool *nonzeros, const int16_t *ac,
+                                                 int index, int coef,
+                                                 bool emit_dc, int color,
+                                                 int bit_len, int which_bit, int significand) {
+    int nz = 0;
+    if (color) {
+        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
+    }else {
+        nz = mb->numSubLumaNonzeros_[index];
+    }
+    return &acSignificandPriors.at(coef, nz,
+                                   bit_len, which_bit);
+}
+
 Branch<4> MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
                                          int index, int coef,
                                          bool emit_dc, int color) {

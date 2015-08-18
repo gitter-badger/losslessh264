@@ -134,6 +134,12 @@ class MacroblockModel {
         2,//coef right nonzero
         2,// coef below nonzero
         15> acExpPriors;
+
+    Sirikata::Array4d<DynProb,
+        16,//which coef
+        17,//num_nonzeros
+        16,//exponent
+        9> acSignificandPriors;
     struct SingleCoefNeighbors {
         int16_t past;
         int16_t left;
@@ -149,7 +155,11 @@ public:
     DynProb *getNonzeroPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
     Branch<4> getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             bool emit_dc, int color);
+    DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
+                                   bool emit_dc, int color,
+                                   int bit_len, int which_bit, int significand_so_far);
     Branch<4> getMacroblockTypePrior();
+
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();

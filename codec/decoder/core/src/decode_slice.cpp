@@ -1840,8 +1840,22 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                              emit_dc,
                                                                              color));
             if (bit_len > 1) {
+                int significand_so_far = 1 << (bit_len - 1);
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
-                    oMovie().tag(stream_id).emitBits((abs_ac & (1 << which_bit)) ? 1 : 0, 1);
+                    oMovie().tag(stream_id).emitBit((abs_ac & (1 << which_bit)) ? 1 : 0,
+                                                    oMovie().model().
+                                                    getAcSignificandPrior(
+                                                        nonzero,
+                                                        ac,
+                                                        index,
+                                                        coef,
+                                                        emit_dc,
+                                                        color,
+                                                        bit_len,
+                                                        which_bit,
+                                                        significand_so_far
+                                                        ));
+                    significand_so_far |= (abs_ac & (1 << which_bit));
                     //fprintf(stderr, " %d ", (abs_ac & (1 << which_bit)) ? 1 : 0);
                 }
             }
@@ -1892,11 +1906,19 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             }
             if (bit_len > 1) {
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
-                    std::pair<uint32_t, H264Error> res = iMovie().tag(stream_id).scanBits(1);
-                    if (res.second) {
-                        fprintf(stderr,"Cannot scan bit for nonzero %d \n", which_bit);
-                    }
-                    if (res.first) {
+                    int significand_so_far = ac[coef];
+                    bool new_bit = iMovie().tag(stream_id).scanBit(oMovie().model().
+                                                    getAcSignificandPrior(
+                                                        nonzero,
+                                                        ac,
+                                                        index,
+                                                        coef,
+                                                        emit_dc,
+                                                        color,
+                                                        bit_len,
+                                                        which_bit,
+                                                        significand_so_far));
+                    if (new_bit) {
                         ac[coef] |= (1 << which_bit);
                     }
                     //fprintf(stderr, " %d ", res.first);
