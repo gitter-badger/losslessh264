@@ -2,15 +2,15 @@
 
 
 # compiling x264
-cd x264
-if [ ! -e x264/config.h ]
+pushd x264
+if [ ! -e config.h ]
 	then
 		./configure --disable-lavf --disable-asm
 fi
 make
-cd ..
+popd
 
 #compiling losslessh264
-make
+make 
 
 
