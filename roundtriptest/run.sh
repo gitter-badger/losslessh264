@@ -6,7 +6,8 @@ BASEDIR=`dirname "$0"`
 
 make -C "$BASEDIR/.."
 
-FILES="$BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264"
+#FILES="$BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264"
+FILES="$BASEDIR/tibby.264"
 
 for f in "$@" $FILES; do
     rm -f /tmp/a.pip* /tmp/a.264

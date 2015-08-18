@@ -98,7 +98,12 @@ class MacroblockModel {
     DecodedMacroblock *mb;
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
-    Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
+    Sirikata::Array3d<DynProb,
+            512, // past
+            16, //mbType
+            511 // values
+            > mbSkipRunPrior; // TODO: Assume max number of skips is 256
+    Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors;
      Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
@@ -123,6 +128,10 @@ public:
                                const FreqImage *, int mbx, int mby);
 
     Branch<4> getMacroblockTypePrior();
+    Sirikata::Array1d<DynProb, 511>::Slice getSkipRunPrior();
+    Branch<9> getSkipRunPriorBranch() {
+        return getSkipRunPrior().slice<0, 511>();
+    }
     Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
     Branch<8> getLumaNumNonzerosPriorBranch() {

@@ -12,6 +12,8 @@
 
 #include "./bitwriter.h"
 
+int w_bitcount = 0;
+
 void vpx_start_encode(vpx_writer *br, uint8_t *source) {
   br->lowvalue = 0;
   br->range    = 255;

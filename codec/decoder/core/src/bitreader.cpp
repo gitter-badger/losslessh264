@@ -31,10 +31,14 @@
 #define _BSD_SOURCE       /* See feature_test_macros(7) */
 #include <endian.h>
 #endif
+
+
 //#include "vpx_dsp/prob.h"
 //#include "vpx_ports/mem.h"
 //#include "vpx_mem/vpx_mem.h"
 //#include "vpx_util/endian_inl.h"
+
+int r_bitcount = 0;
 
 int vpx_reader_init(vpx_reader *r,
                     const uint8_t *buffer,

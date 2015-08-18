@@ -234,6 +234,18 @@ Sirikata::Array1d<DynProb, 16>::Slice MacroblockModel::getSubChromaNumNonzerosPr
     (void)vprior;
     return numSubNonZerosChromaPriors.at(hprior, vprior, prior);
 }
+
+Sirikata::Array1d<DynProb, 511>::Slice MacroblockModel::getSkipRunPrior() {
+    using namespace Nei;
+    int prior;
+    if (n[PAST]) {
+        prior = n[PAST]->iMbSkipRun;
+    } else {
+        prior = 0; // if no past macro exists, can we say it has 0 skip runs?
+    }
+    return mbSkipRunPrior.at(prior, encodeMacroblockType(mb->uiMbType));
+}
+
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;
     int leftType = 15;
