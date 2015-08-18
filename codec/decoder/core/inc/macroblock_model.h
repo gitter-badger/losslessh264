@@ -118,7 +118,6 @@ class MacroblockModel {
     Sirikata::Array1d<DynProb,
             63 // Max I've seen the value is in the 30s, but give it some buffer.
             > mbQPLPrior;
-    Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors;
     Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
