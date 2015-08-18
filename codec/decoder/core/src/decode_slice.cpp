@@ -2365,17 +2365,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             MB_TYPE_INTRA8x8 != rtd.uiMbType &&
             MB_TYPE_INTRA4x4 != rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            auto prior = oMovie().model().getMotionVectorPrior(i);
-            res = iMovie().tag(PIP_MVX_TAG).scanBitsZeroToPow2Inclusive<16>(prior);
-            if (res.second) {
-              fprintf(stderr, "failed to read mv x!\n");
-            }
-            rtd.sMbMvp[i][0] = res.first;
-            res = iMovie().tag(PIP_MVY_TAG).scanBitsZeroToPow2Inclusive<16>(prior);
-            if (res.second) {
-              fprintf(stderr, "failed to read mv y!\n");
-            }
-            rtd.sMbMvp[i][1] = res.first;
+            auto priorX = oMovie().model().getMotionVectorPrior(i, 0);
+            rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first);
+            auto priorY = oMovie().model().getMotionVectorPrior(i, 1);
+            rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first);
           }
         }
         bool scanned_luma_dc = false;
@@ -2717,9 +2710,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
             MB_TYPE_INTRA8x8 != rtd.uiMbType &&
             MB_TYPE_INTRA4x4 != rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
-            auto prior = oMovie().model().getMotionVectorPrior(i);
-            oMovie().tag(PIP_MVX_TAG).emitBitsZeroToPow2Inclusive<16>((uint16_t)rtd.sMbMvp[i][0], prior);
-            oMovie().tag(PIP_MVY_TAG).emitBitsZeroToPow2Inclusive<16>((uint16_t)rtd.sMbMvp[i][1], prior);
+            auto priorX = oMovie().model().getMotionVectorPrior(i, 0);
+            auto priorY = oMovie().model().getMotionVectorPrior(i, 1);
+//            int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
+//            int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
+            oMovie().tag(PIP_MVX_TAG).emitInt(rtd.sMbMvp[i][0], priorX.first);
+            oMovie().tag(PIP_MVY_TAG).emitInt(rtd.sMbMvp[i][1], priorY.first);
           }
         }
         bool emitted_luma_dc = false;
