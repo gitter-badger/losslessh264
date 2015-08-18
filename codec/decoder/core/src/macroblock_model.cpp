@@ -591,3 +591,19 @@ uint8_t bit_length(uint16_t value) {
     uint16_t ret = log2(value) + 1;
     return (uint8_t)ret;
 }
+
+uint16_t swizzle_sign(int16_t v) {
+  if (v >= 0) {
+    return ((uint16_t)v) << 1;
+  } else {
+    return (((uint16_t)(-v-1)) << 1) | 0x1;
+  }
+}
+
+int16_t unswizzle_sign(uint16_t v) {
+  if (v & 0x1) {
+    return -(int16_t)(v >> 1) - 1;
+  } else {
+    return (int16_t)(v >> 1);
+  }
+}

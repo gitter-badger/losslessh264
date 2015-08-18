@@ -93,6 +93,12 @@ namespace WelsDec{
     typedef struct TagWelsDecoderContext *PWelsDecoderContext;
 }
 
+// Utility functions for arithmetic
+uint8_t log2(uint16_t v);
+uint8_t bit_length(uint16_t value);
+uint16_t swizzle_sign(int16_t v);
+int16_t unswizzle_sign(uint16_t v);
+
 class MacroblockModel {
 
     DecodedMacroblock *mb;
@@ -174,20 +180,12 @@ public:
     static std::pair<uint16_t, uint16_t> splitDC(int16_t val) {
       // Follows power distribution. 0 is prevalent, then +/-1, and so on.
       // We will move the sign bit to the end and do a 12-4 split.
-      if (val >= 0) {
-	return std::make_pair<uint16_t, uint16_t>(val >> (15 - DC_SPLIT),
-						  val & DC_LOWER_MASK);
-      } else {
-	return std::make_pair<uint16_t, uint16_t>((-val-1) >> (15 - DC_SPLIT),
-						  (1 << (15 - DC_SPLIT)) + ((-val-1) & DC_LOWER_MASK));
-      }
+      uint16_t v = swizzle_sign(val);
+      return std::make_pair<uint16_t, uint16_t>(v >> (15 - DC_SPLIT),
+						v & DC_LOWER_MASK);
     }
     static int16_t mergeDC(uint16_t first, uint8_t second) {
-      if (second & (1 << (15 - DC_SPLIT))) {
-	return -((first << (15 - DC_SPLIT)) | (second & DC_LOWER_MASK)) - 1;
-      } else {
-	return (first << (15 - DC_SPLIT)) | second;
-      }
+      return unswizzle_sign(first << (15 - DC_SPLIT) | second);
     }
 
     template<size_t size> struct DCStatistics {
@@ -238,9 +236,5 @@ public:
     int decodeMacroblockType(int storedType);
     uint8_t get4x4NumNonzeros(uint8_t index, uint8_t color/*0 for Y 1 for U, 2 for V*/) const;
 };
-
-// Utility functions for arithmetic
-uint8_t log2(uint16_t v);
-uint8_t bit_length(uint16_t value);
 
 #endif
