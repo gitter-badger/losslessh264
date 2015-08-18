@@ -140,6 +140,10 @@ class MacroblockModel {
         17,//num_nonzeros
         16,//exponent
         9> acSignificandPriors;
+    Sirikata::Array3d<DynProb,
+        16,//which coef
+        17,//num_nonzeros
+        3> acSignPriors;
     struct SingleCoefNeighbors {
         int16_t past;
         int16_t left;
@@ -158,6 +162,8 @@ public:
     DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                                    bool emit_dc, int color,
                                    int bit_len, int which_bit, int significand_so_far);
+    DynProb *getAcSignPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
+                            int color);
     Branch<4> getMacroblockTypePrior();
 
 

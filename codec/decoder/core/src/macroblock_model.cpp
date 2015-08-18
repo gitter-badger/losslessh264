@@ -242,6 +242,17 @@ DynProb* MacroblockModel::getAcSignificandPrior(const bool *nonzeros, const int1
                                    bit_len, which_bit);
 }
 
+DynProb* MacroblockModel::getAcSignPrior(const bool *nonzeros, const int16_t *ac,
+                                         int index, int coef, int color) {
+    int nz = 0;
+    if (color) {
+        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
+    }else {
+        nz = mb->numSubLumaNonzeros_[index];
+    }
+    return &acSignPriors.at(coef, nz, color);
+
+}
 Branch<4> MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
                                          int index, int coef,
                                          bool emit_dc, int color) {

@@ -1860,7 +1860,8 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                 }
             }
             //fprintf(stderr, "%c\n", (ac[coef] < 0 ? '-' : '+'));
-            oMovie().tag(stream_id).emitBits(ac[coef] < 0 ? 1 : 0, 1);
+            oMovie().tag(stream_id).emitBit(ac[coef] < 0 ? 1 : 0, oMovie().model().
+                                             getAcSignPrior(nonzero, ac, index, coef, color));
         }
     }
 }
@@ -1925,12 +1926,14 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                 }
             }
             ++ac[coef];
-            std::pair<uint32_t, H264Error> sign = iMovie().tag(stream_id).scanBits(1);
-            if (sign.second) {
-                fprintf(stderr,"Cannot scan sign bit for ceof %d \n", coef);
-            }
+            bool sign = iMovie().tag(stream_id).scanBit(
+                                                        oMovie().model().getAcSignPrior(nonzero,
+                               ac,
+                               index,
+                               coef,
+                               color));
             //fprintf(stderr, "%c\n", (sign.first ? '-' : '+'));
-            if (sign.first) {
+            if (sign) {
                 ac[coef] = -ac[coef];
             }
         } else {
