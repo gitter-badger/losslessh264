@@ -120,13 +120,12 @@ class MacroblockModel {
         17,//left
         17,//above
         16> numSubNonZerosChromaPriors;
-    Sirikata::Array6d<DynProb,
+    Sirikata::Array5d<DynProb,
         16,//which coef
         17,//num_nonzeros
-        3,//left_zero
-        3,//above_zero
         3,//past_zero
-        3 //color
+        2,//coef above
+        2// coef left
         > nonzeroBitmaskPriors;
     struct SingleCoefNeighbors {
         int16_t past;
@@ -140,7 +139,7 @@ class MacroblockModel {
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
                                const FreqImage *, int mbx, int mby);
-    DynProb *getNonzeroPrior(int index, int coef, bool emit_dc, int color);
+    DynProb *getNonzeroPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
     Branch<4> getMacroblockTypePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();

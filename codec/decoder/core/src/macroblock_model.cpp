@@ -192,7 +192,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
     }
     return retval;
 }
-DynProb *MacroblockModel::getNonzeroPrior(int index, int coef, bool emit_dc, int color) {
+DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color) {
     SingleCoefNeighbors priors = priorCoef(index, coef, color);
     int past_prior = 2;
     int left_prior = 2;
@@ -212,7 +212,19 @@ DynProb *MacroblockModel::getNonzeroPrior(int index, int coef, bool emit_dc, int
     }else {
         nz = mb->numSubLumaNonzeros_[index];
     }
-    return &nonzeroBitmaskPriors.at(coef,nz, past_prior, left_prior, above_prior, color);
+    int left_freq = 0;
+    int above_freq = 0;
+    int coef_x = coef & 3;
+    int coef_y = coef >> 2;
+    if (coef_x > 0) {
+        left_freq = !!this_4x4[coef - 1];
+    }
+    if (coef_y > 0) {
+        above_freq = !!this_4x4[coef - 4];
+    }
+    return &nonzeroBitmaskPriors.at(coef, nz,
+                                    past_prior,
+                                    left_freq, above_freq);
 }
 
 uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
