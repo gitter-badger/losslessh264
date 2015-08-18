@@ -13,7 +13,7 @@ enum {
     PIP_SKIP_END_TAG,
     PIP_CBPC_TAG,
     PIP_CBPL_TAG,
-    PIP_LAST_MB_TAG,
+    PIP_LAST_MB_TAG,  // not needed & unused -- this can be computed from existing decoder state
     PIP_QPL_TAG,
     PIP_MB_TYPE_TAG,
     PIP_REF_TAG,

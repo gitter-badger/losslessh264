@@ -2140,16 +2140,14 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiCbpL = res.first;
         }
-        res = iMovie().tag(PIP_LAST_MB_TAG).scanBits(16);
-        if (res.second) {
-          fprintf(stderr, "failed to read iLastMbQp!\n");
-          rtd.iLastMbQp = 255;
-        } else {
-          rtd.iLastMbQp = res.first;
-        }
+
+        // lastMbQp is not serialized
+        rtd.iLastMbQp = pSlice->iLastMbQp;
+
         //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
         res = iMovie().tag(PIP_QPL_TAG).scanBits(oMovie().model().getQPLPrior());
         //res = iMovie().tag(PIP_QPL_TAG).scanBits(16);
+
         if (res.second) {
           fprintf(stderr, "failed to read uiLumaQp!\n");
           rtd.uiLumaQp = 255;
@@ -2580,7 +2578,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
         }
         oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
-        oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
+
+	// don't serialize lastMbQp
+
         //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
         oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
         //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
