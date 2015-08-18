@@ -1442,7 +1442,7 @@ struct EncoderState {
                 if ((i & 0xf) == 0xf) {
                     zigdest[i] = 0;
                 } else {
-                    zigdest[i] = zigdest[i + 1]; 
+                    zigdest[i] = zigdest[i + 1];
                 }
             }
         }
@@ -2072,14 +2072,18 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         } else {
           rtd.uiNumRefIdxL0Active = res.first;
         }
-        res = iMovie().tag(PIP_8x8_TAG).scanBits(8);
+        std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
+          = oMovie().model().getChromaI8x8ModePrior();
+        res = iMovie().tag(PIP_8x8_TAG).scanBitsZeroToPow2Inclusive<3>(chroma_prior_pair.first, chroma_prior_pair.second);
         if (res.second) {
           fprintf(stderr, "failed to read uiChmaI8x8Mode!\n");
           rtd.uiChmaI8x8Mode = 255;
         } else {
           rtd.uiChmaI8x8Mode = res.first;
         }
-        res = iMovie().tag(PIP_16x16_TAG).scanBits(8);
+        std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> luma_prior_pair
+          = oMovie().model().getLumaI16x16ModePrior();
+        res = iMovie().tag(PIP_16x16_TAG).scanBitsZeroToPow2Inclusive<3>(luma_prior_pair.first, luma_prior_pair.second);
         if (res.second) {
           fprintf(stderr, "failed to read uiLumaI16x16Mode!\n");
           rtd.uiLumaI16x16Mode = 255;
@@ -2429,8 +2433,17 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_LAST_MB_TAG).emitBits((uint16_t)rtd.iLastMbQp, 16);
         oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
         oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
-        oMovie().tag(PIP_8x8_TAG).emitBits(rtd.uiChmaI8x8Mode, 8);
-        oMovie().tag(PIP_16x16_TAG).emitBits(rtd.uiLumaI16x16Mode, 8);
+        std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
+          = oMovie().model().getChromaI8x8ModePrior();
+        oMovie().tag(PIP_8x8_TAG).emitBitsZeroToPow2Inclusive<3>(rtd.uiChmaI8x8Mode,
+                                                                 chroma_prior_pair.first,
+                                                                 chroma_prior_pair.second);
+        std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> luma_prior_pair
+          = oMovie().model().getLumaI16x16ModePrior();
+        oMovie().tag(PIP_16x16_TAG).emitBitsZeroToPow2Inclusive<3>(rtd.uiLumaI16x16Mode,
+                                                                   luma_prior_pair.first,
+                                                                   luma_prior_pair.second);
+
         if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
           for (int i = 0; i < 16; i++) {
             oMovie().tag(PIP_PREV_PRED_TAG).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i], 8);
@@ -2849,7 +2862,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     }
     BsEndCavlc (pBs);
   }
-  
+
   } // fixme
 
 
