@@ -1928,8 +1928,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   int origSkipped = -1;
   int curSkipped = -1;
   bool endOfSlice = false;
-  static EncoderState esCabac(10000000, pCurLayer->iMbWidth, pCurLayer->iMbHeight); // FIXME: How to get size estimate of a slice?
-  static bool firstTime = true;
+  EncoderState esCabac(10000000, pCurLayer->iMbWidth, pCurLayer->iMbHeight); // FIXME: How to get size estimate of a slice?
+  bool firstTime = true;
   if (firstTime) {
     firstTime = false;
     WelsEnc::WelsCabacInit (&esCabac.pEncCtx);
@@ -2516,6 +2516,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           esCabac.initNonZeroCount(pCurLayer, rtd.odata);
           WelsEnc::WelsSpatialWriteMbSynCabac (
               &esCabac.pEncCtx, &esCabac.pSlice, &esCabac.pCurMb());
+          //if (pSliceHeader->eSliceType==P_SLICE&&which_block>=396){
       /*WelsCabacEncodeFlush (&esCabac.pSlice.sCabacCtx);
       esCabac.wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac.pSlice.sCabacCtx);
       assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac.wrBs, 22));*/
@@ -2539,6 +2540,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           esCabac.initNonZeroCount(pCurLayer, rtd.odata);
           WelsEnc::WelsSpatialWriteMbSynCabac (
               &esCabac.pEncCtx, &esCabac.pSlice, &esCabac.pCurMb());
+      /*WelsCabacEncodeFlush (&esCabac.pSlice.sCabacCtx);
+      esCabac.wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac.pSlice.sCabacCtx);
+      assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac.wrBs, 22));}*/
         }
       }
     }

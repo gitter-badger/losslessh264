@@ -113,31 +113,31 @@ int32_t Read32BitsCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiValue, int3
   }
   switch (iLeftBytes) {
   case 3:
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0]) << 16 | (pDecEngine->pBuffCurr[1]) << 8 | (pDecEngine->pBuffCurr[2]));
     pDecEngine->pBuffCurr += 3;
     iNumBitsRead = 24;
     break;
   case 2:
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0]) << 8 | (pDecEngine->pBuffCurr[1]));
     pDecEngine->pBuffCurr += 2;
     iNumBitsRead = 16;
     break;
   case 1:
-  fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
     uiValue = pDecEngine->pBuffCurr[0];
     pDecEngine->pBuffCurr += 1;
     iNumBitsRead = 8;
     break;
   default:
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
-  fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
+  //fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0] << 24) | (pDecEngine->pBuffCurr[1]) << 16 | (pDecEngine->pBuffCurr[2]) << 8 |
                (pDecEngine->pBuffCurr[3]));
     pDecEngine->pBuffCurr += 4;

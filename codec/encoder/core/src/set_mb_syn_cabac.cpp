@@ -106,7 +106,7 @@ void WelsCabacPutBit (SCabacCtx* pCbCtx, uint32_t iValue) {
       else
         pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
       *pCbCtx->m_pBufCur ++ = uiByte;
-        fprintf(stderr, "Encode Decision: byte\n");
+        //fprintf(stderr, "Encode Decision: byte\n");
     }
   } else {
 
@@ -122,7 +122,7 @@ void WelsCabacPutBit (SCabacCtx* pCbCtx, uint32_t iValue) {
         else
           pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
         *pCbCtx->m_pBufCur ++ = uiByte;
-        fprintf(stderr, "Encode Decision: byte\n");
+        // fprintf(stderr, "Encode Decision: byte\n");
       }
     }
   }
@@ -230,14 +230,14 @@ void WelsCabacEncodeFlush (SCabacCtx* pCbCtx) {
       uint32_t uiByte = pCbCtx->m_uData >> (pCbCtx->m_uiBitsUsed);
       pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
       *pCbCtx->m_pBufCur ++ = uiByte;
-        fprintf(stderr, "Encode Decision: byte\n");
+        //fprintf(stderr, "Encode Decision: byte\n");
     } else {
       if (pCbCtx->m_uiBitsUsed == 8) {
         *pCbCtx->m_pBufCur ++ = pCbCtx->m_uData & 0xff;
       } else {
         *pCbCtx->m_pBufCur ++ = (pCbCtx->m_uData << (8 - pCbCtx->m_uiBitsUsed));
       }
-        fprintf(stderr, "Encode Decision: byte\n");
+        //fprintf(stderr, "Encode Decision: byte\n");
       pCbCtx->m_uiBitsUsed = 0;
     }
   }
