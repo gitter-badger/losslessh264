@@ -99,6 +99,8 @@ class MacroblockModel {
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
+    Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
+    Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
      Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
@@ -123,6 +125,8 @@ public:
                                const FreqImage *, int mbx, int mby);
 
     Branch<4> getMacroblockTypePrior();
+    std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
+    std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();
     Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
     Branch<8> getLumaNumNonzerosPriorBranch() {

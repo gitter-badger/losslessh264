@@ -65,7 +65,7 @@ const char * billEnumToName(int en) {
     if(PIP_LAC_TAG0 + 13 == en) return "luma ac 13";
     if(PIP_LAC_TAG0 + 14 == en) return "luma ac 14";
     if(PIP_LAC_TAG0 + 15 == en) return "luma ac 15";
-   
+
     if(PIP_CRAC_TAG0 + 0 == en) return "chroma ac 0";
     if(PIP_CRAC_TAG0 + 1 == en) return "chroma ac 1";
     if(PIP_CRAC_TAG0 + 2 == en) return "chroma ac 2";
@@ -257,6 +257,44 @@ Branch<4> MacroblockModel::getMacroblockTypePrior() {
         pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
              .sSliceHeader.eSliceType == P_SLICE));
 }
+
+std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getLumaI16x16ModePrior() {
+  using namespace Nei;
+  int prior = 0;
+  // NOTE(jongmin): uiLumaI16x16Mode is mostly zero (80%~?; for some streams all zero.)
+  // When nonzero, it correlates very well with the value from n[PAST].
+  // As such, we'll branch on the value from n[PAST].
+  if (n[PAST]) {
+    prior = n[PAST]->uiLumaI16x16Mode;
+    prior = (prior >= 6) ? 6 : prior;
+    /*
+    static std::vector<int> histogram(64);
+    static int sum = 0;
+    histogram[prior * 8 + mb->uiLumaI16x16Mode]++;
+    if (++sum % 1000 == 0) {
+      printf("Hmm\n");
+      for (int i = 0; i < 64; i++) {
+        printf("%d%c", histogram[i], i % 8 == 7 ? '\n' : ' ');
+      }
+      }*/
+  } else {
+    prior = 7;
+  }
+  return std::make_pair(chromaI8x8ModePriors.at(prior), (uint32_t)prior);
+}
+
+std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getChromaI8x8ModePrior() {
+  using namespace Nei;
+  int prior = 0;
+  if (n[PAST]) {
+    prior = n[PAST]->uiChmaI8x8Mode;
+    prior = (prior >= 6) ? 6 : prior;
+  } else {
+    prior = 7;
+  }
+  return std::make_pair(chromaI8x8ModePriors.at(prior), (uint32_t)prior);
+}
+
 int MacroblockModel::encodeMacroblockType(int welsType) {
     switch (welsType) {
         case MB_TYPE_INTRA4x4:
