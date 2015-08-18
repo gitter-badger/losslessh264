@@ -2043,12 +2043,20 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "block=%d read skip&eos!\n", which_block);
 #endif
-        res = iMovie().tag(PIP_SKIP_TAG).scanBits(16);
+        res = iMovie().tag(PIP_SKIP_TAG).scanBits(oMovie().model().getSkipRunPriorBranch());
+        if (res.second) {
+          fprintf(stderr, "failed to read iSkipRun!\n");
+        } else {
+          origSkipped = curSkipped = res.first;
+        }
+        /*
+        res = iMovie().tag(PIP_SKIP_TAG).scanBits(12);
         if (res.second) {
           fprintf(stderr, "failed to read iMbSkipRun!\n");
         } else {
           origSkipped = curSkipped = res.first;
         }
+        */
       } else {
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "block=%d not read skip&eos!\n", which_block);
@@ -2506,7 +2514,10 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "block=%d write skip&eos!\n", which_block);
 #endif
-        oMovie().tag(PIP_SKIP_TAG).emitBits(rtd.iMbSkipRun, 16);
+        fprintf(stderr, "skip_run=%d write skip&eos!\n", rtd.iMbSkipRun);
+        //oMovie().tag(PIP_SKIP_TAG).emitBits(rtd.iMbSkipRun, 12);
+        //oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior()
+        oMovie().tag(PIP_SKIP_TAG).emitBits(rtd.iMbSkipRun, oMovie().model().getSkipRunPriorBranch());
       } else {
 #ifdef DEBUG_PRINTS
         fprintf(stderr, "block=%d not write skip&eos!\n", which_block);

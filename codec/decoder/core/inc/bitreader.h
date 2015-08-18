@@ -71,6 +71,8 @@ static INLINE int vpx_reader_has_error(vpx_reader *r) {
   return r->count > BD_VALUE_SIZE && r->count < LOTS_OF_BITS;
 }
 
+extern int r_bitcount;
+
 static INLINE int vpx_read(vpx_reader *r, int prob) {
   unsigned int bit = 0;
   BD_VALUE value;
@@ -122,6 +124,12 @@ static INLINE int vpx_read(vpx_reader *r, int prob) {
   r->value = value;
   r->count = count;
   r->range = range;
+
+  #ifdef DEBUG_ARICODER
+    //if (r_bitcount < 1000) {
+      fprintf(stderr, "R %d %d %d\n", r_bitcount++, prob, bit);
+    //}
+  #endif
 
   return bit;
 }

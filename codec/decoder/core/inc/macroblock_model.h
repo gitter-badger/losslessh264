@@ -111,6 +111,12 @@ class MacroblockModel {
     std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
     std::pair<Sirikata::Array3d<DynProb, 16, 16, 16>, Sirikata::Array3d<DynProb, 16, 16, 16> > lumaDCPriors;
     Sirikata::Array3d<DynProb,
+            512, // past
+            16, //mbType
+            511 // values
+            > mbSkipRunPrior; // TODO: Assume max number of skips is 256
+    Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors;
+    Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
         256 // number of nonzero values possible
@@ -220,6 +226,10 @@ public:
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();
+    Sirikata::Array1d<DynProb, 511>::Slice getSkipRunPrior();
+    Branch<9> getSkipRunPriorBranch() {
+        return getSkipRunPrior().slice<0, 511>();
+    }
     Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
     Branch<8> getLumaNumNonzerosPriorBranch() {
