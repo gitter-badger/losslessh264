@@ -1817,8 +1817,10 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             nonzero[coef] = true;
             --num_nonzeros_left;
         }
-        oMovie().tag(stream_id).emitBits(nonzero[coef] ? 1 : 0, 1);
-
+        oMovie().tag(stream_id).emitBit(!!nonzero[coef], oMovie().model().getNonzeroPrior(index,
+                                                                                          coef,
+                                                                                          emit_dc,
+                                                                                          color));
     }
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
@@ -1849,11 +1851,11 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-        std::pair<uint32_t, H264Error> res = iMovie().tag(stream_id).scanBits(1);
-        if (res.second) {
-            fprintf(stderr,"Cannot scan bit for nonzero %d \n", index);
-        }
-        if (res.first) {
+        bool nz = iMovie().tag(stream_id).scanBit(oMovie().model().getNonzeroPrior(index,
+                                                                                   coef,
+                                                                                   emit_dc,
+                                                                                   color));
+        if (nz) {
             nonzero[coef] = true;
             --num_nonzeros_left;
         }

@@ -126,6 +126,88 @@ uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
     mb->numLumaNonzeros_ = retval;
     return retval;
 }
+MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int coef, int color) {
+    using namespace Nei;
+    SingleCoefNeighbors retval = {};
+    int w = 4;
+    int h = 4;
+    if (color) {
+        w = 2;
+        h = 2;
+    }
+    int ix = (index & (w - 1));
+    int iy = (index / w);
+    int coloroffset = 0;
+    if (color == 2) {
+        coloroffset = w * h * 16;
+    }
+    if (ix > 0) {
+        int full_index = (index - 1) * 16 + coef + coloroffset;
+        if (color) {
+            retval.left = mb->odata.chromaAC[full_index];
+        }else {
+            retval.left = mb->odata.lumaAC[full_index];
+        }
+        retval.has_left = true;
+    } else {
+        const DecodedMacroblock *left = n[LEFT];
+        if (left) {
+            retval.has_left = true;
+            int full_index = (index + w - 1) * 16 + coef + coloroffset;
+            if (color) {
+                retval.left = left->odata.chromaAC[full_index];
+            } else {
+                retval.left = left->odata.lumaAC[full_index];
+            }
+        }
+    }
+    if (iy >= w) {
+        int full_index = (index - w) * 16 + coef + coloroffset;
+        if (color) {
+            retval.above = mb->odata.chromaAC[full_index];
+        }else {
+            retval.above = mb->odata.lumaAC[full_index];
+        }
+        retval.has_above = true;
+    } else {
+        const DecodedMacroblock *above = n[LEFT];
+        if (above) {
+            int full_index = (index + w * (h - 1)) * 16 + coef + coloroffset;
+            if (color) {
+                retval.above = above->odata.chromaAC[full_index];
+            } else {
+                retval.above = above->odata.lumaAC[full_index];
+            }
+        }
+    }
+    const DecodedMacroblock *past = n[PAST];
+    if (past) {
+        retval.has_past = true;
+        int full_index = index * 16 + coef + coloroffset;
+        if (color) {
+            retval.past = past->odata.chromaAC[full_index];
+        } else {
+            retval.past = past->odata.lumaAC[full_index];
+        }
+    }
+    return retval;
+}
+DynProb *MacroblockModel::getNonzeroPrior(int index, int coef, bool emit_dc, int color) {
+    SingleCoefNeighbors priors = priorCoef(index, coef, color);
+    int past_prior = 2;
+    int left_prior = 2;
+    int above_prior = 2;
+    if (priors.has_past) {
+        past_prior = priors.past ? 1 : 0;
+    }
+    if (priors.has_left) {
+        left_prior = priors.left ? 1 : 0;
+    }
+    if (priors.has_above) {
+        above_prior = priors.above ? 1 : 0;
+    }
+    return &nonzeroBitmaskPriors.at(coef,past_prior, left_prior, above_prior);
+}
 
 uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
     uint8_t retval = 0;
