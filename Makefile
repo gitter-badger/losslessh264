@@ -70,7 +70,6 @@ all: libraries binaries
 
 include $(SRC_PATH)build/platform-$(OS).mk
 
-
 CFLAGS += -DGENERATED_VERSION_HEADER
 LDFLAGS +=
 
@@ -78,6 +77,8 @@ ifeq (Yes, $(GCOV))
 CFLAGS += -fprofile-arcs -ftest-coverage
 LDFLAGS += -lgcov
 endif
+
+CFLAGS = -std=c++11 -Wno-deprecated-register
 
 #### No user-serviceable parts below this line
 ifneq ($(V),Yes)
