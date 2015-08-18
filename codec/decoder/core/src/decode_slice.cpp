@@ -1783,6 +1783,28 @@ const uint8_t unzz[16] ={
     3, 8, 11, 13,
     9, 10, 14, 15
 };
+uint8_t log2(uint16_t v) {
+    const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
+    const unsigned int S[] = {1, 2, 4, 8, 16};
+    int i;
+
+    unsigned int r = 0; // result of log2(v) will go here
+    for (i = 3; i >= 0; i--) // unroll for speed...
+    {
+      if (v & b[i])
+      {
+        v >>= S[i];
+        r |= S[i];
+      }
+    }
+    return r;
+}
+uint8_t bit_length(uint16_t value) {
+    if (value == 0) return 0;
+    uint16_t ret = log2(value) + 1;
+    return (uint8_t)ret;
+}
+
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     (void)unzz;
     int num_nonzeros = oMovie().model().get4x4NumNonzeros(index, color);
@@ -1796,14 +1818,25 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             --num_nonzeros_left;
         }
         oMovie().tag(stream_id).emitBits(nonzero[coef] ? 1 : 0, 1);
-        //fprintf(stderr,"Coeff %d emitting bits %d for nz %d\n", coef,nonzero[coef] ? 1 : 0, index);
+
     }
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (nonzero[coef]) {
             int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-            oMovie().tag(stream_id).emitBits(ac[coef], 16);
-            //fprintf(stderr,"Coeff %d emitting bits %d for dat %d\n", coef,ac[coef], index);
+            uint16_t abs_ac = ac[coef] < 0 ? -ac[coef] : ac[coef];
+            abs_ac -= 1; // we know it ain't zero
+            int bit_len = bit_length(abs_ac);
+            //fprintf(stderr, "Encoding %d(%d) ", bit_len, abs_ac);
+            oMovie().tag(stream_id).emitBits(bit_len, 4);
+            if (bit_len > 1) {
+                for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
+                    oMovie().tag(stream_id).emitBits((abs_ac & (1 << which_bit)) ? 1 : 0, 1);
+                    //fprintf(stderr, " %d ", (abs_ac & (1 << which_bit)) ? 1 : 0);
+                }
+            }
+            //fprintf(stderr, "%c\n", (ac[coef] < 0 ? '-' : '+'));
+            oMovie().tag(stream_id).emitBits(ac[coef] < 0 ? 1 : 0, 1);
         }
     }
 }
@@ -1824,21 +1857,47 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             nonzero[coef] = true;
             --num_nonzeros_left;
         }
-        //fprintf(stderr, "Coeff %d  scan bits %d for nz %d\n", coef, nonzero[coef] ? 1 : 0, index);
     }
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (nonzero[coef]) {
             BitStream::uint32E res;
             int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-            res = iMovie().tag(stream_id).scanBits(16);
+            res = iMovie().tag(stream_id).scanBits(4);
             if (res.second) {
                 fprintf(stderr, "Cannot decode AC component %d, %d\n", coef, (int)res.second);
             }
-            ac[coef] = res.first;
-            //fprintf(stderr,"Coeff %d  scan bits %d for dat %d\n", coef, ac[coef], index);
-        } else
-        assert(ac[coef] == 0);
+            int bit_len = res.first;
+            //fprintf(stderr, "Decoding %d ", bit_len);
+            if (bit_len) {
+                ac[coef] = (1 << (bit_len - 1));
+            } else {
+                ac[coef] = 0;
+            }
+            if (bit_len > 1) {
+                for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
+                    std::pair<uint32_t, H264Error> res = iMovie().tag(stream_id).scanBits(1);
+                    if (res.second) {
+                        fprintf(stderr,"Cannot scan bit for nonzero %d \n", which_bit);
+                    }
+                    if (res.first) {
+                        ac[coef] |= (1 << which_bit);
+                    }
+                    //fprintf(stderr, " %d ", res.first);
+                }
+            }
+            ++ac[coef];
+            std::pair<uint32_t, H264Error> sign = iMovie().tag(stream_id).scanBits(1);
+            if (sign.second) {
+                fprintf(stderr,"Cannot scan sign bit for ceof %d \n", coef);
+            }
+            //fprintf(stderr, "%c\n", (sign.first ? '-' : '+'));
+            if (sign.first) {
+                ac[coef] = -ac[coef];
+            }
+        } else {
+            assert(ac[coef] == 0);
+        }
     }
 }
 
