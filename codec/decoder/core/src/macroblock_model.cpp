@@ -304,3 +304,14 @@ int MacroblockModel::decodeMacroblockType(int storedType) {
     }
     return ret;
 }
+
+
+uint8_t MacroblockModel::get4x4NumNonzeros(uint8_t index, uint8_t color) const {
+    if (color ==0) {
+        return mb->numSubLumaNonzeros_[index];
+    }
+    if (color == 2 && index < 4) {
+        index += 4;
+    }
+    return mb->numSubChromaNonzeros_[index];
+}
