@@ -63,7 +63,7 @@ LDFLAGS += -fsanitize=address
 endif
 
 LDFLAGS += -Lx264
-LDFLAGS += -lx264
+LDFLAGS += -lx264 -ldl
 
 # Make sure the all target is the first one
 all: libraries binaries

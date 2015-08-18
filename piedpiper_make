@@ -5,12 +5,10 @@
 pushd x264
 if [ ! -e config.h ]
 	then
-		./configure --disable-lavf --disable-asm
+		./configure --disable-lavf --disable-asm --enable-shared
 fi
 make
 popd
 
 #compiling losslessh264
-make 
-
-
+make
