@@ -91,6 +91,7 @@ int32_t InitCabacDecEngineFromBS (PWelsCabacDecEngine pDecEngine, PBitStringAux 
 }
 
 void RestoreCabacDecEngineToBS (PWelsCabacDecEngine pDecEngine, PBitStringAux pBsAux) {
+  fprintf(stderr, "Restoring cabac state to decoder! %d %ld %ld\n", pDecEngine->iBitsLeft, pDecEngine->pBuffCurr - pDecEngine->pBuffStart, pBsAux->pCurBuf - pBsAux->pStartBuf);
   //CABAC decoding finished, changing to SBitStringAux
   pDecEngine->pBuffCurr -= (pDecEngine->iBitsLeft >> 3);
   pDecEngine->iBitsLeft = 0;     //pcm_alignment_zero_bit in CABAC
@@ -112,21 +113,31 @@ int32_t Read32BitsCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiValue, int3
   }
   switch (iLeftBytes) {
   case 3:
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0]) << 16 | (pDecEngine->pBuffCurr[1]) << 8 | (pDecEngine->pBuffCurr[2]));
     pDecEngine->pBuffCurr += 3;
     iNumBitsRead = 24;
     break;
   case 2:
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0]) << 8 | (pDecEngine->pBuffCurr[1]));
     pDecEngine->pBuffCurr += 2;
     iNumBitsRead = 16;
     break;
   case 1:
+  fprintf(stderr, "Decode Decision: byte\n");
     uiValue = pDecEngine->pBuffCurr[0];
     pDecEngine->pBuffCurr += 1;
     iNumBitsRead = 8;
     break;
   default:
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
+  fprintf(stderr, "Decode Decision: byte\n");
     uiValue = ((pDecEngine->pBuffCurr[0] << 24) | (pDecEngine->pBuffCurr[1]) << 16 | (pDecEngine->pBuffCurr[2]) << 8 |
                (pDecEngine->pBuffCurr[3]));
     pDecEngine->pBuffCurr += 4;
@@ -136,7 +147,13 @@ int32_t Read32BitsCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiValue, int3
   return ERR_NONE;
 }
 
+int dcabacoffset = 0;
+
 int32_t DecodeBinCabac (PWelsCabacDecEngine pDecEngine, PWelsCabacCtx pBinCtx, uint32_t& uiBinVal) {
+  static PWelsCabacCtx debugFirstCtx = pBinCtx;
+  int iCtx = pBinCtx - debugFirstCtx + 3;
+  dcabacoffset++;
+
   int32_t iErrorInfo = ERR_NONE;
   uint32_t uiState = pBinCtx->uiState;
   uiBinVal = pBinCtx->uiMPS;
@@ -149,12 +166,14 @@ int32_t DecodeBinCabac (PWelsCabacDecEngine pDecEngine, PWelsCabacCtx pBinCtx, u
   if (uiOffset >= (uiRange << pDecEngine->iBitsLeft)) { //LPS
     uiOffset -= (uiRange << pDecEngine->iBitsLeft);
     uiBinVal ^= 0x0001;
+    fprintf(stderr, "Decode Decision %d: [%d]:%d/%d -> %d\n", dcabacoffset, iCtx, uiState, pBinCtx->uiMPS, uiBinVal);
     if (!uiState)
       pBinCtx->uiMPS ^= 0x01;
     pBinCtx->uiState = g_kuiStateTransTable[uiState][0];
     iRenorm = g_kRenormTable256[uiRangeLPS];
     uiRange = (uiRangeLPS << iRenorm);
   } else {  //MPS
+    fprintf(stderr, "Decode Decision %d: [%d]:%d/%d -> %d\n", dcabacoffset, iCtx, uiState, pBinCtx->uiMPS, uiBinVal);
     pBinCtx->uiState = g_kuiStateTransTable[uiState][1];
     if (uiRange >= WELS_CABAC_QUARTER) {
       pDecEngine->uiRange = uiRange;
@@ -186,7 +205,7 @@ int32_t DecodeBypassCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal) {
   int32_t iBitsLeft = pDecEngine->iBitsLeft;
   uint64_t uiOffset = pDecEngine->uiOffset;
   uint64_t uiRangeValue;
-
+  dcabacoffset++;
 
   if (iBitsLeft <= 0) {
     uint32_t uiVal = 0;
@@ -204,11 +223,13 @@ int32_t DecodeBypassCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal) {
     pDecEngine->iBitsLeft = iBitsLeft;
     pDecEngine->uiOffset = uiOffset - uiRangeValue;
     uiBinVal = 1;
+    fprintf(stderr, "Decode Decision %d: Bypass -> %d\n", dcabacoffset, uiBinVal);
     return ERR_NONE;
   }
   pDecEngine->iBitsLeft = iBitsLeft;
   pDecEngine->uiOffset = uiOffset;
   uiBinVal = 0;
+  fprintf(stderr, "Decode Decision %d: Bypass -> %d\n", dcabacoffset, uiBinVal);
   return ERR_NONE;
 }
 
@@ -216,11 +237,14 @@ int32_t DecodeTerminateCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal
   int32_t iErrorInfo = ERR_NONE;
   uint64_t uiRange = pDecEngine->uiRange - 2;
   uint64_t uiOffset = pDecEngine->uiOffset;
+  dcabacoffset++;
 
   if (uiOffset >= (uiRange << pDecEngine->iBitsLeft)) {
     uiBinVal = 1;
+    fprintf(stderr, "Decode Decision %d: Terminate -> %d\n", dcabacoffset, uiBinVal);
   } else {
     uiBinVal = 0;
+    fprintf(stderr, "Decode Decision %d: Terminate -> %d\n", dcabacoffset, uiBinVal);
     // Renorm
     if (uiRange < WELS_CABAC_QUARTER) {
       int32_t iRenorm = g_kRenormTable256[uiRange];
