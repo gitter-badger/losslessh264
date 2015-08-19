@@ -2102,6 +2102,21 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     }
 }
 
+void writeMv(int i, DecodedMacroblock &rtd) {
+  auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
+  auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
+  int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
+  int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
+  oMovie().tag(PIP_MVX_TAG).emitInt(deltaX, priorX.first);
+  oMovie().tag(PIP_MVY_TAG).emitInt(deltaY, priorY.first);
+}
+
+void readMv(int i, DecodedMacroblock &rtd) {
+  auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
+  auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
+  rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first) + priorX.second;
+  rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first) + priorY.second;
+}
 int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       PNalUnit pNalCur,
                                       PSlice pSlice,
@@ -2232,36 +2247,51 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
       }
-    } else if (MB_TYPE_8x8 == rtd.uiMbType) {
+    } else if (MB_TYPE_8x8 == rtd.uiMbType || MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
       }
-      for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+      if (MB_TYPE_8x8 == rtd.uiMbType) {
+        for (int i = 0; i < 4; i++) {
+          oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+        }
       }
-    } else if (MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
+        switch (rtd.uiSubMbType[i]) {
+        case SUB_MB_TYPE_8x8:
+          writeMv(g_kuiScan4[(i << 2)], rtd);
+          break;
+        case SUB_MB_TYPE_8x4:
+          for (int j = 0; j < 2; j++) {
+            writeMv(g_kuiScan4[(i << 2) + (j << 1)], rtd);
+          }
+          break;
+        case SUB_MB_TYPE_4x8:
+          for (int j = 0; j < 2; j++) {
+            writeMv(g_kuiScan4[(i << 2) + j], rtd);
+          }
+          break;
+        case SUB_MB_TYPE_4x4:
+          for (int j = 0; j < 4; j++) {
+            writeMv(g_kuiScan4[(i << 2) + j], rtd);
+          }
+          break;
+        default:
+          fprintf(stderr, "Invalid subtype %d type %d\n", rtd.uiSubMbType[i], rtd.uiMbType);
+          assert(0);
+        }
       }
     } else if (MB_TYPE_8x16 == rtd.uiMbType ||
         MB_TYPE_16x8 == rtd.uiMbType) {
       for (int i = 0; i < 2; i++) {
         oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[i], 8);
       }
+      for (int i = 0; i < 2; i++) {
+        writeMv(MB_TYPE_16x8 == rtd.uiMbType ? (i * 8) : (i * 2), rtd);
+      }
     } else if (MB_TYPE_16x16 == rtd.uiMbType) {
       oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[0], 8);
-    }
-    if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
-        MB_TYPE_INTRA8x8 != rtd.uiMbType &&
-        MB_TYPE_INTRA4x4 != rtd.uiMbType) {
-      for (int i = 0; i < 16; i++) {
-        auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
-        auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
-        int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
-        int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
-        oMovie().tag(PIP_MVX_TAG).emitInt(deltaX, priorX.first);
-        oMovie().tag(PIP_MVY_TAG).emitInt(deltaY, priorY.first);
-      }
+      writeMv(0, rtd);
     }
     bool emitted_luma_dc = false;
     bool emitted_chroma_dc = false;
@@ -2539,7 +2569,67 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
           rtd.iRefIdx[i] = res.first;
         }
       }
-    } else if (MB_TYPE_8x8 == rtd.uiMbType) {
+      /*
+    void computeNeighborPriorsCabac() {
+      WelsEnc::SMB *curMb = &pCurMb();
+      FillNeighborCacheInterWithoutBGD(&pSlice.sMbCacheInfo, curMb, mbWidth, 0);
+      switch (curMb->uiMbType) {
+        case MB_TYPE_INTRA16x16:
+        case MB_TYPE_INTRA8x8:
+        case MB_TYPE_INTRA4x4:
+        case MB_TYPE_SKIP:
+          break;
+        case MB_TYPE_16x16:
+          // No 16x16 version so we improvise.
+          for (int i = 0; i < 4; i++) {
+            WelsEnc::UpdateP8x8Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[0], curMb->sMv);
+          }
+          break;
+        case MB_TYPE_16x8:
+          for (int i = 0; i < 2; i++) {
+            WelsEnc::UpdateP16x8Motion2Cache (&pSlice.sMbCacheInfo, i << 3, curMb->pRefIndex[i << 1], curMb->sMv + i * 8);
+          }
+          break;
+        case MB_TYPE_8x16:
+          for (int i = 0; i < 2; i++) {
+            WelsEnc::UpdateP8x16Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[i], curMb->sMv + i * 2);
+          }
+          break;
+        case MB_TYPE_8x8:
+        case MB_TYPE_8x8_REF0:
+          for (int i = 0; i < 4; i++) {
+            switch (curMb->uiSubMbType[i]) {
+            case SUB_MB_TYPE_8x8:
+              WelsEnc::UpdateP8x8Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2)]);
+              break;
+            case SUB_MB_TYPE_8x4:
+              for (int j = 0; j < 2; j++) {
+                WelsEnc::UpdateP8x4Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + (j << 1), curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + (j << 1)]);
+              }
+              break;
+            case SUB_MB_TYPE_4x8:
+              for (int j = 0; j < 2; j++) {
+                WelsEnc::UpdateP4x8Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + j, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + j]);
+              }
+              break;
+            case SUB_MB_TYPE_4x4:
+              for (int j = 0; j < 4; j++) {
+                WelsEnc::UpdateP4x4Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + j, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + j]);
+              }
+              break;
+            default:
+              fprintf(stderr, "Invalid subtype %d type %d\n", curMb->uiSubMbType[i], curMb->uiMbType);
+              assert(0);
+            }
+          }
+          break;
+        default:
+          fprintf(stderr, "Invalid type %d\n", curMb->uiMbType);
+          assert(0);
+      }
+    }
+       */
+    } else if (MB_TYPE_8x8 == rtd.uiMbType || MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
         res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(8);
         if (res.second) {
@@ -2549,23 +2639,40 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
           rtd.uiSubMbType[i] = res.first;
         }
       }
-      for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_REF_TAG).scanBits(8);
-        if (res.second) {
-          fprintf(stderr, "failed to read iRefIdx!\n");
-          rtd.iRefIdx[i] = 0;
-        } else {
-          rtd.iRefIdx[i] = res.first;
+      if (MB_TYPE_8x8 == rtd.uiMbType) {
+        for (int i = 0; i < 4; i++) {
+          res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+          if (res.second) {
+            fprintf(stderr, "failed to read iRefIdx!\n");
+            rtd.iRefIdx[i] = 0;
+          } else {
+            rtd.iRefIdx[i] = res.first;
+          }
         }
       }
-    } else if (MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(8);
-        if (res.second) {
-          fprintf(stderr, "failed to read uiSubMbType!\n");
-          rtd.uiSubMbType[i] = 0;
-        } else {
-          rtd.uiSubMbType[i] = res.first;
+        switch (rtd.uiSubMbType[i]) {
+        case SUB_MB_TYPE_8x8:
+          readMv(g_kuiScan4[(i << 2)], rtd);
+          break;
+        case SUB_MB_TYPE_8x4:
+          for (int j = 0; j < 2; j++) {
+            readMv(g_kuiScan4[(i << 2) + (j << 1)], rtd);
+          }
+          break;
+        case SUB_MB_TYPE_4x8:
+          for (int j = 0; j < 2; j++) {
+            readMv(g_kuiScan4[(i << 2) + j], rtd);
+          }
+          break;
+        case SUB_MB_TYPE_4x4:
+          for (int j = 0; j < 4; j++) {
+            readMv(g_kuiScan4[(i << 2) + j], rtd);
+          }
+          break;
+        default:
+          fprintf(stderr, "Invalid subtype %d type %d\n", rtd.uiSubMbType[i], rtd.uiMbType);
+          assert(0);
         }
       }
     } else if (MB_TYPE_8x16 == rtd.uiMbType ||
@@ -2579,6 +2686,9 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
           rtd.iRefIdx[i] = res.first;
         }
       }
+      for (int i = 0; i < 2; i++) {
+        readMv(MB_TYPE_16x8 == rtd.uiMbType ? (i * 8) : (i * 2), rtd);
+      }
     } else if (MB_TYPE_16x16 == rtd.uiMbType) {
       res = iMovie().tag(PIP_REF_TAG).scanBits(8);
       if (res.second) {
@@ -2587,16 +2697,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       } else {
         rtd.iRefIdx[0] = res.first;
       }
-    }
-    if (MB_TYPE_INTRA16x16 != rtd.uiMbType &&
-        MB_TYPE_INTRA8x8 != rtd.uiMbType &&
-        MB_TYPE_INTRA4x4 != rtd.uiMbType) {
-      for (int i = 0; i < 16; i++) {
-        auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
-        auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
-        rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first) + priorX.second;
-        rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first) + priorY.second;
-      }
+      readMv(0, rtd);
     }
     bool scanned_luma_dc = false;
     bool scanned_chroma_dc = false;
