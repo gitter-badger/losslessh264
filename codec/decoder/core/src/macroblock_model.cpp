@@ -496,15 +496,18 @@ Branch<4> MacroblockModel::getMacroblockTypePrior() {
              .sSliceHeader.eSliceType == P_SLICE));
 }
 
-std::pair<MacroblockModel::MotionVectorPrior*, int> MacroblockModel::getMotionVectorPrior(int subblockIndex, int xyIndex) {
+std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>
+MacroblockModel::getMotionVectorDifferencePrior(int subblockIndex, int xyIndex) {
   using namespace Nei;
   int prev = 0;
   if (n[PAST]) {
-    //prev = n[PAST]->sMbMvp[subblockIndex][xyIndex];
+//    prev = n[PAST]->sMbMvp[subblockIndex][xyIndex];
   } else if (n[LEFT]) {
+//    prev = n[LEFT]->sMbMvp[subblockIndex][xyIndex];
   } else if (n[ABOVE]) {
+//    prev = n[ABOVE]->sMbMvp[subblockIndex][xyIndex];
   }
-  return std::make_pair(&motionVectorPriors, prev);
+  return std::make_pair(&motionVectorDifferencePriors[mb->uiMbType][subblockIndex], prev);
 }
 
 std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getLumaI16x16ModePrior() {

@@ -105,8 +105,8 @@ class MacroblockModel {
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
-    typedef IntPrior<8, 256> MotionVectorPrior;
-    MotionVectorPrior motionVectorPriors;
+    typedef IntPrior<2, 4> MotionVectorDifferencePrior;
+    MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
     std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
@@ -236,7 +236,7 @@ public:
       Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> _getDCPriorsHelper(bool is_luma, size_t index);
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
-    std::pair<MotionVectorPrior*, int> getMotionVectorPrior(int subblockIndex, int xyIndex);
+    std::pair<MotionVectorDifferencePrior*, int> getMotionVectorDifferencePrior(int subblockIndex, int xyIndex);
 
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();

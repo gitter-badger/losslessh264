@@ -2243,12 +2243,12 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
         MB_TYPE_INTRA8x8 != rtd.uiMbType &&
         MB_TYPE_INTRA4x4 != rtd.uiMbType) {
       for (int i = 0; i < 16; i++) {
-        auto priorX = oMovie().model().getMotionVectorPrior(i, 0);
-        auto priorY = oMovie().model().getMotionVectorPrior(i, 1);
-//      int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
-//      int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
-        oMovie().tag(PIP_MVX_TAG).emitInt(rtd.sMbMvp[i][0], priorX.first);
-        oMovie().tag(PIP_MVY_TAG).emitInt(rtd.sMbMvp[i][1], priorY.first);
+        auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
+        auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
+        int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
+        int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
+        oMovie().tag(PIP_MVX_TAG).emitInt(deltaX, priorX.first);
+        oMovie().tag(PIP_MVY_TAG).emitInt(deltaY, priorY.first);
       }
     }
     bool emitted_luma_dc = false;
@@ -2608,10 +2608,10 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         MB_TYPE_INTRA8x8 != rtd.uiMbType &&
         MB_TYPE_INTRA4x4 != rtd.uiMbType) {
       for (int i = 0; i < 16; i++) {
-        auto priorX = oMovie().model().getMotionVectorPrior(i, 0);
-        rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first);
-        auto priorY = oMovie().model().getMotionVectorPrior(i, 1);
-        rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first);
+        auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
+        auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
+        rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first) + priorX.second;
+        rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first) + priorY.second;
       }
     }
     bool scanned_luma_dc = false;
