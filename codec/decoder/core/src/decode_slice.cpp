@@ -2208,7 +2208,18 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     uiCachedLumaQp = rtd.uiLumaQp;
     rtd.cachedDeltaLumaQp = deltaLumaQp;
 
-    oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
+//#define DEBUG_REFTAG
+
+    // TODO: We don't even need to output this if we have the media info for the video
+    // and we know there is only 1 frame.
+    // TODO: If uiNumRefIdxL0Active is always a power of 2, then we could further optimize.
+    oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active,
+                                       oMovie().model().getNumRefIdxL0ActivePrior());
+    uint8_t refBits = ceil(log2((uint16_t)rtd.uiNumRefIdxL0Active));
+#ifdef DEBUG_REFTAG
+    fprintf(stderr, "refBits: %d\n", refBits);
+    fprintf(stderr, "W numRefIdxL0Active: %u\n", rtd.uiNumRefIdxL0Active);
+#endif
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
       = oMovie().model().getChromaI8x8ModePrior();
     oMovie().tag(PIP_8x8_TAG).emitBitsZeroToPow2Inclusive<3>(rtd.uiChmaI8x8Mode,
@@ -2245,7 +2256,10 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
         oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
       }
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+#ifdef DEBUG_REFTAG
+        fprintf(stderr, "W INTRA 8x8 iRefIdx: %u\n", (uint8_t)rtd.iRefIdx[i]);
+#endif
+        oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], refBits);
       }
     } else if (MB_TYPE_8x8 == rtd.uiMbType || MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
@@ -2253,7 +2267,10 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
       if (MB_TYPE_8x8 == rtd.uiMbType) {
         for (int i = 0; i < 4; i++) {
-          oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], 8);
+#ifdef DEBUG_REFTAG
+          fprintf(stderr, "W 8x8 iRefIdx: %u\n", (uint8_t)rtd.iRefIdx[i]);
+#endif
+          oMovie().tag(PIP_REF_TAG).emitBits((uint8_t)rtd.iRefIdx[i], refBits);
         }
       }
       for (int i = 0; i < 4; i++) {
@@ -2284,13 +2301,19 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     } else if (MB_TYPE_8x16 == rtd.uiMbType ||
         MB_TYPE_16x8 == rtd.uiMbType) {
       for (int i = 0; i < 2; i++) {
-        oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[i], 8);
+#ifdef DEBUG_REFTAG
+        fprintf(stderr, "W 8x16 iRefIdx: %u\n", (uint8_t)rtd.iRefIdx[i]);
+#endif
+        oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[i], refBits);
       }
       for (int i = 0; i < 2; i++) {
         writeMv(MB_TYPE_16x8 == rtd.uiMbType ? (i * 8) : (i * 2), rtd);
       }
     } else if (MB_TYPE_16x16 == rtd.uiMbType) {
-      oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[0], 8);
+#ifdef DEBUG_REFTAG
+      fprintf(stderr, "W 16x16 iRefIdx: %u\n", (uint8_t)rtd.iRefIdx[0]);
+#endif
+      oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[0], refBits);
       writeMv(0, rtd);
     }
     bool emitted_luma_dc = false;
@@ -2487,13 +2510,14 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       uiCachedLumaQp = rtd.uiLumaQp;
       rtd.cachedDeltaLumaQp = origDeltaLumaQp;
     }
-    res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+    res = iMovie().tag(PIP_REF_TAG).scanBits(oMovie().model().getNumRefIdxL0ActivePrior());
     if (res.second) {
       fprintf(stderr, "failed to read uiRefIdxL0!\n");
       rtd.uiNumRefIdxL0Active = 255;
     } else {
       rtd.uiNumRefIdxL0Active = res.first;
     }
+    uint8_t refBits = ceil(log2((uint16_t)rtd.uiNumRefIdxL0Active));
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
       = oMovie().model().getChromaI8x8ModePrior();
     res = iMovie().tag(PIP_8x8_TAG).scanBitsZeroToPow2Inclusive<3>(chroma_prior_pair.first, chroma_prior_pair.second);
@@ -2561,7 +2585,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         }
       }
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+        res = iMovie().tag(PIP_REF_TAG).scanBits(refBits);
         if (res.second) {
           fprintf(stderr, "failed to read iRefIdx!\n");
           rtd.iRefIdx[i] = 0;
@@ -2641,7 +2665,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
       if (MB_TYPE_8x8 == rtd.uiMbType) {
         for (int i = 0; i < 4; i++) {
-          res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+          res = iMovie().tag(PIP_REF_TAG).scanBits(refBits);
           if (res.second) {
             fprintf(stderr, "failed to read iRefIdx!\n");
             rtd.iRefIdx[i] = 0;
@@ -2678,7 +2702,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     } else if (MB_TYPE_8x16 == rtd.uiMbType ||
         MB_TYPE_16x8 == rtd.uiMbType) {
       for (int i = 0; i < 2; i++) {
-        res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+        res = iMovie().tag(PIP_REF_TAG).scanBits(refBits);
         if (res.second) {
           fprintf(stderr, "failed to read iRefIdx!\n");
           rtd.iRefIdx[i] = 0;
@@ -2690,7 +2714,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         readMv(MB_TYPE_16x8 == rtd.uiMbType ? (i * 8) : (i * 2), rtd);
       }
     } else if (MB_TYPE_16x16 == rtd.uiMbType) {
-      res = iMovie().tag(PIP_REF_TAG).scanBits(8);
+      res = iMovie().tag(PIP_REF_TAG).scanBits(refBits);
       if (res.second) {
         fprintf(stderr, "failed to read iRefIdx!\n");
         rtd.iRefIdx[0] = 0;
