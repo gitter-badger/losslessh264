@@ -38,7 +38,7 @@
  *
  *****************************************************************************/
 
-
+#include <memory>
 #include "deblocking.h"
 
 #include "decode_slice.h"
@@ -2105,7 +2105,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       DecodedMacroblock& rtd,
                                       PWelsDecMbFunc pDecMbFunc,
                                       PDqLayer pCurLayer,
-                                      int& origSkipped) {
+                                      int& origSkipped,
+                                      uint32_t& uiCachedLumaQp,
+                                      bool isFirstMB) {
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
   bool writeSkipRun = (-1 == pSlice->iMbSkipRun);
@@ -2169,8 +2171,22 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 	// don't serialize lastMbQp
 
     //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
-    oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
-    //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, 16);
+    int32_t deltaLumaQp = rtd.uiLumaQp - uiCachedLumaQp;
+    int deltaLumaQpSign = 0;
+    if (deltaLumaQp < 0) {
+      deltaLumaQp *= -1;
+      deltaLumaQp <<= 1;
+      deltaLumaQp = deltaLumaQp | 1;
+      deltaLumaQpSign = 1;
+    } else {
+      deltaLumaQp <<= 1;
+    }
+    //fprintf(stderr, "W LumaQp: %d, uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, deltaLumaQp, deltaLumaQpSign);
+    oMovie().tag(PIP_QPL_TAG).emitBitsZeroToPow2Inclusive<7>(deltaLumaQp, oMovie().model().getQPLPrior(isFirstMB));
+    //oMovie().tag(PIP_QPL_TAG).emitBit(deltaLumaQpSign);
+    uiCachedLumaQp = rtd.uiLumaQp;
+    rtd.cachedDeltaLumaQp = deltaLumaQp;
+
     oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active, 8);
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> chroma_prior_pair
       = oMovie().model().getChromaI8x8ModePrior();
@@ -2353,7 +2369,9 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
                                    PWelsDecMbFunc pDecMbFunc,
                                    PDqLayer pCurLayer,
                                    int& origSkipped,
-                                   int& curSkipped) {
+                                   int& curSkipped,
+                                   uint32_t& uiCachedLumaQp,
+                                   bool isFirstMB) {
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
   bool endOfSlice = false;
@@ -2434,14 +2452,26 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     rtd.iLastMbQp = pSlice->iLastMbQp;
 
     //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
-    res = iMovie().tag(PIP_QPL_TAG).scanBits(oMovie().model().getQPLPrior());
+    res = iMovie().tag(PIP_QPL_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getQPLPrior(isFirstMB));
+    //bool resSign = iMovie().tag(PIP_QPL_TAG).scanBit();
     //res = iMovie().tag(PIP_QPL_TAG).scanBits(16);
 
     if (res.second) {
       fprintf(stderr, "failed to read uiLumaQp!\n");
       rtd.uiLumaQp = 255;
     } else {
-      rtd.uiLumaQp = res.first;
+      //rtd.uiLumaQp = res.first;
+      int deltaLumaQp = res.first;
+      int origDeltaLumaQp = deltaLumaQp;
+      bool resSign = deltaLumaQp & 1;  // sign bit was piggy-backed as LSB.
+      deltaLumaQp >>= 1;
+      if (resSign) {
+        deltaLumaQp *= -1;
+      }
+      rtd.uiLumaQp = uiCachedLumaQp + deltaLumaQp;
+      //fprintf(stderr, "R LumaQp: %d uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, res.first, resSign);
+      uiCachedLumaQp = rtd.uiLumaQp;
+      rtd.cachedDeltaLumaQp = origDeltaLumaQp;
     }
     res = iMovie().tag(PIP_REF_TAG).scanBits(8);
     if (res.second) {
@@ -2909,6 +2939,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     esCabac->pSlice.sCabacCtx.m_pBufCur = esCabac->pSlice.sCabacCtx.m_pBufStart;
     WelsEnc::WelsInitSliceCabac (&esCabac->pEncCtx, &esCabac->pSlice);
   }
+  uint32_t uiCachedLumaQp = 0;
+  bool isFirstMB = true;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
@@ -2926,14 +2958,15 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                                         esCabac.get(),
                                         iNextMbXyIndex, uiEosFlag,
                                         rtd, pDecMbFunc, pCurLayer,
-                                        origSkipped, curSkipped);
+                                        origSkipped, curSkipped, uiCachedLumaQp, isFirstMB);
     } else {
       iRet = WelsDecodeSliceForNonRecoding(pCtx, pNalCur, pSlice,
                                            esCabac.get(),
                                            iNextMbXyIndex, uiEosFlag, rtd,
                                            pDecMbFunc, pCurLayer,
-                                           origSkipped);
+                                           origSkipped, uiCachedLumaQp, isFirstMB);
     }
+    isFirstMB = false;
     if (iRet != ERR_NONE) {
       return iRet;
     }

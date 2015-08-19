@@ -31,6 +31,7 @@ struct DecodedMacroblock {
   // populated by updateFrame
   bool isSkipped;
   uint16_t cachedSkips;
+  uint32_t cachedDeltaLumaQp;
 
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
@@ -39,7 +40,7 @@ struct DecodedMacroblock {
         uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
         uiNumRefIdxL0Active(), uiLumaQp(),
         numLumaNonzeros_(0), numChromaNonzeros_(0), numSubLumaNonzeros_(), numSubChromaNonzeros_(),
-        cachedSkips(0) {
+        cachedSkips(0), cachedDeltaLumaQp(0) {
 
       isSkipped = false;
       cachedSkips = 0;
