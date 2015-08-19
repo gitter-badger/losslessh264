@@ -124,8 +124,9 @@ class MacroblockModel {
     MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
-    std::pair<Sirikata::Array3d<DynProb, 8, 16, 16>, Sirikata::Array3d<DynProb, 8, 16, 16> > chromaDCPriors;
-    std::pair<Sirikata::Array3d<DynProb, 16, 16, 16>, Sirikata::Array3d<DynProb, 16, 16, 16> > lumaDCPriors;
+    IntPrior<2, 4> lumaDCIntPriors[16];
+    IntPrior<2, 4> chromaDCIntPriors[8];
+
     Sirikata::Array3d<DynProb,
             512, // past
             16, //mbType
@@ -210,47 +211,8 @@ public:
                             int color);
     Branch<4> getMacroblockTypePrior();
     Branch<4> getPredictionModePrior();
-
-#define DC_SPLIT 12
-#define DC_LOWER_MASK ((1 << (15 - DC_SPLIT)) - 1)
-    static std::pair<uint16_t, uint16_t> splitDC(int16_t val) {
-      // Follows power distribution. 0 is prevalent, then +/-1, and so on.
-      // We will move the sign bit to the end and do a 12-4 split.
-      uint16_t v = swizzle_sign(val);
-      return std::make_pair<uint16_t, uint16_t>(v >> (15 - DC_SPLIT),
-						v & DC_LOWER_MASK);
-    }
-    static int16_t mergeDC(uint16_t first, uint8_t second) {
-      return unswizzle_sign(first << (15 - DC_SPLIT) | second);
-    }
-
-    template<size_t size> struct DCStatistics {
-      uint8_t nonzero_first_count;
-      uint8_t nonzero_second_count;
-      uint16_t first[size];
-      uint16_t second[size];
-    };
-
-    template<size_t size> static DCStatistics<size> computeDCStatistics(int16_t* coeffs) {
-      DCStatistics<size> ret;
-      ret.nonzero_first_count = 0u;
-      ret.nonzero_second_count = 0u;
-      for (size_t i = 0; i < size; i++) {
-	std::pair<uint16_t, uint16_t> split = splitDC(coeffs[i]);
-	ret.first[i] = split.first;
-	ret.second[i] = split.second;
-	ret.nonzero_first_count += ret.first[i] == 0 ? 0 : 1;
-	ret.nonzero_second_count += ret.second[i] == 0 ? 0 : 1;
-      }
-      return ret;
-    }
-
-    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> getChromaDCPriors(size_t index);
-    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> getLumaDCPriors(size_t index);
-    std::pair<Sirikata::Array1d<DynProb, 16>::Slice,
-      Sirikata::Array1d<DynProb, 1<<(16-DC_SPLIT)>::Slice> _getDCPriorsHelper(bool is_luma, size_t index);
+    IntPrior<2, 4>* getLumaDCIntPrior(size_t index);
+    IntPrior<2, 4>* getChromaDCIntPrior(size_t index);
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
     std::pair<MotionVectorDifferencePrior*, int> getMotionVectorDifferencePrior(int subblockIndex, int xyIndex);
