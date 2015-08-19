@@ -228,19 +228,7 @@ DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index
 
 DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
                                                  bool emit_dc, int color) {
-    SingleCoefNeighbors priors = priorCoef(index, coef, color);
-    int past_prior = 2;
-    int left_prior = 2;
-    int above_prior = 2;
-    if (priors.has_past) {
-        past_prior = priors.past ? 1 : 0;
-    }
-    if (priors.has_left) {
-        left_prior = priors.left ? 1 : 0;
-    }
-    if (priors.has_above) {
-        above_prior = priors.above ? 1 : 0;
-    }
+
     int left_freq = 0;
     int above_freq = 0;
     int coef_x = coef & 3;
@@ -252,7 +240,7 @@ DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
         above_freq = !!this_4x4[coef - 4];
     }
     return &eobPriors.at(coef, 0, // <-- probably the worst prior I could come up with
-                                    past_prior,
+                                    0,
                                     left_freq, above_freq);
 }
 
