@@ -165,9 +165,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
   }
   FlushOnClose foc(kpOuputFileName);
   if (strstr(kpOuputFileName, ".pip")) {
-#ifdef ROUNDTRIP_TEST
     InitEncFuncPtrList();
-#endif
     oMovie().isRecoding = false;
   } else if (strstr(kpH264FileName, ".pip")) {
     InitEncFuncPtrList();
