@@ -2871,14 +2871,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   uint32_t uiEosFlag = 0;
   PWelsDecMbFunc pDecMbFunc;
 
-  if (oMovie().isRecoding) {
-    PBitStringAux pBs = pCurLayer->pBitStringAux;
-    int iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
-    for (int i = 0; i < iIndex; i++) {
-      int whichBit = i & 0x07;
-      int x = (pBs->pStartBuf[i >> 3] >> (7 - whichBit)) & 0x01;
-      oMovie().def().emitBit(x);
-    }
+  PBitStringAux pBs = pCurLayer->pBitStringAux;
+  int iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
+  for (int i = 0; i < iIndex; i++) {
+    int whichBit = i & 0x07;
+    int x = (pBs->pStartBuf[i >> 3] >> (7 - whichBit)) & 0x01;
+    oMovie().def().emitBit(x);
   }
 
   pSlice->iTotalMbInCurSlice = 0; //initialize at the starting of slice decoding.
@@ -3035,6 +3033,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 #endif
   }
   curBillTag = PIP_DEFAULT_TAG;
+#ifdef DEBUG_PRINTS
+  {
+    PBitStringAux pBs = pCtx->pCurDqLayer->pBitStringAux;
+    int iUsedBits = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
+    fprintf(stderr, "iUsedBits=%d iBits=%d bitsleft=%d bytesLeft=%ld, curBits=%d\n", iUsedBits, pBs->iBits, pBs->iBits - iUsedBits, pBs->pEndBuf - pBs->pCurBuf, pBs->iLeftBits);
+  }
+#endif
   return ERR_NONE;
 }
 
