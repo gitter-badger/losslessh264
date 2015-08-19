@@ -11,7 +11,7 @@
 
 //#define CONTEXT_DIFF
 
-//#define ROUNDTRIP_TEST
+#define ROUNDTRIP_TEST
 
 //#define CABAC_HACK
 

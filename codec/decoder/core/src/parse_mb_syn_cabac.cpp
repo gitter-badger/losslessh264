@@ -619,6 +619,8 @@ int32_t ParseRefIdxCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail,
     iIdxA = pRefIdxInMB[g_kuiScan4[iZOrderIdx] - 1] > 0;
   }
 
+  fprintf(stderr, "Decode Decision: MbRef %d %d %d %d %d %d\n", ref_idx[iListIdx][g_kuiCache30ScanIdx[iZOrderIdx] - 6] > 0, ref_idx[iListIdx][g_kuiCache30ScanIdx[iZOrderIdx] - 1] > 0, pNeighAvail->iTopAvail, pNeighAvail->iLeftAvail, (int)iIdxA, (int)iIdxB);
+
   iCtxInc = iIdxA + (iIdxB << 1);
   WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pCtx->pCabacCtx + NEW_CTX_OFFSET_REF_NO + iCtxInc, uiCode));
   if (uiCode) {

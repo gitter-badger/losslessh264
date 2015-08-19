@@ -1572,7 +1572,62 @@ struct EncoderState {
     }
 
     void computeNeighborPriorsCabac() {
-      FillNeighborCacheInterWithoutBGD(&pSlice.sMbCacheInfo, &pCurMb(), mbWidth, 0);
+      WelsEnc::SMB *curMb = &pCurMb();
+      FillNeighborCacheInterWithoutBGD(&pSlice.sMbCacheInfo, curMb, mbWidth, 0);
+      switch (curMb->uiMbType) {
+        case MB_TYPE_INTRA16x16:
+        case MB_TYPE_INTRA8x8:
+        case MB_TYPE_INTRA4x4:
+        case MB_TYPE_SKIP:
+          break;
+        case MB_TYPE_16x16:
+          // No 16x16 version so we improvise.
+          for (int i = 0; i < 4; i++) {
+            WelsEnc::UpdateP8x8Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[0], curMb->sMv);
+          }
+          break;
+        case MB_TYPE_16x8:
+          for (int i = 0; i < 2; i++) {
+            WelsEnc::UpdateP16x8Motion2Cache (&pSlice.sMbCacheInfo, i << 3, curMb->pRefIndex[i << 1], curMb->sMv + i * 8);
+          }
+          break;
+        case MB_TYPE_8x16:
+          for (int i = 0; i < 2; i++) {
+            WelsEnc::UpdateP8x16Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[i], curMb->sMv + i * 2);
+          }
+          break;
+        case MB_TYPE_8x8:
+        case MB_TYPE_8x8_REF0:
+          for (int i = 0; i < 4; i++) {
+            switch (curMb->uiSubMbType[i]) {
+            case SUB_MB_TYPE_8x8:
+              WelsEnc::UpdateP8x8Motion2Cache (&pSlice.sMbCacheInfo, i << 2, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2)]);
+              break;
+            case SUB_MB_TYPE_8x4:
+              for (int j = 0; j < 2; j++) {
+                WelsEnc::UpdateP8x4Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + (j << 1), curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + (j << 1)]);
+              }
+              break;
+            case SUB_MB_TYPE_4x8:
+              for (int j = 0; j < 2; j++) {
+                WelsEnc::UpdateP4x8Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + j, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + j]);
+              }
+              break;
+            case SUB_MB_TYPE_4x4:
+              for (int j = 0; j < 4; j++) {
+                WelsEnc::UpdateP4x4Motion2Cache (&pSlice.sMbCacheInfo, (i << 2) + j, curMb->pRefIndex[i], curMb->sMv + g_kuiScan4[(i << 2) + j]);
+              }
+              break;
+            default:
+              fprintf(stderr, "Invalid subtype %d type %d\n", curMb->uiSubMbType[i], curMb->uiMbType);
+              assert(0);
+            }
+          }
+          break;
+        default:
+          fprintf(stderr, "Invalid type %d\n", curMb->uiMbType);
+          assert(0);
+      }
     }
 
     void init(DecodedMacroblock *rtd) {
@@ -1836,7 +1891,9 @@ bool knownCodeUnitTest2() {
 
 
 
-
+namespace {
+int which_block;
+}
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
@@ -1950,7 +2007,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
     }
-    static int which_block = 0;
     //Neighbors neighbors(&imageCache, iMbX, iMbY);
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
@@ -2267,6 +2323,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         esCabac->init(&rtd);
         esCabac->setupCoefficientsFromOdata(rtd.odata);
         esCabac->initNonZeroCount(pCurLayer, rtd.odata);
+        esCabac->computeNeighborPriorsCabac();
         WelsEnc::WelsSpatialWriteMbSynCabac (
             &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
         fprintf(stderr, "block %d: Cabac size: %ld\n", which_block,

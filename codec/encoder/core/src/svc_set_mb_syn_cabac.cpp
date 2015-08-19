@@ -286,6 +286,8 @@ void WelsCabacMbRef (SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCache, int1
   int16_t iRefIdx  = pMvComp->iRefIndexCache[iIdx + 7];
   int16_t iCtx  = 0;
 
+  fprintf(stderr, "Encode Decision: MbRef %d %d %d %d %d %d\n", (int)iRefIdxA, (int)iRefIdxB, (int)!pMbCache->bMbTypeSkip[3], (int)!pMbCache->bMbTypeSkip[1], (iRefIdxA > 0) && (!pMbCache->bMbTypeSkip[3]), (iRefIdxA > 0) && (!pMbCache->bMbTypeSkip[3]));
+
   if ((iRefIdxA > 0) && (!pMbCache->bMbTypeSkip[3]))
     iCtx++;
   if ((iRefIdxB > 0) && (!pMbCache->bMbTypeSkip[1]))
