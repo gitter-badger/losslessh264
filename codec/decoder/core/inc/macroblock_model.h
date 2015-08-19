@@ -26,6 +26,21 @@ enum {
     PIP_MVY_TAG,
     PIP_LDC_TAG,
     PIP_CRDC_TAG,
+    PIP_LAC_0_EOB,
+    PIP_LAC_0_BITMASK,
+    PIP_LAC_0_EXP, //must be contiguous
+    PIP_LAC_0_RES, //must be contiguous
+    PIP_LAC_0_SIGN, //must be contiguous
+    PIP_LAC_N_EOB, //must be contiguous
+    PIP_LAC_N_BITMASK, //must be contiguous
+    PIP_LAC_N_EXP, //must be contiguous
+    PIP_LAC_N_RES, //must be contiguous
+    PIP_LAC_N_SIGN, //must be contiguous
+    PIP_CRAC_EOB, //must be contiguous
+    PIP_CRAC_BITMASK, //must be contiguous
+    PIP_CRAC_EXP, //must be contiguous
+    PIP_CRAC_RES, //must be contiguous
+    PIP_CRAC_SIGN, //must be contiguous
     PIP_LAST_NONVAR_TAG
 };
 const int PIP_AC_STEP = 1;

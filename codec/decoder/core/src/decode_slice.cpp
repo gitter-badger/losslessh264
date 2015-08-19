@@ -1901,7 +1901,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
         }
     }
     bool nonzero[16] = {0};
-    oMovie().tag((color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0)).emitBit(!num_nonzeros_left,
+    oMovie().tag((color ? PIP_CRAC_EOB : PIP_LAC_0_EOB)).emitBit(!num_nonzeros_left,
                                     oMovie().model().getEOBPrior(nonzero,
                                                                  index,
                                                                  16,
@@ -1909,7 +1909,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                  color));
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
-        int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
+        int stream_id = (color ? PIP_CRAC_BITMASK : (coef == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK));
         if (ac[coef]) {
             nonzero[coef] = true;
             --num_nonzeros_left;
@@ -1921,6 +1921,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                                emit_dc,
                                                                                color));
         if (nonzero[coef]) { // we can only terminate if the last value was a nonzero
+            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_N_EOB); // don't want to assign to LAC0 since this is really different than the first stop bit, ironically
             oMovie().tag(stream_id).emitBit(!num_nonzeros_left,
                                             oMovie().model().getEOBPrior(nonzero,
                                                                          index,
@@ -1932,7 +1933,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (nonzero[coef]) {
-            int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
+            int stream_id = (color ? PIP_CRAC_EXP : (coef == 0 ? PIP_LAC_0_EXP : PIP_LAC_N_EXP));
             uint16_t abs_ac = ac[coef] < 0 ? -ac[coef] : ac[coef];
             abs_ac -= 1; // we know it ain't zero
             int bit_len = bit_length(abs_ac);
@@ -1963,6 +1964,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
 
                 if (bit_len == 0 && i == 2) break;//early exit since we won't see values 1-3, which also share the common trait of having 0's for both the 8 and 4 bits :-)
             }
+            ++stream_id;
             if (bit_len > 1) {
                 int significand_so_far = 1 << (bit_len - 1);
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
@@ -1983,6 +1985,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                     //fprintf(stderr, " %d ", (abs_ac & (1 << which_bit)) ? 1 : 0);
                 }
             }
+            ++stream_id; // get to sign bill
             //fprintf(stderr, "%c\n", (ac[coef] < 0 ? '-' : '+'));
             oMovie().tag(stream_id).emitBit(ac[coef] < 0 ? 1 : 0, oMovie().model().
                                              getAcSignPrior(nonzero, ac, index, coef, color));
@@ -1996,8 +1999,8 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     memset(ac, 0, sizeof(int16_t)*16);
     bool nonzero[16] = {0};
     bool eob = iMovie().tag((color
-                             ? PIP_CRAC_TAG0
-                             : PIP_LAC_TAG0)).scanBit(oMovie().model().getEOBPrior(nonzero,
+                             ? PIP_CRAC_EOB
+                             : PIP_LAC_0_EOB)).scanBit(oMovie().model().getEOBPrior(nonzero,
                                                                             index,
                                                                             16,
                                                                             emit_dc,
@@ -2007,13 +2010,14 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     }
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
         int coef = kzz[coef_uzz];
-        int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
+        int stream_id = (color ? PIP_CRAC_BITMASK : (coef == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK));
         bool nz = iMovie().tag(stream_id).scanBit(oMovie().model().getNonzeroBitmaskPrior(nonzero,
                                                                                           index,
                                                                                           coef,
                                                                                           emit_dc,
                                                                                           color));
         if (nz) {
+            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_N_EOB); // don't want to assign to LAC0 since this is really different than the first stop bit, ironically
             nonzero[coef] = true;
             bool eob = iMovie().tag(stream_id).scanBit(oMovie().model().getEOBPrior(nonzero,
                                                                                     index,
@@ -2028,8 +2032,8 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (nonzero[coef]) {
+            int stream_id = (color ? PIP_CRAC_EXP : (coef == 0 ? PIP_LAC_0_EXP : PIP_LAC_N_EXP));
             BitStream::uint32E res;
-            int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
             using namespace Sirikata;
             Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(nonzero,
                                                                                ac,
@@ -2059,6 +2063,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             } else {
                 ac[coef] = 0;
             }
+            ++stream_id;
             if (bit_len > 1) {
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
                     int significand_so_far = ac[coef];
@@ -2080,6 +2085,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                 }
             }
             ++ac[coef];
+            ++stream_id;
             bool sign = iMovie().tag(stream_id).scanBit(
                                                         oMovie().model().getAcSignPrior(nonzero,
                                ac,

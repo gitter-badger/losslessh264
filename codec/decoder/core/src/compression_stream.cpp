@@ -232,7 +232,7 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
 #ifdef BILLING
     if (!isRecoding) {
         static int total = 0;
-        fprintf(stderr, "0 :: %d [boilerplate]\n", def().buffer.size());
+        fprintf(stderr, "0 :: %d [boilerplate]\n", (int)def().buffer.size());
         compressed_total += def().buffer.size();
     }
 #endif

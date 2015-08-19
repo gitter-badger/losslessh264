@@ -84,6 +84,21 @@ const char * billEnumToName(int en) {
     if(PIP_CRAC_TAG0 + 14 == en) return "chroma ac 14";
     if(PIP_CRAC_TAG0 + 15 == en) return "chroma ac 15";
 
+    if (PIP_LAC_0_EOB == en) return "luma 0 eob";
+    if (PIP_LAC_0_BITMASK == en) return "luma 0 bitmask";
+    if (PIP_LAC_0_EXP == en) return "luma 0 exponent"; //must be contiguous
+    if (PIP_LAC_0_RES == en) return "luma 0 significand"; //must be contiguous
+    if (PIP_LAC_0_SIGN == en) return "luma 0 sign"; //must be contiguous
+    if (PIP_LAC_N_EOB == en) return "luma Nth eob";
+    if (PIP_LAC_N_BITMASK == en) return "luma Nth bitmask";
+    if (PIP_LAC_N_EXP == en) return "luma Nth exponent"; //must be contiguous
+    if (PIP_LAC_N_RES == en) return "luma Nth significand"; //must be contiguous
+    if (PIP_LAC_N_SIGN == en) return "luma Nth sign"; //must be contiguous
+    if (PIP_CRAC_EOB == en) return "chroma eob"; //must be contiguous
+    if (PIP_CRAC_BITMASK == en) return "chroma bitmask"; //must be contiguous
+    if (PIP_CRAC_EXP == en) return "chroma exp"; //must be contiguous
+    if (PIP_CRAC_RES == en) return "chroma significand"; //must be contiguous
+    if (PIP_CRAC_SIGN == en) return "chroma sign"; //must be contiguous
     if(PIP_PREV_PRED_TAG == en) return "prev pred";
     if(PIP_PREV_PRED_MODE_TAG == en) return "prev pred mode";
     if(PIP_NZC_TAG == en) return "nonzero count";
