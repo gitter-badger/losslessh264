@@ -1937,13 +1937,21 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             abs_ac -= 1; // we know it ain't zero
             int bit_len = bit_length(abs_ac);
             //fprintf(stderr, "Encoding %d(%d) ", bit_len, abs_ac);
-            oMovie().tag(stream_id).emitBits(bit_len,
-                                             Branch<4>(oMovie().model().getAcExpPrior(nonzero,
-                                                                             ac,
-                                                                             index,
-                                                                             coef,
-                                                                             emit_dc,
-                                                                                      color)));
+            using namespace Sirikata;
+            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(nonzero,
+                                                                                   ac,
+                                                                                   index,
+                                                                                   coef,
+                                                                                   emit_dc,
+                                                                                   color);
+            int bit_len_encoded_so_far = 0;
+            for (int i = 0; i < 4; ++i) {
+                oMovie().tag(stream_id).emitBit((bit_len & (1 << i)) ? 1 : 0,
+                                                &exp_prior.at(bit_len_encoded_so_far + (1 << i) - 1));
+                if (bit_len & (1 << i)) {
+                    bit_len_encoded_so_far |= (1 << i);
+                }
+            }
             if (bit_len > 1) {
                 int significand_so_far = 1 << (bit_len - 1);
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
@@ -2011,16 +2019,20 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
         if (nonzero[coef]) {
             BitStream::uint32E res;
             int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-            res = iMovie().tag(stream_id).scanBits(Branch<4>(oMovie().model().getAcExpPrior(nonzero,
-                                                                                   ac,
-                                                                                   index,
-                                                                                   coef,
-                                                                                   emit_dc,
-                                                                                            color)));
-            if (res.second) {
-                fprintf(stderr, "Cannot decode AC component %d, %d\n", coef, (int)res.second);
+            using namespace Sirikata;
+            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(nonzero,
+                                                                               ac,
+                                                                               index,
+                                                                               coef,
+                                                                               emit_dc,
+                                                                               color);
+            int bit_len = 0;
+            for (int i = 0; i < 4; ++i) {
+                bool res = iMovie().tag(stream_id).scanBit(&exp_prior.at(bit_len + (1 << i) - 1));
+                if (res) {
+                    bit_len |= 1 << i;
+                }
             }
-            int bit_len = res.first;
             //fprintf(stderr, "Decoding %d ", bit_len);
             if (bit_len) {
                 ac[coef] = (1 << (bit_len - 1));
