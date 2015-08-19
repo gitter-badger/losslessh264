@@ -1847,7 +1847,8 @@ const uint8_t unzz[16] ={
     3, 8, 11, 13,
     9, 10, 14, 15
 };
-void serializeNonzeros(DecodedMacroblock& rtd) {
+void serializeNonzerosDeprecated(DecodedMacroblock& rtd) {
+    return;
     uint8_t runningCount = 0;
     for (int i = 0; i < 16; ++i) {
         oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
@@ -1864,7 +1865,8 @@ void serializeNonzeros(DecodedMacroblock& rtd) {
     }
 }
 
-void deserializeNonzeros(DecodedMacroblock& rtd) {
+void deserializeNonzerosDeprecated(DecodedMacroblock& rtd) {
+    return;
     BitStream::uint32E res;
     uint8_t runningCount = 0;
     for (int i = 0; i < 16; ++i) {
@@ -2126,7 +2128,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
     (void)numNonzerosL;
     (void) numNonzerosC;
-    serializeNonzeros(rtd);
+    serializeNonzerosDeprecated(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
       oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
     }
@@ -2378,7 +2380,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
     }
 
-    deserializeNonzeros(rtd);
+    deserializeNonzerosDeprecated(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
       res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
       if (res.second) {
