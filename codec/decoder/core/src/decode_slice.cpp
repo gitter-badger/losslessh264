@@ -1847,6 +1847,48 @@ const uint8_t unzz[16] ={
     3, 8, 11, 13,
     9, 10, 14, 15
 };
+void serializeNonzeros(DecodedMacroblock& rtd) {
+    uint8_t runningCount = 0;
+    for (int i = 0; i < 16; ++i) {
+        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
+                                                                 oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
+        runningCount += rtd.numSubLumaNonzeros_[i];
+    }
+    runningCount = 0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 8; j += 4) {
+            oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubChromaNonzeros_[i + j],
+                                                                     oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
+            runningCount += rtd.numSubChromaNonzeros_[i + j];
+        }
+    }
+}
+
+void deserializeNonzeros(DecodedMacroblock& rtd) {
+    BitStream::uint32E res;
+    uint8_t runningCount = 0;
+    for (int i = 0; i < 16; ++i) {
+        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
+        rtd.numSubLumaNonzeros_[i] = res.first;
+        runningCount += res.first;
+        if (res.second) {
+            fprintf(stderr, "failed to read Sub Luma Nonzeros!\n");
+        }
+    }
+    rtd.numLumaNonzeros_ = runningCount;
+    runningCount = 0;
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 8; j += 4) {
+            res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
+            rtd.numSubChromaNonzeros_[i + j] = res.first;
+            runningCount += res.first;
+            if (res.second) {
+                fprintf(stderr, "failed to read Sub Chroma Nonzeros!\n");
+            }
+        }
+    }
+    rtd.numChromaNonzeros_ = runningCount;
+}
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     (void)unzz;
@@ -1939,7 +1981,6 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                                                                             16,
                                                                             emit_dc,
                                                                             color));
-    fprintf(stderr, "%d %d Scanning eob %d\n",index, 16, eob);
     if (eob) {
         return;
     }
@@ -1951,7 +1992,6 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                                                                                           coef,
                                                                                           emit_dc,
                                                                                           color));
-        fprintf(stderr, "%d %d Scanning bitmask %d\n",index, coef, nz);
         if (nz) {
             nonzero[coef] = true;
             bool eob = iMovie().tag(stream_id).scanBit(oMovie().model().getEOBPrior(nonzero,
@@ -1959,7 +1999,6 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                                                                                     coef,
                                                                                     emit_dc,
                                                                                     color));
-            fprintf(stderr, "%d %d Scanning eob %d\n",index, coef, eob);
             if (eob) {
                 break;
             }
@@ -2087,20 +2126,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
     (void)numNonzerosL;
     (void) numNonzerosC;
-    uint8_t runningCount = 0;
-    for (int i = 0; i < 16; ++i) {
-        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
-                                                                 oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
-        runningCount += rtd.numSubLumaNonzeros_[i];
-    }
-    runningCount = 0;
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 8; j += 4) {
-            oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubChromaNonzeros_[i + j],
-                                                                     oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
-            runningCount += rtd.numSubChromaNonzeros_[i + j];
-        }
-    }
+    serializeNonzeros(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
       oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
     }
@@ -2352,29 +2378,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
     }
 
-
-    uint8_t runningCount = 0;
-    for (int i = 0; i < 16; ++i) {
-        res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubLumaNumNonzerosPrior(i, runningCount));
-        rtd.numSubLumaNonzeros_[i] = res.first;
-        runningCount += res.first;
-        if (res.second) {
-            fprintf(stderr, "failed to read Sub Luma Nonzeros!\n");
-        }
-    }
-    rtd.numLumaNonzeros_ = runningCount;
-    runningCount = 0;
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 8; j += 4) {
-            res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<4>(oMovie().model().getSubChromaNumNonzerosPrior(i + j, runningCount));
-            rtd.numSubChromaNonzeros_[i + j] = res.first;
-            runningCount += res.first;
-            if (res.second) {
-                fprintf(stderr, "failed to read Sub Chroma Nonzeros!\n");
-            }
-        }
-    }
-    rtd.numChromaNonzeros_ = runningCount;
+    deserializeNonzeros(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
       res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
       if (res.second) {
