@@ -145,6 +145,13 @@ class MacroblockModel {
         2,//coef above
         2// coef left
         > nonzeroBitmaskPriors;
+    Sirikata::Array5d<DynProb, // <-- really bad priors
+        17,//which coef -- 16 is the magic early exit bit
+        17,//num_nonzeros
+        3,//past_zero
+        2,//coef above
+        2// coef left
+        > eobPriors;
     Sirikata::Array6d<DynProb,
         16,//which coef
         17,//num_nonzeros
@@ -174,7 +181,8 @@ class MacroblockModel {
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
                                const FreqImage *, int mbx, int mby);
-    DynProb *getNonzeroPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
+    DynProb *getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
+    DynProb *getEOBPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
     Branch<4> getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             bool emit_dc, int color);
     DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,

@@ -195,7 +195,8 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
     }
     return retval;
 }
-DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color) {
+DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef,
+                                                 bool emit_dc, int color) {
     SingleCoefNeighbors priors = priorCoef(index, coef, color);
     int past_prior = 2;
     int left_prior = 2;
@@ -209,11 +210,36 @@ DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int c
     if (priors.has_above) {
         above_prior = priors.above ? 1 : 0;
     }
-    int nz = 0;
-    if (color) {
-        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
-    }else {
-        nz = mb->numSubLumaNonzeros_[index];
+    int left_freq = 0;
+    int above_freq = 0;
+    int coef_x = coef & 3;
+    int coef_y = coef >> 2;
+    if (coef_x > 0) {
+        left_freq = !!this_4x4[coef - 1];
+    }
+    if (coef_y > 0) {
+        above_freq = !!this_4x4[coef - 4];
+    }
+    return &nonzeroBitmaskPriors.at(coef, 0,
+                                    past_prior,
+                                    left_freq, above_freq);
+}
+
+
+DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
+                                                 bool emit_dc, int color) {
+    SingleCoefNeighbors priors = priorCoef(index, coef, color);
+    int past_prior = 2;
+    int left_prior = 2;
+    int above_prior = 2;
+    if (priors.has_past) {
+        past_prior = priors.past ? 1 : 0;
+    }
+    if (priors.has_left) {
+        left_prior = priors.left ? 1 : 0;
+    }
+    if (priors.has_above) {
+        above_prior = priors.above ? 1 : 0;
     }
     int left_freq = 0;
     int above_freq = 0;
@@ -225,7 +251,7 @@ DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int c
     if (coef_y > 0) {
         above_freq = !!this_4x4[coef - 4];
     }
-    return &nonzeroBitmaskPriors.at(coef, nz,
+    return &eobPriors.at(coef, 0, // <-- probably the worst prior I could come up with
                                     past_prior,
                                     left_freq, above_freq);
 }
@@ -241,7 +267,7 @@ void MacroblockModel::checkSerializedNonzeros(const bool *nonzeros, const int16_
     }
     int tot_nonzeros = 0;
     for (int i = (emit_dc ? 0: 1); i< 16; ++i) {
-        if (nonzeros[i]) {
+        if (nonzeros ? nonzeros[i] : (ac[i] ? true : false)) {
             ++tot_nonzeros;
             assert(ac[i]);
         }else {
@@ -256,11 +282,13 @@ DynProb* MacroblockModel::getAcSignificandPrior(const bool *nonzeros, const int1
                                                  bool emit_dc, int color,
                                                  int bit_len, int which_bit, int significand) {
     int nz = 0;
+#ifdef USE_NONZEROS
     if (color) {
         nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
     }else {
         nz = mb->numSubLumaNonzeros_[index];
     }
+#endif
     return &acSignificandPriors.at(coef, nz,
                                    bit_len, which_bit);
 }
@@ -268,11 +296,13 @@ DynProb* MacroblockModel::getAcSignificandPrior(const bool *nonzeros, const int1
 DynProb* MacroblockModel::getAcSignPrior(const bool *nonzeros, const int16_t *ac,
                                          int index, int coef, int color) {
     int nz = 0;
+#ifdef USE_NONZEROS
     if (color) {
         nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
     }else {
         nz = mb->numSubLumaNonzeros_[index];
     }
+#endif
     return &acSignPriors.at(coef, nz, color);
 
 }
@@ -311,11 +341,13 @@ Branch<4> MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac
         below = ac[coef + 4];
     }
     int nz = 0;
+#ifdef USE_NONZEROS
     if (color) {
         nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
     }else {
         nz = mb->numSubLumaNonzeros_[index];
     }
+#endif
     return acExpPriors.at(coef, nz,
                            past_prior,
                            left_freq, above_freq);

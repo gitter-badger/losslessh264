@@ -1850,9 +1850,19 @@ const uint8_t unzz[16] ={
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     (void)unzz;
-    int num_nonzeros = oMovie().model().get4x4NumNonzeros(index, color);
-    int num_nonzeros_left = num_nonzeros;
+    int num_nonzeros_left = 0;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+        if (ac[coef_uzz]) {
+            ++num_nonzeros_left;
+        }
+    }
     bool nonzero[16] = {0};
+    oMovie().tag((color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0)).emitBit(!num_nonzeros_left,
+                                    oMovie().model().getEOBPrior(nonzero,
+                                                                 index,
+                                                                 16,
+                                                                 emit_dc,
+                                                                 color));
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
@@ -1860,12 +1870,20 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             nonzero[coef] = true;
             --num_nonzeros_left;
         }
-        oMovie().tag(stream_id).emitBit(!!nonzero[coef],
-                                        oMovie().model().getNonzeroPrior(nonzero,
+        oMovie().tag(stream_id).emitBit(nonzero[coef],
+                                        oMovie().model().getNonzeroBitmaskPrior(nonzero,
+                                                                               index,
+                                                                               coef,
+                                                                               emit_dc,
+                                                                               color));
+        if (nonzero[coef]) { // we can only terminate if the last value was a nonzero
+            oMovie().tag(stream_id).emitBit(!num_nonzeros_left,
+                                            oMovie().model().getEOBPrior(nonzero,
                                                                          index,
                                                                          coef,
                                                                          emit_dc,
                                                                          color));
+        }
     }
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
@@ -1907,25 +1925,44 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                              getAcSignPrior(nonzero, ac, index, coef, color));
         }
     }
+
     oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
 }
 
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     memset(ac, 0, sizeof(int16_t)*16);
-    int num_nonzeros = oMovie().model().get4x4NumNonzeros(index, color);
-    int num_nonzeros_left = num_nonzeros;
     bool nonzero[16] = {0};
-    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
+    bool eob = iMovie().tag((color
+                             ? PIP_CRAC_TAG0
+                             : PIP_LAC_TAG0)).scanBit(oMovie().model().getEOBPrior(nonzero,
+                                                                            index,
+                                                                            16,
+                                                                            emit_dc,
+                                                                            color));
+    fprintf(stderr, "%d %d Scanning eob %d\n",index, 16, eob);
+    if (eob) {
+        return;
+    }
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_TAG0 : PIP_LAC_TAG0) + PIP_AC_STEP * (coef);
-        bool nz = iMovie().tag(stream_id).scanBit(oMovie().model().getNonzeroPrior(nonzero,
-                                                                                   index,
-                                                                                   coef,
-                                                                                   emit_dc,
-                                                                                   color));
+        bool nz = iMovie().tag(stream_id).scanBit(oMovie().model().getNonzeroBitmaskPrior(nonzero,
+                                                                                          index,
+                                                                                          coef,
+                                                                                          emit_dc,
+                                                                                          color));
+        fprintf(stderr, "%d %d Scanning bitmask %d\n",index, coef, nz);
         if (nz) {
             nonzero[coef] = true;
-            --num_nonzeros_left;
+            bool eob = iMovie().tag(stream_id).scanBit(oMovie().model().getEOBPrior(nonzero,
+                                                                                    index,
+                                                                                    coef,
+                                                                                    emit_dc,
+                                                                                    color));
+            fprintf(stderr, "%d %d Scanning eob %d\n",index, coef, eob);
+            if (eob) {
+                break;
+            }
         }
     }
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
@@ -1984,7 +2021,6 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             assert(ac[coef] == 0);
         }
     }
-    oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
 }
 
 int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
@@ -2049,6 +2085,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
     uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
     uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
+    (void)numNonzerosL;
+    (void) numNonzerosC;
     uint8_t runningCount = 0;
     for (int i = 0; i < 16; ++i) {
         oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
@@ -2596,6 +2634,18 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
     }
 
+    uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
+    uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
+    (void)numNonzerosL;
+    (void) numNonzerosC;
+    for (int i = 0; i < 16; ++i) {
+            oMovie().model().checkSerializedNonzeros(NULL, &rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, false);
+    }
+    if (rtd.uiCbpC == 2) {
+        for (int i = 0; i < 8; ++i) {
+            oMovie().model().checkSerializedNonzeros(NULL, &rtd.odata.chromaAC[i * 16], i & 3, !scanned_chroma_dc, i < 4 ? 1 : 2);
+        }
+    }
 #ifdef DEBUG_PRINTS
     fprintf(stderr, "block %d uiCbpC=%d, L=%d\n", which_block, (int)rtd.uiCbpC, (int)rtd.uiCbpL);
     fprintf(stderr, "all done!\n");
