@@ -417,8 +417,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     rtd->sMbMvp[0][1] = pMvd[1];
     pMv[0] += pMvd[0];
     pMv[1] += pMvd[1];
-    rtd->sMbMv[0][0] = pMv[0];
-    rtd->sMbMv[0][1] = pMv[1];
+    rtd->sMbAbsoluteMv[0][0] = pMv[0];
+    rtd->sMbAbsoluteMv[0][1] = pMv[1];
     WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
     UpdateP16x16MotionInfo (pCurDqLayer, iRef[0], pMv);
     UpdateP16x16MvdCabac (pCurDqLayer, pMvd, LIST_0);
@@ -452,8 +452,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       rtd->sMbMvp[8 * i][1] = pMvd[1];
       pMv[0] += pMvd[0];
       pMv[1] += pMvd[1];
-      rtd->sMbMv[8 * i][0] = pMv[0];
-      rtd->sMbMv[8 * i][1] = pMv[1];
+      rtd->sMbAbsoluteMv[8 * i][0] = pMv[0];
+      rtd->sMbAbsoluteMv[8 * i][1] = pMv[1];
       WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP16x8MotionInfo (pCurDqLayer, pMotionVector, pRefIndex, iPartIdx, iRef[i], pMv);
       UpdateP16x8MvdCabac (pCurDqLayer, pMvdCache, iPartIdx, pMvd, LIST_0);
@@ -488,8 +488,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       rtd->sMbMvp[2 * i][1] = pMvd[1];
       pMv[0] += pMvd[0];
       pMv[1] += pMvd[1];
-      rtd->sMbMv[2 * i][0] = pMv[0];
-      rtd->sMbMv[2 * i][1] = pMv[1];
+      rtd->sMbAbsoluteMv[2 * i][0] = pMv[0];
+      rtd->sMbAbsoluteMv[2 * i][1] = pMv[1];
       WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP8x16MotionInfo (pCurDqLayer, pMotionVector, pRefIndex, iPartIdx, iRef[i], pMv);
       UpdateP8x16MvdCabac (pCurDqLayer, pMvdCache, iPartIdx, pMvd, LIST_0);
@@ -552,8 +552,8 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         rtd->sMbMvp[iScan4Idx][1] = pMvd[1];
         pMv[0] += pMvd[0];
         pMv[1] += pMvd[1];
-        rtd->sMbMv[iScan4Idx][0] = pMv[0];
-        rtd->sMbMv[iScan4Idx][1] = pMv[1];
+        rtd->sMbAbsoluteMv[iScan4Idx][0] = pMv[0];
+        rtd->sMbAbsoluteMv[iScan4Idx][1] = pMv[1];
         WELS_CHECK_SE_BOTH_WARNING (pMv[1], iMinVmv, iMaxVmv, "vertical mv");
         if (SUB_MB_TYPE_8x8 == uiSubMbType) {
           ST32 ((pMv + 2), LD32 (pMv));
