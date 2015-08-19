@@ -1944,13 +1944,24 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                                    coef,
                                                                                    emit_dc,
                                                                                    color);
+            int bit_len_plus_3 = bit_len;
+            assert(bit_len <= 12);
+            if (bit_len) bit_len_plus_3 += 3; // this is so we can early exit if we see 2 zeros in a row
             int bit_len_encoded_so_far = 0;
-            for (int i = 0; i < 4; ++i) {
-                oMovie().tag(stream_id).emitBit((bit_len & (1 << i)) ? 1 : 0,
-                                                &exp_prior.at(bit_len_encoded_so_far + (1 << i) - 1));
-                if (bit_len & (1 << i)) {
-                    bit_len_encoded_so_far |= (1 << i);
+            for (int i = 3; i >= 0; --i) {
+                bool exp_bit = (bit_len_plus_3 & (1 << i)) ? 1 : 0;
+                oMovie().tag(stream_id).emitBit(exp_bit,
+                                                &exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
+                if (exp_bit) {
+                    bit_len_encoded_so_far |= (1 << (3 - i));
                 }
+                if (i == 1) {
+                    assert(bit_len_plus_3 != 1
+                           && bit_len_plus_3 != 2
+                           && bit_len_plus_3 != 3);
+                }
+
+                if (bit_len == 0 && i == 2) break;//early exit since we won't see values 1-3, which also share the common trait of having 0's for both the 8 and 4 bits :-)
             }
             if (bit_len > 1) {
                 int significand_so_far = 1 << (bit_len - 1);
@@ -2027,11 +2038,20 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                                                                                emit_dc,
                                                                                color);
             int bit_len = 0;
-            for (int i = 0; i < 4; ++i) {
-                bool res = iMovie().tag(stream_id).scanBit(&exp_prior.at(bit_len + (1 << i) - 1));
+            int bit_len_encoded_so_far = 0;
+            for (int i = 3; i >= 0; --i) {
+                bool res = iMovie().tag(stream_id).scanBit(&exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
+                if (res) {
+                    bit_len_encoded_so_far |= (1 << (3 - i));
+                }
                 if (res) {
                     bit_len |= 1 << i;
                 }
+                if (bit_len == 0 && i == 2) break;//early exit since we won't see values 1-3, which also share the common trait of having 0's for both the 8 and 4 bits :-)
+            }
+            assert(bit_len != 1 && bit_len != 2 && bit_len != 3);
+            if (bit_len) {
+                bit_len -= 3; // this is so we could early exit if there are 2 zeros in a row
             }
             //fprintf(stderr, "Decoding %d ", bit_len);
             if (bit_len) {
