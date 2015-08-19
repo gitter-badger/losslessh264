@@ -116,11 +116,14 @@ void MacroblockModel::initCurrentMacroblock(
 
 uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
     uint16_t retval = 0;
+    bool emit_dc = (MB_TYPE_INTRA16x16 != mb->uiMbType);
     memset(mb->numSubLumaNonzeros_, 0, sizeof(mb->numSubLumaNonzeros_));
     for (int i = 0; i < 256; ++i) {
-        if (mb->odata.lumaAC[i]) {
-            ++retval;
-            ++mb->numSubLumaNonzeros_[i / 16];
+        if ((i & 15) != 0 || emit_dc) {
+            if (mb->odata.lumaAC[i]) {
+                ++retval;
+                ++mb->numSubLumaNonzeros_[i / 16];
+            }
         }
     }
     mb->numLumaNonzeros_ = retval;
@@ -228,6 +231,26 @@ DynProb *MacroblockModel::getNonzeroPrior(const bool *this_4x4, int index, int c
 }
 
 
+void MacroblockModel::checkSerializedNonzeros(const bool *nonzeros, const int16_t *ac,
+                                              int index, bool emit_dc, int color) {
+    int nz = 0;
+    if (color) {
+        nz = mb->numSubChromaNonzeros_[index + (color > 1 ? 4 : 0)];
+    }else {
+        nz = mb->numSubLumaNonzeros_[index];
+    }
+    int tot_nonzeros = 0;
+    for (int i = (emit_dc ? 0: 1); i< 16; ++i) {
+        if (nonzeros[i]) {
+            ++tot_nonzeros;
+            assert(ac[i]);
+        }else {
+            assert(!ac[i]);
+        }
+    }
+    assert(nz == tot_nonzeros);
+}
+
 DynProb* MacroblockModel::getAcSignificandPrior(const bool *nonzeros, const int16_t *ac,
                                                  int index, int coef,
                                                  bool emit_dc, int color,
@@ -303,7 +326,7 @@ uint8_t MacroblockModel::getAndUpdateMacroblockChromaNumNonzeros() {
     uint8_t retval = 0;
     memset(mb->numSubChromaNonzeros_, 0, sizeof(mb->numSubChromaNonzeros_));
     for (int i = 0; i < 128; ++i) {
-        if (mb->odata.chromaAC[i]) {
+        if (mb->odata.chromaAC[i] && (i & 15) != 0) {
             ++retval;
             ++mb->numSubChromaNonzeros_[i / 16];
         }

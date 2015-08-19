@@ -1843,6 +1843,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                              getAcSignPrior(nonzero, ac, index, coef, color));
         }
     }
+    oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
 }
 
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
@@ -1919,6 +1920,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             assert(ac[coef] == 0);
         }
     }
+    oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
 }
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {

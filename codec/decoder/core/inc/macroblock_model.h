@@ -248,6 +248,9 @@ public:
     int encodeMacroblockType(int welsType);
     int decodeMacroblockType(int storedType);
     uint8_t get4x4NumNonzeros(uint8_t index, uint8_t color/*0 for Y 1 for U, 2 for V*/) const;
+    // this is just a sanity check
+    void checkSerializedNonzeros(const bool *nonzeros, const int16_t *ac,
+                                 int index, bool emit_dc, int color);
 };
 
 #endif
