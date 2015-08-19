@@ -2168,7 +2168,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
     oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
 
-	// don't serialize lastMbQp
+        // don't serialize lastMbQp
 
     //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
     int32_t deltaLumaQp = rtd.uiLumaQp - uiCachedLumaQp;
@@ -2200,19 +2200,25 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                                                luma_prior_pair.second);
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
+      // NOTE(jongmin): Reading spec suggests that there are up to 9 intra prediction modes for 4x4.
       for (int i = 0; i < 16; i++) {
-        oMovie().tag(PIP_PREV_PRED_TAG).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i], 8);
+        oMovie().tag(PIP_PREV_PRED_TAG).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i],
+                                                 oMovie().model().getPredictionModePrior());
       }
       for (int i = 0; i < 16; i++) {
-        oMovie().tag(PIP_PRED_TAG).emitBits((uint16_t)rtd.iRemIntra4x4PredMode[i], 8);
+        oMovie().tag(PIP_PRED_TAG).emitBits((uint16_t)rtd.iRemIntra4x4PredMode[i],
+                                            oMovie().model().getPredictionModePrior());
       }
     }
     if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
+      // NOTE(jongmin): Reading spec suggests that there are up to 9 intra prediction modes for 4x4.
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_PREV_PRED_MODE_TAG).emitBits((uint8_t)rtd.iPrevIntra4x4PredMode[i], 8);
+        oMovie().tag(PIP_PREV_PRED_MODE_TAG).emitBits((uint8_t)rtd.iPrevIntra4x4PredMode[i],
+                                                      oMovie().model().getPredictionModePrior());
       }
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iRemIntra4x4PredMode[i], 8);
+        oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iRemIntra4x4PredMode[i],
+                                                 oMovie().model().getPredictionModePrior());
       }
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
@@ -2501,7 +2507,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
       for (int i = 0; i < 16; i++) {
-        res = iMovie().tag(PIP_PREV_PRED_TAG).scanBits(8);
+        res = iMovie().tag(PIP_PREV_PRED_TAG).scanBits(oMovie().model().getPredictionModePrior());
         if (res.second) {
           fprintf(stderr, "failed to read prevPredMode!\n");
           rtd.iPrevIntra4x4PredMode[i] = 0;
@@ -2510,7 +2516,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         }
       }
       for (int i = 0; i < 16; i++) {
-        res = iMovie().tag(PIP_PRED_TAG).scanBits(8);
+        res = iMovie().tag(PIP_PRED_TAG).scanBits(oMovie().model().getPredictionModePrior());
         if (res.second) {
           fprintf(stderr, "failed to read remPredMode!\n");
           rtd.iRemIntra4x4PredMode[i] = 0;
@@ -2520,7 +2526,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
     } else if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_PREV_PRED_MODE_TAG).scanBits(8);
+        res = iMovie().tag(PIP_PREV_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior());
         if (res.second) {
           fprintf(stderr, "failed to read prevPredMode!\n");
           rtd.iPrevIntra4x4PredMode[i] = 0;
@@ -2529,7 +2535,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         }
       }
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(8);
+        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior());
         if (res.second) {
           fprintf(stderr, "failed to read remPredMode!\n");
           rtd.iRemIntra4x4PredMode[i] = 0;

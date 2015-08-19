@@ -495,6 +495,9 @@ Branch<4> MacroblockModel::getMacroblockTypePrior() {
         pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
              .sSliceHeader.eSliceType == P_SLICE));
 }
+Branch<4> MacroblockModel::getPredictionModePrior() {
+  return predictionModePriors.at(0); // TODO: this is a dumb prior.
+}
 
 std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>
 MacroblockModel::getMotionVectorDifferencePrior(int subblockIndex, int xyIndex) {

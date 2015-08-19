@@ -179,6 +179,7 @@ class MacroblockModel {
         bool has_left;
         bool has_above;
     };
+    Sirikata::Array2d<DynProb, 2, 15> predictionModePriors;
     SingleCoefNeighbors priorCoef(int index, int coef, int color);
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
@@ -193,6 +194,7 @@ public:
     DynProb *getAcSignPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             int color);
     Branch<4> getMacroblockTypePrior();
+    Branch<4> getPredictionModePrior();
 
 #define DC_SPLIT 12
 #define DC_LOWER_MASK ((1 << (15 - DC_SPLIT)) - 1)
