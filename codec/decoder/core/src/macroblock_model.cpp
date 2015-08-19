@@ -703,3 +703,57 @@ int16_t unswizzle_sign(uint16_t v) {
     return (int16_t)(v >> 1);
   }
 }
+//  QuantizationTargets getTargetForQuantization(int32_t iResidualProperty);
+int32_t getiResidualProperty(uint32_t uiMbType, bool dc, int color) {
+    switch(uiMbType) {
+    case MB_TYPE_INTRA16x16:
+    case MB_TYPE_INTRA4x4:
+    case MB_TYPE_INTRA8x8:
+    case MB_TYPE_INTRA_PCM:
+    case MB_TYPE_INTRA_BL:
+        if (color == 0) {
+            if (dc && uiMbType == MB_TYPE_INTRA16x16) {
+                return I16_LUMA_DC;
+            }
+            return LUMA_DC_AC_INTRA;
+        } else if (color == 1) {
+            if (dc) {
+                return CHROMA_DC_U;
+            } else {
+                return CHROMA_AC_U;
+            }
+        } else {
+            if (dc) {
+                return CHROMA_DC_V;
+            } else {
+                return CHROMA_AC_V;
+            }
+        }
+        break;
+    case 0:
+    case MB_TYPE_SKIP:
+    case MB_TYPE_16x16:
+    case MB_TYPE_16x8:
+    case MB_TYPE_8x16:
+    case MB_TYPE_8x8:
+        if (color == 0) {
+            return LUMA_DC_AC_INTER;
+        } else if (color == 1) {
+            if (dc) {
+                return CHROMA_DC_U_INTER;
+            } else {
+                return CHROMA_AC_U;
+            }
+        } else {
+            if (dc) {
+                return CHROMA_DC_V_INTER;
+            } else {
+                return CHROMA_AC_V;
+            }
+        }
+        break;
+    default:
+        assert(false && "Can't handle quantization for this kind of macroblock");
+    }
+    return LUMA_DC_AC_INTRA;
+}

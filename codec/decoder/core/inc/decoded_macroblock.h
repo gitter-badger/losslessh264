@@ -33,7 +33,19 @@ struct DecodedMacroblock {
   bool isSkipped;
   uint16_t cachedSkips;
   uint32_t cachedDeltaLumaQp;
-
+  enum QuantizationTargets {
+      LUMA_AC_QUANT,
+      LUMA_DC_QUANT,
+      U_AC_QUANT,
+      U_DC_QUATN,
+      V_AC_QUANT,
+      V_DC_QUANT,
+      NUM_QUANTIZATIONS
+  };
+  // we call this function from the decoded state to seed the quantization parameters
+  int32_t getiResdiualProperty(uint32_t uiMbType, bool dc, int color);
+    //handy pointers to the quantization parameters
+  const int16_t *quantizationTable [NUM_QUANTIZATIONS];
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
@@ -42,7 +54,7 @@ struct DecodedMacroblock {
         uiNumRefIdxL0Active(), uiLumaQp(),
         numLumaNonzeros_(0), numChromaNonzeros_(0), numSubLumaNonzeros_(), numSubChromaNonzeros_(),
         cachedSkips(0), cachedDeltaLumaQp(0) {
-
+      memset(quantizationTable, 0, sizeof(quantizationTable));
       isSkipped = false;
       cachedSkips = 0;
   }

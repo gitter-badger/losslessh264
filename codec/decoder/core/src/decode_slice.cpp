@@ -2882,6 +2882,22 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   return ERR_NONE;
 }
 
+// iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
+const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
+  int32_t iMbResProperty = 0;
+  PDqLayer pCurLayer             = pCtx->pCurDqLayer;
+  GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
+  const uint16_t* kpDequantCoeff = NULL;
+  if (pCurLayer->pTransformSize8x8Flag[pCurLayer->iMbXyIndex]) {
+      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
+                                       g_kuiDequantCoeff8x8[uiQp];
+  } else{
+      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
+                                    g_kuiDequantCoeff[uiQp];
+  }
+  return kpDequantCoeff;
+}
+
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   curBillTag = PIP_DEFAULT_TAG;
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
