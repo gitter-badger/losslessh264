@@ -183,7 +183,7 @@ public:
                                const FreqImage *, int mbx, int mby);
     DynProb *getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
     DynProb *getEOBPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
-    Branch<4> getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
+    Sirikata::Array1d<DynProb, 15>::Slice getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             bool emit_dc, int color);
     DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                                    bool emit_dc, int color,

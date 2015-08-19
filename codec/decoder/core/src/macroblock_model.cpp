@@ -294,7 +294,7 @@ DynProb* MacroblockModel::getAcSignPrior(const bool *nonzeros, const int16_t *ac
     return &acSignPriors.at(coef, nz, color);
 
 }
-Branch<4> MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
+Sirikata::Array1d<DynProb, 15>::Slice MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
                                          int index, int coef,
                                          bool emit_dc, int color) {
     SingleCoefNeighbors priors = priorCoef(index, coef, color);
