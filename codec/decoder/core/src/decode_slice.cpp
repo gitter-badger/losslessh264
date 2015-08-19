@@ -1921,7 +1921,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                                emit_dc,
                                                                                color));
         if (nonzero[coef]) { // we can only terminate if the last value was a nonzero
-            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_N_EOB); // don't want to assign to LAC0 since this is really different than the first stop bit, ironically
+            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_0_EOB); // always assign to LAC0 to match the cavlc bill
             oMovie().tag(stream_id).emitBit(!num_nonzeros_left,
                                             oMovie().model().getEOBPrior(nonzero,
                                                                          index,
@@ -2017,7 +2017,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
                                                                                           emit_dc,
                                                                                           color));
         if (nz) {
-            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_N_EOB); // don't want to assign to LAC0 since this is really different than the first stop bit, ironically
+            int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_0_EOB); // always assign to LAC0 to match the cavlc bill
             nonzero[coef] = true;
             bool eob = iMovie().tag(stream_id).scanBit(oMovie().model().getEOBPrior(nonzero,
                                                                                     index,

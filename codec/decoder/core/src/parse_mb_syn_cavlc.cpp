@@ -969,7 +969,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
     int bill_n_exp_base = PIP_LAC_N_EXP;
     int bill_sign_base = PIP_LAC_0_SIGN;
     int bill_n_sign_base = PIP_LAC_N_SIGN;
-    if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {
+    if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U || iResidualProperty == CHROMA_AC
+        || iResidualProperty == CHROMA_AC_U_INTER || iResidualProperty == CHROMA_AC_V_INTER) {
         bill_bitmask_base = PIP_CRAC_BITMASK;
         bill_n_bitmask_base = PIP_CRAC_BITMASK;
         bill_base =  PIP_CRAC_EOB;
