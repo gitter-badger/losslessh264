@@ -72,21 +72,27 @@ struct FreqImage {
         for (int i=0; i < cur_frame.size(); i++) {
             DecodedMacroblock &dmb = cur_frame[i];
             bool isZeroed = true;
-            if (dmb.numLumaNonzeros_ == 0 && dmb.numChromaNonzeros_ == 0) {
-                for(int j=0; j<16; j++) {
-                    if (dmb.odata.lumaDC[j] != 0) {
-                        isZeroed = false;
-                        break;
-                    }
+            for (size_t j = 0; j < sizeof(dmb.odata.lumaAC) / sizeof(dmb.odata.lumaDC[0]); ++j) {
+                if (dmb.odata.lumaAC[j] != 0) {
+                    isZeroed = false;
                 }
-                for(int j=0; j<8; j++) {
-                    if (dmb.odata.chromaDC[j] != 0) {
-                        isZeroed = false;
-                        break;
-                    }
+            }
+            for (size_t j = 0; j < sizeof(dmb.odata.chromaAC) / sizeof(dmb.odata.chromaDC[0]); ++j) {
+                if (dmb.odata.chromaAC[j] != 0) {
+                    isZeroed = false;
                 }
-            } else {
-                isZeroed = false;
+            }
+            for(int j=0; j<16; j++) {
+                if (dmb.odata.lumaDC[j] != 0) {
+                    isZeroed = false;
+                    break;
+                }
+            }
+            for(int j=0; j<8; j++) {
+                if (dmb.odata.chromaDC[j] != 0) {
+                    isZeroed = false;
+                    break;
+                }
             }
             //fprintf(stderr, "isZeroed: %d contiguousSkips: %d\n", isZeroed, contiguousSkips);
 

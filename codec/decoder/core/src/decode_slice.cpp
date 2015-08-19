@@ -2162,21 +2162,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           rtd.uiMbType = oMovie().model().decodeMacroblockType(res.first);
         }
 
-        #ifdef HIERARCHICAL_NONZEROS
-        {
-          res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<8>(oMovie().model().getLumaNumNonzerosPrior());
-          rtd.numLumaNonzeros_ = res.first;
-          if (res.second) {
-            fprintf(stderr, "failed to read Luma Nonzeros!\n");
-            rtd.numLumaNonzeros_ = 0;
-          }
-          res = iMovie().tag(PIP_NZC_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getChromaNumNonzerosPrior());
-          rtd.numChromaNonzeros_ = res.first;
-          if (res.second) {
-            fprintf(stderr, "failed to read Chroma Nonzeros!\n");
-          }
-        }
-        #endif
 
         uint8_t runningCount = 0;
         for (int i = 0; i < 16; ++i) {
@@ -2623,13 +2608,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
         oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
         uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
         uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
-#ifdef HIERARCHICAL_NONZEROS
-        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<8>(numNonzerosL, oMovie().model().getLumaNumNonzerosPrior()); //Valid values are 0..256 incl
-        oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<7>(numNonzerosC, oMovie().model().getChromaNumNonzerosPrior()); //Valid values are 0..128 incl
-#else
-        (void)numNonzerosL;
-        (void)numNonzerosC;
-#endif
         uint8_t runningCount = 0;
         for (int i = 0; i < 16; ++i) {
             oMovie().tag(PIP_NZC_TAG).emitBitsZeroToPow2Inclusive<4>(rtd.numSubLumaNonzeros_[i],
