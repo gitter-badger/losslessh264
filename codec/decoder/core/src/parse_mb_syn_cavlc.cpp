@@ -970,11 +970,26 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
     }
   } else {
 #ifdef BILLING
-    bill[PIP_NZC_TAG] += total_coeff_trailing_ones_and_num_zeros_cost;
-    int bill_base = PIP_LAC_TAG0;
+    int bill_base = PIP_LAC_0_EOB;
+    int bill_n_base = PIP_LAC_N_EOB;
+    int bill_bitmask_base = PIP_LAC_0_BITMASK;
+    int bill_n_bitmask_base = PIP_LAC_N_BITMASK;
+    int bill_exp_base = PIP_LAC_0_EXP;
+    int bill_n_exp_base = PIP_LAC_N_EXP;
+    int bill_sign_base = PIP_LAC_0_SIGN;
+    int bill_n_sign_base = PIP_LAC_N_SIGN;
     if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {
-        bill_base =  PIP_CRAC_TAG0;
+        bill_bitmask_base = PIP_CRAC_BITMASK;
+        bill_n_bitmask_base = PIP_CRAC_BITMASK;
+        bill_base =  PIP_CRAC_EOB;
+        bill_n_base = PIP_CRAC_EOB;
+        bill_exp_base = PIP_CRAC_EXP;
+        bill_n_exp_base = PIP_CRAC_EXP;
+        bill_sign_base = PIP_CRAC_SIGN;
+        bill_n_sign_base = PIP_CRAC_SIGN;
     }
+    bill[bill_base] += total_coeff_trailing_ones_and_num_zeros_cost;
+    bool last_was_dc = false;;
 #endif
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode?
       int32_t j;
@@ -984,11 +999,13 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[j]) >> 4 : (iLevel[i] * kpDequantCoeff[j & 0x07]);
 
 #ifdef BILLING
-      for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
-          int jj          = kpZigzagTable[ k ];
-          bill[bill_base + jj] += run_cost[i]/(double)iRun[i];
+      if (j == 0) last_was_dc = true;
+      bill[last_was_dc ? bill_bitmask_base : bill_n_bitmask_base] += run_cost[i];
+      last_was_dc = (j == 0);
+      if (level_cost[i]) {
+          bill[j == 0 ? bill_exp_base : bill_n_exp_base] += level_cost[i] - 1;
+          bill[j == 0 ? bill_sign_base : bill_n_sign_base] += 1;
       }
-      bill[bill_base + j] += level_cost[i];
 #endif
     }
   }
