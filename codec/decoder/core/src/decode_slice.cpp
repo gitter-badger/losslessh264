@@ -471,13 +471,13 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     rtd->iRemIntra4x4PredMode[i] = 0;
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
 #ifdef BILLING
-      curBillTag = PIP_PRED_MODE_TAG;
+      curBillTag = PIP_PREV_PRED_MODE_TAG;
 #endif
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
       iPrevIntra4x4PredMode = iCode;
     } else {
 #ifdef BILLING
-      curBillTag = PIP_PRED_MODE_TAG;
+      curBillTag = PIP_PREV_PRED_MODE_TAG;
 #endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
@@ -573,7 +573,7 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       iPrevIntra4x4PredMode = iCode;
     } else {
 #ifdef BILLING
-      curBillTag = PIP_PRED_MODE_TAG;
+      curBillTag = PIP_PREV_PRED_MODE_TAG;
 #endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
