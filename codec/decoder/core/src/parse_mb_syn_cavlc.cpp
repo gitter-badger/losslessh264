@@ -1177,12 +1177,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][0] = iCode;
     iMv[0] += iCode;
+    rtd->sMbMv[0][0] = iMv[0];
 #ifdef BILLING
     curBillTag = PIP_MVY_TAG;
 #endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][1] = iCode;
     iMv[1] += iCode;
+    rtd->sMbMv[0][1] = iMv[1];
     WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
     UpdateP16x16MotionInfo (pCurDqLayer, iRefIdx, iMv);
   }
@@ -1230,12 +1232,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][0] = iCode; // MV is [8*i]. Cache is [i]
       iMv[0] += iCode;
+      rtd->sMbMv[8 * i][0] = iMv[0];
 #ifdef BILLING
       curBillTag = PIP_MVY_TAG;
 #endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][1] = iCode; // MV is [8*i]. Cache is [i]
       iMv[1] += iCode;
+      rtd->sMbMv[8 * i][1] = iMv[1];
       WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP16x8MotionInfo (pCurDqLayer, iMvArray, iRefIdxArray, i << 3, iRefIdx[i], iMv);
     }
@@ -1287,12 +1291,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][0] = iCode; // MV is [2*i]. Cache is [i]
       iMv[0] += iCode;
+      rtd->sMbMv[2 * i][0] = iMv[0];
 #ifdef BILLING
       curBillTag = PIP_MVY_TAG;
 #endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][1] = iCode; // MV is [2*i]. Cache is [i]
       iMv[1] += iCode;
+      rtd->sMbMv[2 * i][1] = iMv[1];
       WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP8x16MotionInfo (pCurDqLayer, iMvArray, iRefIdxArray, i << 2, iRefIdx[i], iMv);
     }
@@ -1397,12 +1403,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[0] += iCode;
         rtd->sMbMvp[uiScan4Idx][0] = iCode;
+        rtd->sMbMv[uiScan4Idx][0] = iMv[0];
 #ifdef BILLING
         curBillTag = PIP_MVY_TAG;
 #endif
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[1] += iCode;
         rtd->sMbMvp[uiScan4Idx][1] = iCode;
+        rtd->sMbMv[uiScan4Idx][1] = iMv[1];
         WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
         if (SUB_MB_TYPE_8x8 == uiSubMbType) {
           ST32 (pCurDqLayer->pMv[0][iMbXy][uiScan4Idx], LD32 (iMv));

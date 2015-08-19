@@ -13,6 +13,7 @@ struct DecodedMacroblock {
   int32_t iPrevIntra4x4PredMode[16];
   int32_t iRemIntra4x4PredMode[16];
   int16_t sMbMvp[16][2];
+  int16_t sMbMv[16][2]; // absolute motion vectors. no need to serialized them
   int uiSubMbType[4];
   int8_t iRefIdx[4];
   uint32_t uiCbpC, uiCbpL;
