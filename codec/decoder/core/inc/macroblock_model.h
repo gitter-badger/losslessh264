@@ -124,24 +124,25 @@ class MacroblockModel {
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
         256 // number of nonzero values possible
-        > numNonZerosLumaPriors;
+        > numNonZerosLumaPriors; // <-- deprecated
     Sirikata::Array3d<DynProb,
                       129, // prev frame num nonzeros
                       16, // mbType
-                      128> numNonZerosChromaPriors;
+                      128> numNonZerosChromaPriors; // <--deprecated
     Sirikata::Array4d<DynProb,
         17,//past
         17,//left
         17,//above
-        16> numSubNonZerosLumaPriors;
+        16> numSubNonZerosLumaPriors; // <--deprecated
     Sirikata::Array4d<DynProb,
         17,//past
         17,//left
         17,//above
-        16> numSubNonZerosChromaPriors;
-    Sirikata::Array5d<DynProb,
+        16> numSubNonZerosChromaPriors; // <--deprecated
+    Sirikata::Array6d<DynProb,
         16,//which coef
-        17,//num_nonzeros
+        3,//left_zero
+        3,//above_zero
         3,//past_zero
         2,//coef above
         2// coef left

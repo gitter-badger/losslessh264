@@ -2833,6 +2833,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
 }
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
+  curBillTag = PIP_DEFAULT_TAG;
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
   PFmo pFmo = pCtx->pFmo;
   int32_t iRet;
@@ -2968,6 +2969,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     }
     isFirstMB = false;
     if (iRet != ERR_NONE) {
+      curBillTag = PIP_DEFAULT_TAG;
       return iRet;
     }
 
@@ -3008,6 +3010,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     }
 #endif
   }
+  curBillTag = PIP_DEFAULT_TAG;
   return ERR_NONE;
 }
 

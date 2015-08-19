@@ -28,10 +28,10 @@ void Neighbors::init(const FreqImage *f, int x, int y) {
     }
 }
 
-int curBillTag = 0;
+int curBillTag = PIP_DEFAULT_TAG;
 double bill[NUM_TOTAL_TAGS] = {0};
 const char * billEnumToName(int en) {
-    if (PIP_DEFAULT_TAG == en) return "default";
+    if (PIP_DEFAULT_TAG == en) return "boilerplate";
     if(PIP_SKIP_TAG == en) return "skip";
     if(PIP_SKIP_END_TAG == en) return "skip end";
     if(PIP_CBPC_TAG == en) return "cbpc";
@@ -220,7 +220,9 @@ DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index
     if (coef_y > 0) {
         above_freq = !!this_4x4[coef - 4];
     }
-    return &nonzeroBitmaskPriors.at(coef, 0,
+    return &nonzeroBitmaskPriors.at(coef,
+                                    left_prior,
+                                    above_prior,
                                     past_prior,
                                     left_freq, above_freq);
 }
