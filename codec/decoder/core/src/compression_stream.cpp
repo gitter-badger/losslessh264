@@ -248,6 +248,7 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
 ArithmeticCodedInput& InputCompressionStream::tag(int32_t tag) {
     bool mustReadData = taggedStreams.find(tag) == taggedStreams.end();
     ArithmeticCodedInput &bs = taggedStreams[tag];
+    bs.stream_id = tag;
     if (filenamePrefix.empty()) {
         fprintf(stderr, "Attempting to read %d without input file set\n", tag);
         assert(!filenamePrefix.empty());

@@ -1892,21 +1892,118 @@ void deserializeNonzerosDeprecated(DecodedMacroblock& rtd) {
     rtd.numChromaNonzeros_ = runningCount;
 }
 
-void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
+void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
+        const int16_t *ac, int index, bool emit_dc, int color) {
+    PDqLayer pCurLayer = pCtx->pCurDqLayer;
+    int iMbXy = pCurLayer->iMbXyIndex;
+    int width = pCurLayer->iMbWidth;
+    int mbType = rtd.uiMbType;
+    PSlice pSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
+    PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
+    PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
     (void)unzz;
-    int num_nonzeros_left = 0;
+    int num_nonzeros = 0;
+    bool nonzero[16] = {0};
+    bool large[16] = {0};
+    const int MAX_UNARY = 14;
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
         if (ac[coef_uzz]) {
-            ++num_nonzeros_left;
+            ++num_nonzeros;
+        }
+        if (ac[coef_uzz] > MAX_UNARY) {
+          large[coef_uzz] = true;
+        }
+        if (ac[coef_uzz]) {
+            nonzero[coef_uzz] = true;
         }
     }
-    bool nonzero[16] = {0};
-    oMovie().tag((color ? PIP_CRAC_EOB : PIP_LAC_0_EOB)).emitBit(!num_nonzeros_left,
-                                    oMovie().model().getEOBPrior(nonzero,
-                                                                 index,
-                                                                 16,
-                                                                 emit_dc,
-                                                                 color));
+    bool nonzeroLeft = false;
+    bool nonzeroTop = false;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      MacroblockModel::SingleCoefNeighbors neighbors = oMovie().model().
+        priorCoef(index, coef_uzz, color);
+      if (neighbors.has_above) {
+        if (neighbors.above) {
+          nonzeroTop = true;
+        }
+      } else {
+        nonzeroTop = IS_INTRA (mbType);
+      }
+      if (neighbors.has_left) {
+        if (neighbors.left) {
+          nonzeroLeft = true;
+        }
+      } else {
+        nonzeroLeft = IS_INTRA (mbType);
+      }
+    }
+    int isPSlice = pSliceHeader->eSliceType != I_SLICE;
+    int qp = rtd.uiLumaQp;
+    int blockType = (color ? 0 : 1) | (emit_dc ? 0 : 2); // TODO: DC encoding?
+
+    oMovie().tag((color ? PIP_CEXIST_TAG : PIP_LEXIST_TAG)).emitBit(
+        !!num_nonzeros,
+        oMovie().model().getContainsNonzerosPrior(
+          isPSlice, qp, blockType, nonzeroLeft, nonzeroTop));
+    if (!num_nonzeros) {
+      return;
+    }
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      int coef = kzz[coef_uzz];
+      oMovie().tag((color ? PIP_CNONZERO_TAG : (!coef ? PIP_LNONZERO_TAG : PIP_LNONZERO_TAG_N))).emitBit(
+          nonzero[coef],
+          oMovie().model().getCoefIsNonzeroPrior(
+            isPSlice, qp, blockType, coef));
+      // FIXME: we might be able to save this on the last iteration.
+      if (coef == 15) {
+        break;
+      }
+      if (nonzero[coef]) {
+        num_nonzeros--;
+      }
+      oMovie().tag((color ? PIP_CEOB_TAG : (!coef ? PIP_LEOB_TAG : PIP_LEOB_TAG_N))).emitBit(
+            !num_nonzeros,
+            oMovie().model().getCoefIsLastNonzeroPrior(
+              isPSlice, qp, blockType, coef));
+      if (!num_nonzeros) {
+        break;
+      }
+    }
+    int num_nonones_so_far = 0;
+    int num_ones_so_far = 0;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      int coef = kzz[coef_uzz];
+      if (!nonzero[coef]) {
+        continue;
+      }
+      int abs_coef = ac[coef] < 0 ? -ac[coef] : ac[coef];
+      bool is_one = abs_coef == 1;
+      oMovie().tag((color ? PIP_CNONONE_TAG : (!coef ? PIP_LNONONE_TAG : PIP_LNONONE_TAG_N))).emitBit(
+          is_one,
+          oMovie().model().getCoefIsNononePrior(
+            isPSlice, qp, blockType, num_nonones_so_far, num_ones_so_far));
+      if (is_one) {
+        num_ones_so_far++;
+      } else {
+        num_nonones_so_far++;
+      }
+      // FIXME: we might be able to save this on the last iteration.
+      if (!is_one) {
+        int unary_value = std::min(MAX_UNARY, abs_coef - 1);
+        for (int i = 0; i < unary_value; i++) {
+          abs_coef--;
+          oMovie().tag((color ? PIP_CUNARY_TAG : (!coef ? PIP_LUNARY_TAG : PIP_LUNARY_TAG_N))).emitBit(
+            i != unary_value - 1,
+            oMovie().model().getCoefUnaryPrior(
+              isPSlice, qp, blockType, num_nonones_so_far));
+        }
+      }
+    }
+    /*
+    oMovie().tag((color ? PIP_CRAC_EOB : PIP_LAC_0_EOB)).emitBit(
+        !num_nonzeros_left,
+        oMovie().model().getEOBPrior(
+          nonzero, index, 16, emit_dc, color));
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16 && num_nonzeros_left; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_BITMASK : (coef == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK));
@@ -1914,45 +2011,39 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             nonzero[coef] = true;
             --num_nonzeros_left;
         }
-        oMovie().tag(stream_id).emitBit(nonzero[coef],
-                                        oMovie().model().getNonzeroBitmaskPrior(nonzero,
-                                                                               index,
-                                                                               coef,
-                                                                               emit_dc,
-                                                                               color));
+        oMovie().tag(stream_id).emitBit(
+            nonzero[coef],
+            oMovie().model().getNonzeroBitmaskPrior(
+              nonzero, index, coef, emit_dc, color));
         if (nonzero[coef]) { // we can only terminate if the last value was a nonzero
             int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_0_EOB); // always assign to LAC0 to match the cavlc bill
-            oMovie().tag(stream_id).emitBit(!num_nonzeros_left,
-                                            oMovie().model().getEOBPrior(nonzero,
-                                                                         index,
-                                                                         coef,
-                                                                         emit_dc,
-                                                                         color));
+            oMovie().tag(stream_id).emitBit(
+                !num_nonzeros_left,
+                oMovie().model().getEOBPrior(
+                  nonzero, index, coef, emit_dc, color));
         }
     }
+    */
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
-        if (nonzero[coef]) {
+        if (large[coef]) {
             int stream_id = (color ? PIP_CRAC_EXP : (coef == 0 ? PIP_LAC_0_EXP : PIP_LAC_N_EXP));
             uint16_t abs_ac = ac[coef] < 0 ? -ac[coef] : ac[coef];
-            abs_ac -= 1; // we know it ain't zero
+            abs_ac -= MAX_UNARY; // we know it ain't zero
             int bit_len = bit_length(abs_ac);
             //fprintf(stderr, "Encoding %d(%d) ", bit_len, abs_ac);
             using namespace Sirikata;
-            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(nonzero,
-                                                                                   ac,
-                                                                                   index,
-                                                                                   coef,
-                                                                                   emit_dc,
-                                                                                   color);
+            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(
+                nonzero, ac, index, coef, emit_dc, color);
             int bit_len_plus_3 = bit_len;
             assert(bit_len <= 12);
             if (bit_len) bit_len_plus_3 += 3; // this is so we can early exit if we see 2 zeros in a row
             int bit_len_encoded_so_far = 0;
             for (int i = 3; i >= 0; --i) {
                 bool exp_bit = (bit_len_plus_3 & (1 << i)) ? 1 : 0;
-                oMovie().tag(stream_id).emitBit(exp_bit,
-                                                &exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
+                oMovie().tag(stream_id).emitBit(
+                    exp_bit,
+                    &exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
                 if (exp_bit) {
                     bit_len_encoded_so_far |= (1 << (3 - i));
                 }
@@ -1968,24 +2059,19 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
             if (bit_len > 1) {
                 int significand_so_far = 1 << (bit_len - 1);
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
-                    oMovie().tag(stream_id).emitBit((abs_ac & (1 << which_bit)) ? 1 : 0,
-                                                    oMovie().model().
-                                                    getAcSignificandPrior(
-                                                        nonzero,
-                                                        ac,
-                                                        index,
-                                                        coef,
-                                                        emit_dc,
-                                                        color,
-                                                        bit_len,
-                                                        which_bit,
-                                                        significand_so_far
-                                                        ));
+                    oMovie().tag(stream_id).emitBit(
+                        (abs_ac & (1 << which_bit)) ? 1 : 0,
+                        oMovie().model().getAcSignificandPrior(
+                            nonzero, ac, index, coef, emit_dc,
+                            color, bit_len, which_bit, significand_so_far));
                     significand_so_far |= (abs_ac & (1 << which_bit));
                     //fprintf(stderr, " %d ", (abs_ac & (1 << which_bit)) ? 1 : 0);
                 }
             }
             ++stream_id; // get to sign bill
+        }
+        if (nonzero[ac[coef]]) {
+            int stream_id = (color ? PIP_CRAC_SIGN : (coef == 0 ? PIP_LAC_0_SIGN : PIP_LAC_N_SIGN));
             //fprintf(stderr, "%c\n", (ac[coef] < 0 ? '-' : '+'));
             oMovie().tag(stream_id).emitBit(ac[coef] < 0 ? 1 : 0, oMovie().model().
                                              getAcSignPrior(nonzero, ac, index, coef, color));
@@ -1995,56 +2081,137 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
 }
 
-void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
+void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
+               int16_t *ac, int index, bool emit_dc, int color) {
     memset(ac, 0, sizeof(int16_t)*16);
+    PDqLayer pCurLayer = pCtx->pCurDqLayer;
+    int iMbXy = pCurLayer->iMbXyIndex;
+    int width = pCurLayer->iMbWidth;
+    int mbType = rtd.uiMbType;
+    PSlice pSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
+    PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
+    PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
+    int num_nonzeros = 0;
     bool nonzero[16] = {0};
-    bool eob = iMovie().tag((color
-                             ? PIP_CRAC_EOB
-                             : PIP_LAC_0_EOB)).scanBit(oMovie().model().getEOBPrior(nonzero,
-                                                                            index,
-                                                                            16,
-                                                                            emit_dc,
-                                                                            color));
+    bool large[16] = {0};
+    const int MAX_UNARY = 14;
+    bool nonzeroLeft = false;
+    bool nonzeroTop = false;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      MacroblockModel::SingleCoefNeighbors neighbors = oMovie().model().
+        priorCoef(index, coef_uzz, color);
+      if (neighbors.has_above) {
+        if (neighbors.above) {
+          nonzeroTop = true;
+        }
+      } else {
+        nonzeroTop = IS_INTRA (mbType);
+      }
+      if (neighbors.has_left) {
+        if (neighbors.left) {
+          nonzeroLeft = true;
+        }
+      } else {
+        nonzeroLeft = IS_INTRA (mbType);
+      }
+    }
+    int isPSlice = pSliceHeader->eSliceType != I_SLICE;
+    int qp = rtd.uiLumaQp;
+    int blockType = (color ? 0 : 1) | (emit_dc ? 0 : 2); // TODO: DC encoding?
+
+    bool hasAny = iMovie().tag((color ? PIP_CEXIST_TAG : PIP_LEXIST_TAG)).scanBit(
+        oMovie().model().getContainsNonzerosPrior(
+          isPSlice, qp, blockType, nonzeroLeft, nonzeroTop));
+    if (!num_nonzeros) {
+      return;
+    }
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      int coef = kzz[coef_uzz];
+      nonzero[coef] = iMovie().tag((color ? PIP_CNONZERO_TAG : (!coef ? PIP_LNONZERO_TAG : PIP_LNONZERO_TAG_N))).scanBit(
+          oMovie().model().getCoefIsNonzeroPrior(
+            isPSlice, qp, blockType, coef));
+      // FIXME: we might be able to save this on the last iteration.
+      if (coef == 15) {
+        break;
+      }
+      if (iMovie().tag((color ? PIP_CEOB_TAG : (!coef ? PIP_LEOB_TAG : PIP_LEOB_TAG_N))).scanBit(
+            oMovie().model().getCoefIsLastNonzeroPrior(
+              isPSlice, qp, blockType, coef))) {
+        break;
+      }
+    }
+    int num_nonones_so_far = 0;
+    int num_ones_so_far = 0;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+      int coef = kzz[coef_uzz];
+      if (!nonzero[coef]) {
+        ac[coef] = 0;
+        continue;
+      }
+      bool is_one = iMovie().tag((color ? PIP_CNONONE_TAG : (!coef ? PIP_LNONONE_TAG : PIP_LNONONE_TAG_N))).scanBit(
+          oMovie().model().getCoefIsNononePrior(
+            isPSlice, qp, blockType, num_nonones_so_far, num_ones_so_far));
+      if (!is_one) {
+        num_ones_so_far++;
+        ac[coef] = 1;
+      } else {
+        num_nonones_so_far++;
+        ac[coef] = 2;
+      }
+      // FIXME: we might be able to save this on the last iteration.
+      if (is_one) {
+        large[coef] = true;
+        for (int i = 0; i < MAX_UNARY; i++) {
+          bool inc = iMovie().tag((color ? PIP_CUNARY_TAG : (!coef ? PIP_LUNARY_TAG : PIP_LUNARY_TAG_N))).scanBit(
+            oMovie().model().getCoefUnaryPrior(
+              isPSlice, qp, blockType, num_nonones_so_far));
+          if (inc) {
+            ac[coef]++;
+          } else {
+            large[coef] = false;
+            break;
+          }
+        }
+      }
+    }
+    /*
+    bool eob = iMovie().tag((color ? PIP_CRAC_EOB : PIP_LAC_0_EOB)).scanBit(
+        oMovie().model().getEOBPrior(
+          nonzero, index, 16, emit_dc, color));
     if (eob) {
         return;
     }
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_BITMASK : (coef == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK));
-        bool nz = iMovie().tag(stream_id).scanBit(oMovie().model().getNonzeroBitmaskPrior(nonzero,
-                                                                                          index,
-                                                                                          coef,
-                                                                                          emit_dc,
-                                                                                          color));
+        bool nz = iMovie().tag(stream_id).scanBit(
+            oMovie().model().getNonzeroBitmaskPrior(
+              nonzero, index, coef, emit_dc, color));
         if (nz) {
             int stream_id = (color ? PIP_CRAC_EOB : PIP_LAC_0_EOB); // always assign to LAC0 to match the cavlc bill
             nonzero[coef] = true;
-            bool eob = iMovie().tag(stream_id).scanBit(oMovie().model().getEOBPrior(nonzero,
-                                                                                    index,
-                                                                                    coef,
-                                                                                    emit_dc,
-                                                                                    color));
+            bool eob = iMovie().tag(stream_id).scanBit(
+                oMovie().model().getEOBPrior(
+                  nonzero, index, coef, emit_dc, color));
             if (eob) {
                 break;
             }
         }
     }
+    */
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
-        if (nonzero[coef]) {
+        if (large[coef]) {
             int stream_id = (color ? PIP_CRAC_EXP : (coef == 0 ? PIP_LAC_0_EXP : PIP_LAC_N_EXP));
             BitStream::uint32E res;
             using namespace Sirikata;
-            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(nonzero,
-                                                                               ac,
-                                                                               index,
-                                                                               coef,
-                                                                               emit_dc,
-                                                                               color);
+            Array1d<DynProb, 15>::Slice exp_prior = oMovie().model().getAcExpPrior(
+                nonzero, ac, index, coef, emit_dc, color);
             int bit_len = 0;
             int bit_len_encoded_so_far = 0;
             for (int i = 3; i >= 0; --i) {
-                bool res = iMovie().tag(stream_id).scanBit(&exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
+                bool res = iMovie().tag(stream_id).scanBit(
+                    &exp_prior.at(bit_len_encoded_so_far + (1 << (3 - i)) - 1));
                 if (res) {
                     bit_len_encoded_so_far |= (1 << (3 - i));
                 }
@@ -2067,31 +2234,24 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             if (bit_len > 1) {
                 for(int which_bit = bit_len - 2; which_bit >=0; --which_bit) {
                     int significand_so_far = ac[coef];
-                    bool new_bit = iMovie().tag(stream_id).scanBit(oMovie().model().
-                                                    getAcSignificandPrior(
-                                                        nonzero,
-                                                        ac,
-                                                        index,
-                                                        coef,
-                                                        emit_dc,
-                                                        color,
-                                                        bit_len,
-                                                        which_bit,
-                                                        significand_so_far));
+                    bool new_bit = iMovie().tag(stream_id).scanBit(
+                        oMovie().model().getAcSignificandPrior(
+                            nonzero, ac, index, coef, emit_dc,
+                            color, bit_len, which_bit, significand_so_far));
                     if (new_bit) {
                         ac[coef] |= (1 << which_bit);
                     }
                     //fprintf(stderr, " %d ", res.first);
                 }
             }
-            ++ac[coef];
+            ac[coef] += MAX_UNARY;
             ++stream_id;
+        }
+        if (nonzero[ac[coef]]) {
+            int stream_id = (color ? PIP_CRAC_SIGN : (coef == 0 ? PIP_LAC_0_SIGN : PIP_LAC_N_SIGN));
             bool sign = iMovie().tag(stream_id).scanBit(
-                                                        oMovie().model().getAcSignPrior(nonzero,
-                               ac,
-                               index,
-                               coef,
-                               color));
+                oMovie().model().getAcSignPrior(nonzero,
+                    ac, index, coef, color));
             //fprintf(stderr, "%c\n", (sign.first ? '-' : '+'));
             if (sign) {
                 ac[coef] = -ac[coef];
@@ -2336,7 +2496,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
     if (rtd.uiCbpL) {
       for (int i = 0; i < 16; i++) {
-          encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+          encode4x4(pCtx, rtd, &rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
           /*
           if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
               oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
@@ -2345,7 +2505,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
     if (rtd.uiCbpC == 2) {
       for (int i = 0; i < 8; i++) {
-          encode4x4(&rtd.odata.chromaAC[i * 16], (i&3), !emitted_chroma_dc, i < 4 ? 1 : 2);
+          encode4x4(pCtx, rtd, &rtd.odata.chromaAC[i * 16], (i&3), !emitted_chroma_dc, i < 4 ? 1 : 2);
               /*
           if ((i & 15) != 0 || !emitted_chroma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
               oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
@@ -2743,12 +2903,12 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     }
     if (rtd.uiCbpL) {
       for (int i = 0; i < 16; i++) {
-          decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+          decode4x4(pCtx, rtd, &rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
       }
     }
     if (rtd.uiCbpC == 2) {
       for (int i = 0; i < 8; i++) {
-          decode4x4(&rtd.odata.chromaAC[i * 16], (i & 3), !scanned_chroma_dc, i < 4 ? 1 : 2);
+          decode4x4(pCtx, rtd, &rtd.odata.chromaAC[i * 16], (i & 3), !scanned_chroma_dc, i < 4 ? 1 : 2);
       }
     }
 

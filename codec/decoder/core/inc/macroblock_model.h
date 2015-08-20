@@ -41,6 +41,20 @@ enum {
     PIP_CRAC_EXP, //must be contiguous
     PIP_CRAC_RES, //must be contiguous
     PIP_CRAC_SIGN, //must be contiguous
+    PIP_LEXIST_TAG,
+    PIP_LNONZERO_TAG,
+    PIP_LEOB_TAG,
+    PIP_LNONONE_TAG,
+    PIP_LUNARY_TAG,
+    PIP_LNONZERO_TAG_N,
+    PIP_LEOB_TAG_N,
+    PIP_LNONONE_TAG_N,
+    PIP_LUNARY_TAG_N,
+    PIP_CEXIST_TAG,
+    PIP_CNONZERO_TAG,
+    PIP_CEOB_TAG,
+    PIP_CNONONE_TAG,
+    PIP_CUNARY_TAG,
     PIP_LAST_NONVAR_TAG
 };
 const int PIP_AC_STEP = 1;
@@ -115,7 +129,7 @@ uint16_t swizzle_sign(int16_t v);
 int16_t unswizzle_sign(uint16_t v);
 
 class MacroblockModel {
-
+public:
     DecodedMacroblock *mb;
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
@@ -170,6 +184,7 @@ class MacroblockModel {
         17,//left
         17,//above
         16> numSubNonZerosChromaPriors; // <--deprecated
+    /*
     Sirikata::Array6d<DynProb,
         16,//which coef
         3,//left_zero
@@ -185,6 +200,38 @@ class MacroblockModel {
         2,//coef above
         2// coef left
         > eobPriors;
+    */
+    Sirikata::Array4d<DynProb,
+        2, // slice type
+        52, // qp, should be by slice but we do by macroblock
+        5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
+        4 // nonzeros top+left, nonzeros left, nonzeros top, no nonzeros
+    > containsNonzeros;
+    Sirikata::Array4d<DynProb,
+        2, // slice type
+        52, // qp, should be by slice but we do by macroblock
+        5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
+        16 // which coefficient
+    > coefIsNonzero;
+    Sirikata::Array4d<DynProb,
+        2, // slice type
+        52, // qp, should be by slice but we do by macroblock
+        5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
+        16 // which coefficient
+    > coefIsLastNonzero;
+    Sirikata::Array4d<DynProb,
+        2, // slice type
+        52, // qp, should be by slice but we do by macroblock
+        5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
+        5 // 0 if any nonone,nonzero components found thus far.
+          // Else, 1 + min(3, num ones thus far)
+    > coefIsNonone;
+    Sirikata::Array4d<DynProb,
+        2, // slice type
+        52, // qp, should be by slice but we do by macroblock
+        5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
+        5 // min(4, num nonone,nonzeros)
+    > coefUnary;
     Sirikata::Array6d<DynProb,
         16,//which coef
         17,//num_nonzeros
@@ -192,7 +239,6 @@ class MacroblockModel {
         2,//coef right nonzero
         2,// coef below nonzero
         15> acExpPriors;
-
     Sirikata::Array4d<DynProb,
         16,//which coef
         17,//num_nonzeros
@@ -252,6 +298,19 @@ public:
     }
     Sirikata::Array1d<DynProb, 16>::Slice getSubLumaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
     Sirikata::Array1d<DynProb, 16>::Slice getSubChromaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
+
+    DynProb *getContainsNonzerosPrior(
+        int isPSlice, int qp, int blockType, bool nonzeroLeft, bool nonzeroTop);
+    DynProb *getCoefIsNonzeroPrior(
+        int isPSlice, int qp, int blockType, int idx);
+    DynProb *getCoefIsLastNonzeroPrior(
+        int isPSlice, int qp, int blockType, int idx);
+    DynProb *getCoefIsNononePrior(
+        int isPSlice, int qp, int blockType, int numNonOneNonZeros, int numOnesSoFar);
+    DynProb *getCoefUnaryPrior(
+        int isPSlice, int qp, int blockType, int numNonOneNonZeros);
+
+
     uint16_t getAndUpdateMacroblockLumaNumNonzeros(); // between 0 and 256, inclusive
     uint8_t getAndUpdateMacroblockChromaNumNonzeros(); // between 0 and 128, inclusive
     int encodeMacroblockType(int welsType);

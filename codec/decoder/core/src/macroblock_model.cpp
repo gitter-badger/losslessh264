@@ -102,6 +102,20 @@ const char * billEnumToName(int en) {
     if(PIP_PREV_PRED_TAG == en) return "prev pred";
     if(PIP_PREV_PRED_MODE_TAG == en) return "prev pred mode";
     if(PIP_NZC_TAG == en) return "nonzero count";
+    if(PIP_LEXIST_TAG==en) return "luma ac exists 0";
+    if(PIP_LNONZERO_TAG==en) return "luma nonzeros 0";
+    if(PIP_LEOB_TAG==en) return "luma eob new 0";
+    if(PIP_LNONONE_TAG==en) return "luma nonone 0";
+    if(PIP_LUNARY_TAG==en) return "luma unary 0";
+    if(PIP_LNONZERO_TAG_N==en) return "luma nonzeros N";
+    if(PIP_LEOB_TAG_N==en) return "luma eob new N";
+    if(PIP_LNONONE_TAG_N==en) return "luma nonone N";
+    if(PIP_LUNARY_TAG_N==en) return "luma unary N";
+    if(PIP_CEXIST_TAG==en) return "chroma ac exists";
+    if(PIP_CNONZERO_TAG==en) return "chroma nonzero";
+    if(PIP_CEOB_TAG==en) return "chroma eob 2";
+    if(PIP_CNONONE_TAG==en) return "chroma nonone";
+    if(PIP_CUNARY_TAG==en) return "chroma unary";
     return "unknown";
 }
 #ifdef BILLING
@@ -210,6 +224,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
     }
     return retval;
 }
+/*
 DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef,
                                                  bool emit_dc, int color) {
     SingleCoefNeighbors priors = priorCoef(index, coef, color);
@@ -260,7 +275,35 @@ DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
                                     0,
                                     left_freq, above_freq);
 }
+*/
 
+DynProb *MacroblockModel::getContainsNonzerosPrior(
+        int isPSlice, int qp, int blockType, bool nonZeroLeft, bool nonZeroTop) {
+    int idx = nonZeroLeft ? 1 : 0;
+    idx |= (nonZeroTop ? 2 : 0);
+    return &containsNonzeros.at(isPSlice, qp, blockType, idx);
+}
+
+DynProb *MacroblockModel::getCoefIsNonzeroPrior(
+        int isPSlice, int qp, int blockType, int idx) {
+    return &coefIsNonzero.at(isPSlice, qp, blockType, idx);
+}
+
+DynProb *MacroblockModel::getCoefIsLastNonzeroPrior(
+        int isPSlice, int qp, int blockType, int idx) {
+    return &coefIsLastNonzero.at(isPSlice, qp, blockType, idx);
+}
+
+DynProb *MacroblockModel::getCoefIsNononePrior(
+        int isPSlice, int qp, int blockType, int numNonOneNonZeros, int numOnesSoFar) {
+    return &coefIsNonone.at(isPSlice, qp, blockType,
+            numNonOneNonZeros ? 0 : 1 + std::min(3, numOnesSoFar));
+}
+
+DynProb *MacroblockModel::getCoefUnaryPrior(
+        int isPSlice, int qp, int blockType, int numNonOneNonZeros) {
+    return &coefUnary.at(isPSlice, qp, blockType, std::min(4, numNonOneNonZeros));
+}
 
 void MacroblockModel::checkSerializedNonzeros(const bool *nonzeros, const int16_t *ac,
                                               int index, bool emit_dc, int color) {

@@ -213,12 +213,14 @@ class ArithmeticCodedInput {
 public:
     std::vector<uint8_t> buffer;
     vpx_reader reader;
+    int stream_id;
 
     static DynProb TEST_PROB;
 
     ArithmeticCodedInput() : reader() {
         // init() will be called by InputCompressionStream::tag()
         // after the file has been read and inserted into buffer.
+        stream_id = 0;
         (void)vpx_reader_has_error;
         (void)vpx_read_literal;
         (void)vpx_write_literal;
@@ -232,6 +234,7 @@ public:
       reader = orig.reader;
       buffer = orig.buffer;
       reader.buffer = &buffer.front();
+      stream_id = orig.stream_id;
       return *this;
     }
 
@@ -243,7 +246,7 @@ public:
         bool bit = !!vpx_read(&reader, prob->getProb());
 #ifdef CONTEXT_DIFF
         static int count = 0;
-        fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
+        fprintf(stderr, "stream %d bit %d prob %d -> %d\n", stream_id, count++, (int)prob->getProb(), (int)bit);
 #endif
         prob->updateProb(bit);
 
@@ -255,7 +258,7 @@ public:
             out |= ((uint16_t)scanBit(&TEST_PROB)) << (nBits - i - 1);
         }
 #ifdef CONTEXT_DIFF
-        fprintf(stderr, "out %d\n", (int)out);
+        fprintf(stderr, "stream %d out %d\n", stream_id, (int)out);
 #endif
         return std::make_pair(out, 0);
     }
@@ -353,10 +356,12 @@ class ArithmeticCodedOutput {
 public:
     std::vector<uint8_t> buffer;
     vpx_writer writer;
+    int stream_id;
 
     static DynProb TEST_PROB;
 
     ArithmeticCodedOutput() : writer() {
+        stream_id = 0;
     }
 
     void init() {
@@ -372,6 +377,7 @@ public:
       writer = orig.writer;
       buffer = orig.buffer;
       writer.buffer = &buffer.front();
+      stream_id = orig.stream_id;
       return *this;
     }
 
@@ -385,7 +391,7 @@ public:
 
 #ifdef CONTEXT_DIFF
         static int count = 0;
-        fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
+        fprintf(stderr, "stream %d bit %d prob %d -> %d\n", stream_id, count++, (int)prob->getProb(), (int)bit);
 #endif
         vpx_write(&writer, bit, prob->getProb());
 
@@ -401,7 +407,7 @@ public:
             emitBit(data & (1 << (nBits - 1 - i)), &TEST_PROB);
         }
 #ifdef CONTEXT_DIFF
-        fprintf(stderr, "out %d\n", (int)data);
+        fprintf(stderr, "streaM %d out %d\n", stream_id, (int)data);
 #endif
     }
 
@@ -508,6 +514,7 @@ struct CompressionStream {
     ArithmeticCodedOutput&tag(int32_t tag) {
         if (taggedStreams.find(tag) == taggedStreams.end()) {
             taggedStreams[tag].init();
+            taggedStreams[tag].stream_id = tag;
         }
         return taggedStreams[tag];
     }
