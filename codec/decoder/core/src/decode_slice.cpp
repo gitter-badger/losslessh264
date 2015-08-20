@@ -3105,7 +3105,8 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
     {
       // save out dequantized values instead
-      initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeff[pCurLayer->iMbXyIndex]);
+      //xxx until we get quantization working, initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeff[pCurLayer->iMbXyIndex]);
+      initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeffQuant[pCurLayer->iMbXyIndex]);
       imageCache.at(iMbX, iMbY) = rtd;
     }
     ++which_block;
