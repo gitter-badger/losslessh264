@@ -1,0 +1,105 @@
+Keeping existing codec/common/inc/version_gen.h
+/opt/dev/openh264
+============== walk.264 ================
+    ./h264dec walk.264 /tmp/a.pip
+H264 source file name: walk.264..
+Sequence output file name: /tmp/a.pip..
+------------------------------------------------------
+-------------------------------------------------------
+iWidth:		640
+height:		352
+Frames:		1331
+decode time:	143.660676 sec
+FPS:		9.264887 fps
+-------------------------------------------------------
+0 :: 11845 [boilerplate]
+1 :: 104100 [skip]
+2 :: 1845 [skip end]
+3 :: 137837 [cbpc]
+4 :: 281560 [cbpl]
+6 :: 137529 [qpl]
+7 :: 193712 [mb type]
+8 :: 3473 [ref]
+9 :: 136791 [8x8]
+10 :: 79874 [16x16]
+11 :: 819887 [pred]
+13 :: 1498 [sub mb]
+14 :: 481434 [mv[0]]
+15 :: 483274 [mv[1]]
+16 :: 64153 [luma dc]
+17 :: 581371 [chroma dc]
+19 :: 744607 [luma 0 bitmask]
+20 :: 200485 [luma 0 exponent]
+21 :: 40157 [luma 0 significand]
+22 :: 257654 [luma 0 sign]
+24 :: 1736065 [luma Nth bitmask]
+25 :: 178206 [luma Nth exponent]
+26 :: 29509 [luma Nth significand]
+27 :: 344836 [luma Nth sign]
+29 :: 486794 [chroma bitmask]
+30 :: 70665 [chroma exp]
+31 :: 14912 [chroma significand]
+32 :: 114711 [chroma sign]
+65 :: 528211 [prev pred]
+TOTAL written 8266995
+0 :: 3992.000000   [boilerplate] 
+1 :: 151125.500000   [skip] 
+6 :: 1215.250000   [qpl] 
+7 :: 311292.625000   [mb type] 
+10 :: 726669.500000   [16x16] 
+12 :: 480787.125000   [pred mode] 
+13 :: 23628.500000   [sub mb] 
+14 :: 523610.000000   [mv[0]] 
+15 :: 525089.250000   [mv[1]] 
+16 :: 239745.875000   [luma dc] 
+17 :: 588750.750000   [chroma dc] 
+18 :: 2328666.875000   [luma 0 eob] 
+19 :: 85709.125000   [luma 0 bitmask] 
+20 :: 98701.500000   [luma 0 exponent] 
+22 :: 266231.125000   [luma 0 sign] 
+24 :: 255504.500000   [luma Nth bitmask] 
+25 :: 97454.750000   [luma Nth exponent] 
+27 :: 344696.625000   [luma Nth sign] 
+28 :: 488778.375000   [chroma eob] 
+29 :: 83077.875000   [chroma bitmask] 
+30 :: 41987.625000   [chroma exp] 
+32 :: 114465.875000   [chroma sign] 
+66 :: 397802.000000   [prev pred mode] 
+TOTAL: 8178982.625000
+    ./h264dec /tmp/a.pip /tmp/a.264
+x264 [info]: using cpu capabilities: none!
+x264 [info]: profile High, level 1.3
+H264 source file name: /tmp/a.pip..
+Sequence output file name: /tmp/a.264..
+------------------------------------------------------
+-------------------------------------------------------
+iWidth:		640
+height:		352
+Frames:		1331
+decode time:	166.370093 sec
+FPS:		8.000236 fps
+-------------------------------------------------------
+0 :: 3992.000000   [boilerplate] 
+1 :: 150984.625000   [skip] 
+6 :: 1215.250000   [qpl] 
+7 :: 311292.625000   [mb type] 
+10 :: 726669.500000   [16x16] 
+12 :: 480787.125000   [pred mode] 
+13 :: 23628.500000   [sub mb] 
+14 :: 523610.000000   [mv[0]] 
+15 :: 525089.250000   [mv[1]] 
+16 :: 239745.875000   [luma dc] 
+17 :: 588750.750000   [chroma dc] 
+18 :: 2328666.875000   [luma 0 eob] 
+19 :: 85709.125000   [luma 0 bitmask] 
+20 :: 98701.500000   [luma 0 exponent] 
+22 :: 266231.125000   [luma 0 sign] 
+24 :: 255504.500000   [luma Nth bitmask] 
+25 :: 97454.750000   [luma Nth exponent] 
+27 :: 344696.625000   [luma Nth sign] 
+28 :: 488778.375000   [chroma eob] 
+29 :: 83077.875000   [chroma bitmask] 
+30 :: 41987.625000   [chroma exp] 
+32 :: 114465.875000   [chroma sign] 
+66 :: 397802.000000   [prev pred mode] 
+TOTAL: 8178841.750000
