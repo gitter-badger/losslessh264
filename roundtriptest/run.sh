@@ -16,7 +16,7 @@ then
         FILES+=("$f")
     done
 else
-    FILES=($BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264)
+    FILES=($BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264 $BASEDIR/walk.264)
 fi
 
 IFS=""
