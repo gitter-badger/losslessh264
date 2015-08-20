@@ -2132,7 +2132,22 @@ const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iR
   }
   return kpDequantCoeff;
 }
-
+void setupQuantizationValues(DecodedMacroblock&rtd, PWelsDecoderContext pCtx) {
+    PDqLayer pCurLayer             = pCtx->pCurDqLayer;
+    rtd.quantizationUseScalingList = pCtx->bUseScalingList;
+    rtd.quantizationTable[DecodedMacroblock::LUMA_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 0), rtd.uiLumaQp);
+    rtd.quantizationTable[DecodedMacroblock::LUMA_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 0), rtd.uiLumaQp);
+    rtd.quantizationTable[DecodedMacroblock::U_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 1), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::U_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 1), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::V_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 2), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::V_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 2), rtd.uiChromaQpIndexOffset);
+}
 int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       PNalUnit pNalCur,
                                       PSlice pSlice,
@@ -2219,18 +2234,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     uiCachedLumaQp = rtd.uiLumaQp;
     if (deltaLumaQp) uiLastNonzeroDeltaLumaQp = deltaLumaQp;
     rtd.cachedDeltaLumaQp = deltaLumaQp;
-    rtd.quantizationTable[DecodedMacroblock::LUMA_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 0), rtd.uiLumaQp);
-    rtd.quantizationTable[DecodedMacroblock::LUMA_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 0), rtd.uiLumaQp);
-    rtd.quantizationTable[DecodedMacroblock::U_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 1), rtd.uiChromaQpIndexOffset);
-    rtd.quantizationTable[DecodedMacroblock::U_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 1), rtd.uiChromaQpIndexOffset);
-    rtd.quantizationTable[DecodedMacroblock::V_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 2), rtd.uiChromaQpIndexOffset);
-    rtd.quantizationTable[DecodedMacroblock::V_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
-                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 2), rtd.uiChromaQpIndexOffset);
+    setupQuantizationValues(rtd, pCtx);
 //#define DEBUG_REFTAG
 
     // TODO: We don't even need to output this if we have the media info for the video
@@ -2529,6 +2533,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       uiCachedLumaQp = rtd.uiLumaQp;
       rtd.cachedDeltaLumaQp = deltaLumaQp;
     }
+    setupQuantizationValues(rtd, pCtx);
     res = iMovie().tag(PIP_REF_TAG).scanBits(oMovie().model().getNumRefIdxL0ActivePrior());
     if (res.second) {
       fprintf(stderr, "failed to read uiRefIdxL0!\n");

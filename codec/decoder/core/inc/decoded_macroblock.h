@@ -46,6 +46,16 @@ struct DecodedMacroblock {
   static int32_t getiResidualProperty(uint32_t uiMbType, bool dc, int color);
     //handy pointers to the quantization parameters
   const uint16_t *quantizationTable [NUM_QUANTIZATIONS];
+  bool quantizationUseScalingList; // if this is true then the quantization tables are 4x bigger and get divided by 4...otherwise the quantization tables are the correct values to divide by but are indexed by (coef&7)
+
+    // returns the numerator and denominator of the quantization table for a coefficient of type t
+    std::pair<uint16_t, uint16_t> getQuantizationValue(int coef, QuantizationTargets t) {
+        if (quantizationUseScalingList) {
+            return std::pair<uint16_t, uint16_t>(quantizationTable[t][coef], 16);
+        } else {
+            return std::pair<uint16_t, uint16_t>(quantizationTable[t][coef & 0x7], 1);
+        }
+  }
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
