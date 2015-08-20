@@ -3158,7 +3158,12 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     //Neighbors neighbors(&imageCache, iMbX, iMbY);
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
-    DecodedMacroblock rtd;
+    DecodedMacroblock rtd = {};
+    // these guys are set to some mashup of prior decoded macroblocks. Set them to zero
+    memset(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex], 0,
+           sizeof(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex]));
+    memset(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex], 0,
+           sizeof(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex]));
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
     woffset = 0;
