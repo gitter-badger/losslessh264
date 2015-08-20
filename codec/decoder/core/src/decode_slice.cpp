@@ -1910,7 +1910,7 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         if (ac[coef_uzz]) {
             ++num_nonzeros;
         }
-        if (ac[coef_uzz] > MAX_UNARY) {
+        if (ac[coef_uzz] > MAX_UNARY || ac[coef_uzz] < -MAX_UNARY) {
           large[coef_uzz] = true;
         }
         if (ac[coef_uzz]) {
@@ -1979,7 +1979,7 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
       int abs_coef = ac[coef] < 0 ? -ac[coef] : ac[coef];
       bool is_one = abs_coef == 1;
       oMovie().tag((color ? PIP_CNONONE_TAG : (!coef ? PIP_LNONONE_TAG : PIP_LNONONE_TAG_N))).emitBit(
-          is_one,
+          !is_one,
           oMovie().model().getCoefIsNononePrior(
             isPSlice, qp, blockType, num_nonones_so_far, num_ones_so_far));
       if (is_one) {
@@ -1989,11 +1989,10 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
       }
       // FIXME: we might be able to save this on the last iteration.
       if (!is_one) {
-        int unary_value = std::min(MAX_UNARY, abs_coef - 1);
+        int unary_value = std::min(MAX_UNARY, abs_coef) - 1;
         for (int i = 0; i < unary_value; i++) {
-          abs_coef--;
           oMovie().tag((color ? PIP_CUNARY_TAG : (!coef ? PIP_LUNARY_TAG : PIP_LUNARY_TAG_N))).emitBit(
-            i != unary_value - 1,
+            i != abs_coef - 2,
             oMovie().model().getCoefUnaryPrior(
               isPSlice, qp, blockType, num_nonones_so_far));
         }
@@ -2024,6 +2023,13 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         }
     }
     */
+#ifdef CONTEXT_DIFF
+    fprintf(stderr, "stream nonzeros: ");
+    for (int i = (emit_dc ? 0 : 1); i < 16; i++) {
+        fprintf(stderr, "%d/%d/%d ", nonzero[i], large[i], large[i] ? MAX_UNARY + 1 : (ac[i] > 0 ? ac[i] : -ac[i]));
+    }
+    fprintf(stderr, "\n");
+#endif
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (large[coef]) {
@@ -2070,7 +2076,7 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
             }
             ++stream_id; // get to sign bill
         }
-        if (nonzero[ac[coef]]) {
+        if (nonzero[coef]) {
             int stream_id = (color ? PIP_CRAC_SIGN : (coef == 0 ? PIP_LAC_0_SIGN : PIP_LAC_N_SIGN));
             //fprintf(stderr, "%c\n", (ac[coef] < 0 ? '-' : '+'));
             oMovie().tag(stream_id).emitBit(ac[coef] < 0 ? 1 : 0, oMovie().model().
@@ -2122,7 +2128,7 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
     bool hasAny = iMovie().tag((color ? PIP_CEXIST_TAG : PIP_LEXIST_TAG)).scanBit(
         oMovie().model().getContainsNonzerosPrior(
           isPSlice, qp, blockType, nonzeroLeft, nonzeroTop));
-    if (!num_nonzeros) {
+    if (!hasAny) {
       return;
     }
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
@@ -2148,10 +2154,10 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         ac[coef] = 0;
         continue;
       }
-      bool is_one = iMovie().tag((color ? PIP_CNONONE_TAG : (!coef ? PIP_LNONONE_TAG : PIP_LNONONE_TAG_N))).scanBit(
+      bool is_nonone = iMovie().tag((color ? PIP_CNONONE_TAG : (!coef ? PIP_LNONONE_TAG : PIP_LNONONE_TAG_N))).scanBit(
           oMovie().model().getCoefIsNononePrior(
             isPSlice, qp, blockType, num_nonones_so_far, num_ones_so_far));
-      if (!is_one) {
+      if (!is_nonone) {
         num_ones_so_far++;
         ac[coef] = 1;
       } else {
@@ -2159,9 +2165,9 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         ac[coef] = 2;
       }
       // FIXME: we might be able to save this on the last iteration.
-      if (is_one) {
+      if (is_nonone) {
         large[coef] = true;
-        for (int i = 0; i < MAX_UNARY; i++) {
+        for (int i = 0; i < MAX_UNARY - 1; i++) {
           bool inc = iMovie().tag((color ? PIP_CUNARY_TAG : (!coef ? PIP_LUNARY_TAG : PIP_LUNARY_TAG_N))).scanBit(
             oMovie().model().getCoefUnaryPrior(
               isPSlice, qp, blockType, num_nonones_so_far));
@@ -2199,6 +2205,13 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         }
     }
     */
+#ifdef CONTEXT_DIFF
+    fprintf(stderr, "stream nonzeros: ");
+    for (int i = (emit_dc ? 0 : 1); i < 16; i++) {
+        fprintf(stderr, "%d/%d/%d ", nonzero[i], large[i], ac[i]);
+    }
+    fprintf(stderr, "\n");
+#endif
     for (int coef_uzz = 15; coef_uzz >= (emit_dc ? 0 : 1); --coef_uzz) {
         int coef = kzz[coef_uzz];
         if (large[coef]) {
@@ -2247,7 +2260,7 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
             ac[coef] += MAX_UNARY;
             ++stream_id;
         }
-        if (nonzero[ac[coef]]) {
+        if (nonzero[coef]) {
             int stream_id = (color ? PIP_CRAC_SIGN : (coef == 0 ? PIP_LAC_0_SIGN : PIP_LAC_N_SIGN));
             bool sign = iMovie().tag(stream_id).scanBit(
                 oMovie().model().getAcSignPrior(nonzero,
