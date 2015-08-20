@@ -704,7 +704,7 @@ int16_t unswizzle_sign(uint16_t v) {
   }
 }
 //  QuantizationTargets getTargetForQuantization(int32_t iResidualProperty);
-int32_t getiResidualProperty(uint32_t uiMbType, bool dc, int color) {
+int32_t DecodedMacroblock::getiResidualProperty(uint32_t uiMbType, bool dc, int color) {
     switch(uiMbType) {
     case MB_TYPE_INTRA16x16:
     case MB_TYPE_INTRA4x4:
@@ -736,6 +736,7 @@ int32_t getiResidualProperty(uint32_t uiMbType, bool dc, int color) {
     case MB_TYPE_16x8:
     case MB_TYPE_8x16:
     case MB_TYPE_8x8:
+    case MB_TYPE_8x8_REF0:
         if (color == 0) {
             return LUMA_DC_AC_INTER;
         } else if (color == 1) {

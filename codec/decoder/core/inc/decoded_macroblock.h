@@ -37,15 +37,15 @@ struct DecodedMacroblock {
       LUMA_AC_QUANT,
       LUMA_DC_QUANT,
       U_AC_QUANT,
-      U_DC_QUATN,
+      U_DC_QUANT,
       V_AC_QUANT,
       V_DC_QUANT,
       NUM_QUANTIZATIONS
   };
   // we call this function from the decoded state to seed the quantization parameters
-  int32_t getiResdiualProperty(uint32_t uiMbType, bool dc, int color);
+  static int32_t getiResidualProperty(uint32_t uiMbType, bool dc, int color);
     //handy pointers to the quantization parameters
-  const int16_t *quantizationTable [NUM_QUANTIZATIONS];
+  const uint16_t *quantizationTable [NUM_QUANTIZATIONS];
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),

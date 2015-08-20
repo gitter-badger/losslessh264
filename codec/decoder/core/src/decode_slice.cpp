@@ -2117,6 +2117,22 @@ void readMv(int i, DecodedMacroblock &rtd) {
   rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first) + priorX.second;
   rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first) + priorY.second;
 }
+// iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
+const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
+  int32_t iMbResProperty = 0;
+  PDqLayer pCurLayer             = pCtx->pCurDqLayer;
+  GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
+  const uint16_t* kpDequantCoeff = NULL;
+  if (pCurLayer->pTransformSize8x8Flag[pCurLayer->iMbXyIndex]) {
+      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
+                                       g_kuiDequantCoeff8x8[uiQp];
+  } else{
+      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
+                                    g_kuiDequantCoeff[uiQp];
+  }
+  return kpDequantCoeff;
+}
+
 int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       PNalUnit pNalCur,
                                       PSlice pSlice,
@@ -2209,7 +2225,18 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     //oMovie().tag(PIP_QPL_TAG).emitBit(deltaLumaQpSign);
     uiCachedLumaQp = rtd.uiLumaQp;
     rtd.cachedDeltaLumaQp = deltaLumaQp;
-
+    rtd.quantizationTable[DecodedMacroblock::LUMA_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 0), rtd.uiLumaQp);
+    rtd.quantizationTable[DecodedMacroblock::LUMA_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                              DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 0), rtd.uiLumaQp);
+    rtd.quantizationTable[DecodedMacroblock::U_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 1), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::U_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 1), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::V_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 2), rtd.uiChromaQpIndexOffset);
+    rtd.quantizationTable[DecodedMacroblock::V_AC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
+                                                                           DecodedMacroblock::getiResidualProperty(rtd.uiMbType, false, 2), rtd.uiChromaQpIndexOffset);
 //#define DEBUG_REFTAG
 
     // TODO: We don't even need to output this if we have the media info for the video
@@ -2882,21 +2909,6 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   return ERR_NONE;
 }
 
-// iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
-const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
-  int32_t iMbResProperty = 0;
-  PDqLayer pCurLayer             = pCtx->pCurDqLayer;
-  GetMbResProperty (&iMbResProperty, &iResidualProperty, 1);
-  const uint16_t* kpDequantCoeff = NULL;
-  if (pCurLayer->pTransformSize8x8Flag[pCurLayer->iMbXyIndex]) {
-      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff8x8[iMbResProperty - 6][uiQp] :
-                                       g_kuiDequantCoeff8x8[uiQp];
-  } else{
-      kpDequantCoeff = pCtx->bUseScalingList ? pCtx->pDequant_coeff4x4[iMbResProperty][uiQp] :
-                                    g_kuiDequantCoeff[uiQp];
-  }
-  return kpDequantCoeff;
-}
 
 int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNalUnit pNalCur) {
   curBillTag = PIP_DEFAULT_TAG;
