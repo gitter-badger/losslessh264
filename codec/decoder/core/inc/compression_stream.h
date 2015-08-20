@@ -16,6 +16,7 @@
 //#define ROUNDTRIP_TEST
 
 //#define CABAC_HACK
+//#define CABAC_LOG_DECISIONS
 
 #ifdef ROUNDTRIP_TEST
 #  define DEBUG_PRINTS
