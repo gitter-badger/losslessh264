@@ -1462,6 +1462,12 @@ struct EncoderState {
              pMb(mbWidth * mbHeight), pCurDqLayer(), pPpsP(),
              wrBs(), buf(), unused(mbWidth + 8), prevIntra4x4PredModeFlag(),
              remIntra4x4PredModeFlag(), pRefIndex(mbWidth * mbHeight * 4) {
+
+        buf.resize(size);
+        reset();
+    }
+
+    void reset() {
         pEncCtx.pCurDqLayer = &pCurDqLayer;
         pCurDqLayer.sLayerInfo.pPpsP = &pPpsP;
         pCurDqLayer.iMbWidth = mbWidth;
@@ -1473,17 +1479,17 @@ struct EncoderState {
         pSlice.sMbCacheInfo.pPrevIntra4x4PredModeFlag = prevIntra4x4PredModeFlag;
         pSlice.sMbCacheInfo.pRemIntra4x4PredModeFlag = remIntra4x4PredModeFlag;
 
-        buf.resize(size);
         InitBits (&wrBs, &buf[0], buf.size());
         pSlice.sMbCacheInfo.pDct = &pDct;
         pSlice.pSliceBsa = &wrBs;
         for (int i = 0; i < mbWidth * mbHeight; i++) {
-          pMb[i].pRefIndex = &pRefIndex[i * 4];
-          pMb[i].uiMbType = MB_TYPE_SKIP;
-          pMb[i].iMbXY = i;
-          pMb[i].pSadCost = &unused[0];
+            pMb[i].pRefIndex = &pRefIndex[i * 4];
+            pMb[i].uiMbType = MB_TYPE_SKIP;
+            pMb[i].iMbXY = i;
+            pMb[i].pSadCost = &unused[0];
         }
     }
+
     void setXY(int firstMbInSlice, int newMbXy) {
       pSlice.sSliceHeaderExt.sSliceHeader.iFirstMbInSlice = firstMbInSlice;
       mbXy = newMbXy;
@@ -3060,9 +3066,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   pCurLayer->iMbXyIndex = iNextMbXyIndex;
   int origSkipped = -1;
   int curSkipped = -1;
-  std::auto_ptr<EncoderState> esCabac;
+  static std::auto_ptr<EncoderState> esCabac(new EncoderState(10000000, pCurLayer->iMbWidth, pCurLayer->iMbHeight)); // FIXME: How to get size estimate of a slice?;
   if (pCtx->pPps->bEntropyCodingModeFlag) {
-    esCabac.reset(new EncoderState(10000000, pCurLayer->iMbWidth, pCurLayer->iMbHeight)); // FIXME: How to get size estimate of a slice?
+    esCabac->reset();
     WelsEnc::WelsCabacInit (&esCabac->pEncCtx);
     esCabac->pEncCtx.eSliceType = pSliceHeader->eSliceType;
     esCabac->pEncCtx.iGlobalQp = pSlice->sSliceHeaderExt.sSliceHeader.iSliceQp;
