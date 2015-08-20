@@ -93,7 +93,7 @@ struct FreqImage {
         uint16_t contiguousSkips = 0;
 
         std::vector<DecodedMacroblock> &cur_frame = this->frame[1-cur];
-        for (int i=0; i < cur_frame.size(); i++) {
+        for (size_t i=0; i < cur_frame.size(); i++) {
             DecodedMacroblock &dmb = cur_frame[i];
             bool isZeroed = true;
             for (size_t j = 0; j < sizeof(dmb.odata.lumaAC) / sizeof(dmb.odata.lumaDC[0]); ++j) {

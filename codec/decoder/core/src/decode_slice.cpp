@@ -2225,6 +2225,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   bool isFirstMB = (macroblockIndexInSlice == 0);
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
+  (void)pSliceHeader;
   bool writeSkipRun = (-1 == pSlice->iMbSkipRun);
   int32_t iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
   PBitStringAux pBs = pCurLayer->pBitStringAux;
@@ -2444,6 +2445,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     fprintf(stderr, "all done!\n");
 #endif
 
+#ifdef ROUNDTRIP_TEST
     if (pCtx->pPps->bEntropyCodingModeFlag) {
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
       esCabac->init(&rtd);
@@ -2466,7 +2468,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
           &es.pEncCtx, &es.pSlice, &es.pCurMb());
       assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
     }
+#endif
   } else {
+#ifdef ROUNDTRIP_TEST
     if (pCtx->pPps->bEntropyCodingModeFlag) {
       initRTDFromDecoderState(rtd, pCurLayer);
       rtd.uiMbType = MB_TYPE_SKIP;
@@ -2481,6 +2485,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
   assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));}*/
     }
+#endif
   }
   return ERR_NONE;
 }
