@@ -56,11 +56,13 @@
 #include "encoder_from_decoder.h"
 
 void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
+    memset(this, 0, sizeof(*this));
     WelsDec::PSliceHeader pSliceHeader = &pSlice->sSliceHeaderExt.sSliceHeader;
     iLastMbQp = pSlice->iLastMbQp;
     eSliceType = pSliceHeader->eSliceType;
     uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
 }
+    static int which_block = 0;
 
 namespace WelsDec {
 static void initCoeffsFromCoefPtr(DecodedMacroblock &rtd,
@@ -3010,11 +3012,14 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
     }
-    static int which_block = 0;
     //Neighbors neighbors(&imageCache, iMbX, iMbY);
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
-    DecodedMacroblock rtd;
+    DecodedMacroblock rtd = {};
+    memset(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex], 0, sizeof(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex]));
+    memset(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex], 0, sizeof(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex]));
+
+
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
     oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
     woffset = 0;

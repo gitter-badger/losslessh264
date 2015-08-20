@@ -49,9 +49,6 @@
 
 namespace WelsDec {
 #define MAX_LEVEL_PREFIX 15
-    void xxx() {
-        printf("OK\n");
-    }
 typedef struct TagReadBitsCache {
   uint32_t uiCache32Bit;
   uint8_t  uiRemainBits;
@@ -867,9 +864,6 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
                                 const uint8_t* kpZigzagTable, int32_t iResidualProperty, int16_t* pTCoeff, int16_t *pTCoeffRaw, uint8_t uiQp,
                                 PWelsDecoderContext pCtx) {
   PDqLayer pCurLayer = pCtx->pCurDqLayer;
-    if (pCurLayer->iMbXyIndex == 12) {
-            xxx();
-    }
   int32_t iLevel[16], iZerosLeft, iCoeffNum;
   int32_t  iRun[16];
   int32_t iCurNonZeroCacheIdx, i;
