@@ -2211,15 +2211,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 
     //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
     int32_t deltaLumaQp = rtd.uiLumaQp - uiCachedLumaQp;
-    int deltaLumaQpSign = 0;
-    if (deltaLumaQp < 0) {
-      deltaLumaQp *= -1;
-      deltaLumaQp <<= 1;
-      deltaLumaQp = deltaLumaQp | 1;
-      deltaLumaQpSign = 1;
-    } else {
-      deltaLumaQp <<= 1;
-    }
+    deltaLumaQp = swizzle_sign(deltaLumaQp);
     //fprintf(stderr, "W LumaQp: %d, uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, deltaLumaQp, deltaLumaQpSign);
     oMovie().tag(PIP_QPL_TAG).emitBitsZeroToPow2Inclusive<7>(deltaLumaQp, oMovie().model().getQPLPrior(isFirstMB));
     //oMovie().tag(PIP_QPL_TAG).emitBit(deltaLumaQpSign);
@@ -2527,13 +2519,8 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       rtd.uiLumaQp = 255;
     } else {
       //rtd.uiLumaQp = res.first;
-      int deltaLumaQp = res.first;
+      int deltaLumaQp = unswizzle_sign(res.first);
       int origDeltaLumaQp = deltaLumaQp;
-      bool resSign = deltaLumaQp & 1;  // sign bit was piggy-backed as LSB.
-      deltaLumaQp >>= 1;
-      if (resSign) {
-        deltaLumaQp *= -1;
-      }
       rtd.uiLumaQp = uiCachedLumaQp + deltaLumaQp;
       //fprintf(stderr, "R LumaQp: %d uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, res.first, resSign);
       uiCachedLumaQp = rtd.uiLumaQp;
