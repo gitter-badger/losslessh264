@@ -175,8 +175,9 @@ class MacroblockModel {
         17,//left
         17,//above
         16> numSubNonZerosChromaPriors; // <--deprecated
-    Sirikata::Array6d<DynProb,
+    Sirikata::Array7d<DynProb,
         16,//which coef
+        32, // slice type + macroblock type * 2
         3,//left_zero
         3,//above_zero
         3,//past_zero
@@ -185,9 +186,9 @@ class MacroblockModel {
         > nonzeroBitmaskPriors;
     Sirikata::Array5d<DynProb, // <-- really bad priors
         17,//which coef -- 16 is the magic early exit bit
-        17,//num_nonzeros
+        18,//eob_past
         3,//past_zero
-        2,//coef above
+        16,//mb type
         2// coef left
         > eobPriors;
     Sirikata::Array6d<DynProb,

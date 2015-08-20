@@ -236,6 +236,7 @@ DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index
         above_freq = !!this_4x4[coef - 4];
     }
     return &nonzeroBitmaskPriors.at(coef,
+                                    mb->eSliceType + encodeMacroblockType(mb->uiMbType) * 2,
                                     left_prior,
                                     above_prior,
                                     past_prior,
@@ -245,7 +246,7 @@ DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index
 
 DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
                                                  bool emit_dc, int color) {
-
+    using namespace Nei;
     int left_freq = 0;
     int above_freq = 0;
     int coef_x = coef & 3;
@@ -256,9 +257,25 @@ DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
     if (coef_y > 0) {
         above_freq = !!this_4x4[coef - 4];
     }
-    return &eobPriors.at(coef, 0, // <-- probably the worst prior I could come up with
-                                    0,
-                                    left_freq, above_freq);
+    int past_eob = 17;
+    int coloroffset = 0;
+
+    if (color == 2) {
+        coloroffset = 4 * 16;
+    }
+    if (n[PAST]) {
+        past_eob = 0;
+        for (int uzz = 0; uzz < 16; ++uzz) {
+            int coef =  WelsDec::g_kuiZigzagScan[uzz];
+            int full_index = (index - 1) * 16 + coef + coloroffset;
+            if (n[PAST]->odata.lumaAC[full_index]) {
+                past_eob = uzz + 1;
+            }
+        }
+    }
+    return &eobPriors.at(coef, past_eob,
+                         mb->eSliceType,
+                         encodeMacroblockType(mb->uiMbType), 0);
 }
 
 
