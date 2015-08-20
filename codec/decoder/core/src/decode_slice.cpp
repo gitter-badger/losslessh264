@@ -1665,13 +1665,24 @@ struct EncoderState {
             pCurMb().uiSubMbType[i] = rtd->uiSubMbType[i];
         }
 
-        if (rtd->uiMbType == MB_TYPE_16x8) {
-          pCurMb().pRefIndex[0] = rtd->iRefIdx[0];
-          pCurMb().pRefIndex[2] = rtd->iRefIdx[1];
-        } else {
-          for (int i = 0; i < 4; i++) {
-            pCurMb().pRefIndex[i] = rtd->iRefIdx[i];
-          }
+        switch (rtd->uiMbType) {
+          case MB_TYPE_16x16:
+            pCurMb().pRefIndex[0] = pCurMb().pRefIndex[1] = rtd->iRefIdx[0];
+            pCurMb().pRefIndex[2] = pCurMb().pRefIndex[3] = rtd->iRefIdx[0];
+            break;
+          case MB_TYPE_16x8:
+            pCurMb().pRefIndex[0] = pCurMb().pRefIndex[1] = rtd->iRefIdx[0];
+            pCurMb().pRefIndex[2] = pCurMb().pRefIndex[3] = rtd->iRefIdx[1];
+            break;
+          case MB_TYPE_8x16:
+            pCurMb().pRefIndex[0] = pCurMb().pRefIndex[2] = rtd->iRefIdx[0];
+            pCurMb().pRefIndex[1] = pCurMb().pRefIndex[3] = rtd->iRefIdx[1];
+            break;
+          default:
+            for (int i = 0; i < 4; i++) {
+              pCurMb().pRefIndex[i] = rtd->iRefIdx[i];
+            }
+            break;
         }
         pCurMb().sMv = &sMv[0];
         for (int i = 0; i < 16; i++) {
