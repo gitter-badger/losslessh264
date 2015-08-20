@@ -498,6 +498,28 @@ Branch<4> MacroblockModel::getNumRefIdxL0ActivePrior() {
     return numRefIdxL0ActivePrior.at(prior, encodeMacroblockType(mb->uiMbType));
 };
 
+Branch<2> MacroblockModel::getCbpCPrior() {
+    using namespace Nei;
+    int prior;
+    if (n[PAST]) {
+        prior = n[PAST]->uiCbpC;
+    } else {
+        prior = 0;
+    }
+    return CbpCPrior.at(prior, encodeMacroblockType(mb->uiMbType));
+}
+
+Branch<4> MacroblockModel::getCbpLPrior() {
+    using namespace Nei;
+    int prior;
+    if (n[PAST]) {
+        prior = n[PAST]->uiCbpL;
+    } else {
+        prior = 0;
+    }
+    return CbpLPrior.at(prior, encodeMacroblockType(mb->uiMbType));
+}
+
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;
     int leftType = 15;

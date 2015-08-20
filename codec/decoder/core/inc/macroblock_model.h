@@ -142,6 +142,16 @@ class MacroblockModel {
             15 // values
             > numRefIdxL0ActivePrior;
     Sirikata::Array3d<DynProb,
+            4, //past
+            16, // mbType
+            3 //values
+            > CbpCPrior;
+    Sirikata::Array3d<DynProb,
+            16, //past
+            16, // mbType
+            15 //values
+            > CbpLPrior;
+    Sirikata::Array3d<DynProb,
         257, // prev frame or neighbor 4x16 + 16x4
         16,//mbType
         256 // number of nonzero values possible
@@ -229,6 +239,8 @@ public:
         return getSkipRunPrior().slice<0, 511>();
     }
     Branch<4> getNumRefIdxL0ActivePrior();
+    Branch<2> getCbpCPrior();
+    Branch<4> getCbpLPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getQPLPrior(bool isFirstMB);
     Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();

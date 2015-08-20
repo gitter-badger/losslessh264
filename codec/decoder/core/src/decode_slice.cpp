@@ -2185,9 +2185,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     (void) numNonzerosC;
     serializeNonzerosDeprecated(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
-      oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, 8); // Valid values are 0..2
+      //fprintf(stderr, "cbpc: %d\n", rtd.uiCbpC);
+      oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, oMovie().model().getCbpCPrior()); // Valid values are 0..2
     }
-    oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, 8); // Valid values are 0..15
+    //fprintf(stderr, "cbpl: %d\n", rtd.uiCbpL);
+    oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, oMovie().model().getCbpLPrior()); // Valid values are 0..15
 
         // don't serialize lastMbQp
 
@@ -2469,7 +2471,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
 
     deserializeNonzerosDeprecated(rtd);
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
-      res = iMovie().tag(PIP_CBPC_TAG).scanBits(8);
+      res = iMovie().tag(PIP_CBPC_TAG).scanBits(oMovie().model().getCbpCPrior());
       if (res.second) {
         fprintf(stderr, "failed to read uiCbpC!\n");
         rtd.uiCbpC = 255;
@@ -2477,7 +2479,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         rtd.uiCbpC = res.first;
       }
     }
-    res = iMovie().tag(PIP_CBPL_TAG).scanBits(8);
+    res = iMovie().tag(PIP_CBPL_TAG).scanBits(oMovie().model().getCbpLPrior());
     if (res.second) {
       fprintf(stderr, "failed to read uiCbpL!\n");
       rtd.uiCbpL = 255;
@@ -3158,6 +3160,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     memset (pNzc, 16, sizeof (pCurLayer->pNzc[iMbXy]));   //Rec. 9.2.1 for PCM, nzc=16
     WELS_READ_VERIFY (InitReadBits (pBs, 0));
     return 0;
+
   } else if (0 == uiMbType) { //reference to JM
     ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
     pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
