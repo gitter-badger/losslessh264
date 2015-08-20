@@ -2281,7 +2281,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                                  oMovie().model().getPredictionModePrior());
       }
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
+        oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], oMovie().model().getSubMbPrior(i));
       }
       for (int i = 0; i < 4; i++) {
 #ifdef DEBUG_REFTAG
@@ -2291,7 +2291,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
     } else if (MB_TYPE_8x8 == rtd.uiMbType || MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], 8);
+        oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], oMovie().model().getSubMbPrior(i));
       }
       if (MB_TYPE_8x8 == rtd.uiMbType) {
         for (int i = 0; i < 4; i++) {
@@ -2592,7 +2592,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         }
       }
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(8);
+        res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(oMovie().model().getSubMbPrior(i));
         if (res.second) {
           fprintf(stderr, "failed to read uiSubMbType!\n");
           rtd.uiSubMbType[i] = 0;
@@ -2671,7 +2671,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
        */
     } else if (MB_TYPE_8x8 == rtd.uiMbType || MB_TYPE_8x8_REF0 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(8);
+        res = iMovie().tag(PIP_SUB_MB_TAG).scanBits(oMovie().model().getSubMbPrior(i));
         if (res.second) {
           fprintf(stderr, "failed to read uiSubMbType!\n");
           rtd.uiSubMbType[i] = 0;

@@ -137,6 +137,10 @@ class MacroblockModel {
             3, // sign of the last delta
             128 // Max I've seen the value is in the 30s, but give it some buffer. (twice as big b/c sign bit)
             > mbQPLPrior;
+    Sirikata::Array2d<DynProb,
+            16, // mbType
+            255 // values
+            > subMbPriors;
     Sirikata::Array3d<DynProb,
             16, // past
             16, // mbType
@@ -255,6 +259,7 @@ public:
     Branch<7> getChromaNumNonzerosPriorBranch() {
         return getChromaNumNonzerosPrior().slice<1, 128>();
     }
+    Branch<8> getSubMbPrior(int which);
     Sirikata::Array1d<DynProb, 16>::Slice getSubLumaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
     Sirikata::Array1d<DynProb, 16>::Slice getSubChromaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
     uint16_t getAndUpdateMacroblockLumaNumNonzeros(); // between 0 and 256, inclusive

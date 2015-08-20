@@ -543,6 +543,13 @@ Branch<4> MacroblockModel::getMacroblockTypePrior() {
         pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
              .sSliceHeader.eSliceType == P_SLICE));
 }
+
+Branch<8> MacroblockModel::getSubMbPrior(int i) {
+
+    return subMbPriors.at(encodeMacroblockType(mb->uiMbType));
+}
+
+
 Branch<4> MacroblockModel::getPredictionModePrior() {
   return predictionModePriors.at(0); // TODO: this is a dumb prior.
 }
