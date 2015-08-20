@@ -156,6 +156,14 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
     int ix = (index & (w - 1));
     int iy = (index / w);
     int coloroffset = 0;
+    std::pair<uint16_t, uint16_t> quant;
+    if (color == 0) {
+        quant = mb->getQuantizationValue(coef, coef ? DecodedMacroblock::LUMA_AC_QUANT : DecodedMacroblock::LUMA_DC_QUANT);
+    }else if (color == 1) {
+          quant = mb->getQuantizationValue(coef, coef ? DecodedMacroblock::U_AC_QUANT : DecodedMacroblock::U_DC_QUANT);
+    } else {
+          quant = mb->getQuantizationValue(coef, coef ? DecodedMacroblock::V_AC_QUANT : DecodedMacroblock::V_DC_QUANT);
+    }
     if (color == 2) {
         coloroffset = w * h * 16;
     }
@@ -172,11 +180,15 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         if (left) {
             retval.has_left = true;
             int full_index = (index + w - 1) * 16 + coef + coloroffset;
+            int ret_left;
             if (color) {
-                retval.left = left->odata.chromaAC[full_index];
+                ret_left = left->odata.chromaAC[full_index];
             } else {
-                retval.left = left->odata.lumaAC[full_index];
+                ret_left = left->odata.lumaAC[full_index];
             }
+            ret_left *= quant.second;
+            ret_left = (ret_left + quant.first / 2) / quant.first;
+            retval.left = ret_left;
         }
     }
     if (iy >= w) {
@@ -188,25 +200,36 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         }
         retval.has_above = true;
     } else {
+
         const DecodedMacroblock *above = n[LEFT];
         if (above) {
             int full_index = (index + w * (h - 1)) * 16 + coef + coloroffset;
+            int ret_above;
             if (color) {
-                retval.above = above->odata.chromaAC[full_index];
+                ret_above = above->odata.chromaAC[full_index];
             } else {
-                retval.above = above->odata.lumaAC[full_index];
+                ret_above = above->odata.lumaAC[full_index];
             }
+            ret_above *= quant.second;
+            ret_above = (ret_above + quant.first / 2) / quant.first;
+            retval.above = ret_above;
+            retval.has_above = true;
         }
     }
     const DecodedMacroblock *past = n[PAST];
     if (past) {
         retval.has_past = true;
         int full_index = index * 16 + coef + coloroffset;
+        int ret_past;
         if (color) {
-            retval.past = past->odata.chromaAC[full_index];
+            ret_past = past->odata.chromaAC[full_index];
         } else {
-            retval.past = past->odata.lumaAC[full_index];
+            ret_past = past->odata.lumaAC[full_index];
         }
+        ret_past *= quant.second;
+        ret_past = (ret_past + quant.first / 2) / quant.first;
+        retval.past = ret_past;
+        retval.has_past = true;
     }
     return retval;
 }
