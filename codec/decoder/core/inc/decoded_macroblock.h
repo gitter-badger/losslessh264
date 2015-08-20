@@ -1,6 +1,6 @@
 #ifndef _DECODED_MACROBLOCK_H_
 #define _DECODED_MACROBLOCK_H_
-
+#include "wels_common_defs.h"
 struct DecodedMacroblock {
   struct RawDCTData {
     int16_t lumaDC[16];
@@ -50,11 +50,28 @@ struct DecodedMacroblock {
 
     // returns the numerator and denominator of the quantization table for a coefficient of type t
     std::pair<uint16_t, uint16_t> getQuantizationValue(int coef, QuantizationTargets t) {
+        if (!quantizationTable[t]) {
+            return std::pair<uint16_t, uint16_t>(1,1);
+        }
         if (quantizationUseScalingList) {
             return std::pair<uint16_t, uint16_t>(quantizationTable[t][coef], 16);
         } else {
             return std::pair<uint16_t, uint16_t>(quantizationTable[t][coef & 0x7], 1);
         }
+  }
+  void checkQuantizationValues(const DecodedMacroblock &quantized) {
+      if (uiMbType == MB_TYPE_SKIP || uiMbType == 0) {
+          return;
+      }
+      for (int i = 0; i < 256; ++i) {
+          int coef = (i & 15);
+          if (coef == 0 ) continue; // lets only test AC for now
+          std::pair<uint16_t, uint16_t> quant = getQuantizationValue(coef, i ? LUMA_AC_QUANT : LUMA_DC_QUANT);
+          int ac = odata.lumaAC[i];
+          ac *= quant.second;
+          ac /= quant.first;
+          assert(ac == quantized.odata.lumaAC[i]);
+          }
   }
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
