@@ -186,9 +186,16 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
             } else {
                 ret_left = left->odata.lumaAC[full_index];
             }
-            ret_left *= quant.second;
-            ret_left = (ret_left + quant.first / 2) / quant.first;
             retval.left = ret_left;
+            ret_left *= quant.second;
+            int sign = ret_left > 0 ? 1 : -1;
+            ret_left = (ret_left + sign * quant.first / 2) / quant.first;
+            if (retval.left || ret_left) {
+                //printf("aQuantization: %d -> %d [%d/%d]\n", (int)retval.left, (int)ret_left, (int)quant.first, (int)quant.second);
+            }
+            if (retval.left) { // round up to 1
+                retval.left = ret_left? ret_left : retval.left / abs(retval.left);
+            }
         }
     }
     if (iy >= w) {
@@ -210,9 +217,16 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
             } else {
                 ret_above = above->odata.lumaAC[full_index];
             }
-            ret_above *= quant.second;
-            ret_above = (ret_above + quant.first / 2) / quant.first;
             retval.above = ret_above;
+            ret_above *= quant.second;
+            int sign = ret_above > 0 ? 1 : -1;
+            ret_above = (ret_above + sign * quant.first / 2) / quant.first;
+            if (retval.above || ret_above) {
+                //printf("bQuantization(%d[%d]): %d -> %d [%d/%d]\n", coef, color, (int)retval.above, (int)ret_above, (int)quant.first, (int)quant.second);
+            }
+            if (retval.above) { // round up to 1
+                retval.above = ret_above? ret_above : retval.above / abs(retval.above);
+            }
             retval.has_above = true;
         }
     }
@@ -226,9 +240,17 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         } else {
             ret_past = past->odata.lumaAC[full_index];
         }
-        ret_past *= quant.second;
-        ret_past = (ret_past + quant.first / 2) / quant.first;
         retval.past = ret_past;
+        ret_past *= quant.second;
+        int sign = ret_past > 0 ? 1 : -1;
+        ret_past = (ret_past + sign * quant.first / 2) / quant.first;
+        if (retval.past || ret_past) {
+            //printf("cQuantization: %d -> %d [%d/%d]\n", (int)retval.past, (int)ret_past, (int)quant.first, (int)quant.second);
+        }
+
+        if (retval.past) { // round up to 1
+            retval.past = ret_past? ret_past : retval.past / abs(retval.past);
+        }
         retval.has_past = true;
     }
     return retval;
