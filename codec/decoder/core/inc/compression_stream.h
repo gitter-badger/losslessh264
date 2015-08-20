@@ -17,6 +17,8 @@
 
 //#define CABAC_HACK
 
+//#define PRIOR_STATS
+
 #ifdef ROUNDTRIP_TEST
 #  define DEBUG_PRINTS
 #endif
@@ -213,6 +215,7 @@ class ArithmeticCodedInput {
 public:
     std::vector<uint8_t> buffer;
     vpx_reader reader;
+    int32_t tag;
 
     static DynProb TEST_PROB;
 
@@ -232,11 +235,13 @@ public:
       reader = orig.reader;
       buffer = orig.buffer;
       reader.buffer = &buffer.front();
+      tag = orig.tag;
       return *this;
     }
 
-    void init() {
+    void init(int32_t stream_tag) {
         vpx_reader_init(&reader, buffer.data(), buffer.size());
+        tag = stream_tag;
     }
 
     bool scanBit(DynProb *prob = &TEST_PROB) {
@@ -316,15 +321,27 @@ public:
     vpx_writer writer;
     std::map<std::pair<std::string, int>, std::pair<int, int>> bill;
     std::pair<int, int>* bill_subtag = &bill[std::make_pair("(none)", 0)];  // always points into bill
+    int32_t tag;
+
+#ifdef PRIOR_STATS
+    uint64_t miss_counts[2];
+    std::vector<bool> misses;
+#endif
 
     static DynProb TEST_PROB;
 
     ArithmeticCodedOutput() : writer() {
     }
+    ~ArithmeticCodedOutput();
 
-    void init() {
+    void init(int32_t stream_tag) {
+        tag = stream_tag;
         buffer.resize(1000);
         vpx_start_encode(&writer, &buffer.front());
+
+#ifdef PRIOR_STATS
+        miss_counts[0] = miss_counts[1] = 0;
+#endif
     }
 
     ArithmeticCodedOutput(const ArithmeticCodedOutput &orig) {
@@ -335,6 +352,7 @@ public:
       writer = orig.writer;
       buffer = orig.buffer;
       writer.buffer = &buffer.front();
+      tag = orig.tag;
       return *this;
     }
 
@@ -362,6 +380,14 @@ public:
 #endif
         unsigned int pos = writer.pos;
         vpx_write(&writer, bit, prob->getProb());
+
+#ifdef PRIOR_STATS
+        // prob->getProb() is probability of a zero bit, as uint in [0, 256)
+        bool is_miss = bit ^ (prob->getProb() < 128);
+        miss_counts[is_miss]++;
+        misses.push_back(is_miss);
+#endif
+
         prob->updateProb(bit);
 
         // Sampling based billing - bill whole byte to this bit, should be roughly accurate for big users.
@@ -403,7 +429,7 @@ public:
     template <int N>
     void emitUnary(int data, UnaryIntPrior<N>* prior) {
       for (int i = 0; i < data; i++) {
-        emitBit(true, prior->at(i));
+          emitBit(true, prior->at(i));
       }
       emitBit(false, prior->at(data));
     }
@@ -444,7 +470,7 @@ struct CompressionStream {
     }
     ArithmeticCodedOutput&tag(int32_t tag) {
         if (taggedStreams.find(tag) == taggedStreams.end()) {
-            taggedStreams[tag].init();
+            taggedStreams[tag].init(tag);
         }
         return taggedStreams[tag];
     }

@@ -5,6 +5,12 @@
 #include "macroblock_model.h"
 #include "compression_stream.h"
 #include <sstream>
+
+#ifdef PRIOR_STATS
+#include <fstream>
+#include <iostream>
+#endif
+
 using namespace WelsDec;
 void warnme() {
 fprintf(stderr, "DOING 431\n");
@@ -225,6 +231,25 @@ void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     buffer.clear();
 }
 
+ArithmeticCodedOutput::~ArithmeticCodedOutput() {
+#ifdef PRIOR_STATS
+    uint64_t total = miss_counts[0] + miss_counts[1];
+    double hitrate = (100. * (double) miss_counts[0]) / (double) total;
+    const char* tag_name = billEnumToName(tag);
+    fprintf(stderr, "%-21s: %ju of %ju hits (%0.2f%%)\n", tag_name,
+            miss_counts[0], miss_counts[0] + miss_counts[1], hitrate);
+
+    std::ofstream miss_data;
+    char filename[128];
+    sprintf(&filename[0], "/tmp/%s_misses.log", tag_name);
+    miss_data.open(filename);
+    for (auto i : misses) {
+      miss_data << i;
+    }
+    miss_data.close();
+#endif
+}
+
 std::vector<uint8_t> streamLenToBE(uint32_t streamLen) {
     uint8_t retval[5] = {uint8_t(streamLen >> 24), uint8_t((streamLen >> 16) & 0xff),
                        uint8_t((streamLen >> 8) & 0xff), uint8_t(streamLen & 0xff), 0};
@@ -285,8 +310,7 @@ ArithmeticCodedInput& InputCompressionStream::tag(int32_t tag) {
             fprintf(stderr, "Failed to read from file %s\n", thisfilename.c_str());
             assert(false && "failed to open input");
         }
-        bs.init();
+        bs.init(tag);
     }
     return bs;
 }
-
