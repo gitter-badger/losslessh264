@@ -30,18 +30,14 @@ feature_bill_re = re.compile(r'^(?P<index>\d*)\s*::\s*(?P<bytes>\d+(.\d+)?)\s*\[
 
 HEADER = ('Feature', 'Bench', 'Ours', 'O-B', 'O/B')
 
-header_row_format = '{:>15}{:>10}{:>10}{:>10}{:>10}'
-feature_row_format = '{:>15}{:>10,}{:>10,}{:>10,}{:>10}'
+header_row_format = '{:>22} {:>10} {:>10} {:>10} {:>10}%'
+feature_row_format = '{:>22} {:>10,} {:>10,} {:>10,} {:>10}%'
 
 class VideoCompressionResult(object):
     def __init__(self, name):
         self.name = name
         self.ours = OrderedDict()
         self.benchmark = OrderedDict()
-    def our_total(self):
-        return sum(self.ours.values())
-    def benchmark_total(self):
-        return sum(self.benchmark.values())
     def __repr__(self):
         return 'VideoCompressionResult(%r)' % self.name
 
@@ -78,13 +74,31 @@ def analyze(output_path):
     for video_result in video_results:
         print 'Analysis of %s' % video_result.name
         print '\t' + header_row_format.format(*HEADER)
-        for label in video_result.ours:
+
+        # Combine the label lists preserving order.
+        ours_labels = {k:i for i, k in enumerate(video_result.ours.keys())}
+        benchmark_labels = {k:i for i, k in enumerate(video_result.benchmark.keys())}
+        def order(a, b):
+            if a in ours_labels and b in ours_labels:
+                return cmp(ours_labels[a], ours_labels[b])
+            if a in benchmark_labels and b in benchmark_labels:
+                return cmp(benchmark_labels[a], benchmark_labels[b])
+            return 0
+        labels = sorted(set(ours_labels) | set(benchmark_labels), cmp=order)
+
+        for label in labels:
             bench = video_result.benchmark.get(label, 0)
-            us = video_result.ours[label]
+            us = video_result.ours.get(label, 0)
             print '\t' + feature_row_format.format(label, bench, us, us - bench, perc(us, bench))
-        bench = video_result.benchmark_total()
-        us = video_result.our_total()
-        print '\t' + feature_row_format.format('Total:', bench, us, us - bench, perc(us, bench))
+
+        for prefix in 'luma ', 'chroma ', '':
+            def total(table):
+                return sum(v for k, v in table.items() if k.startswith(prefix))
+            bench = total(video_result.benchmark)
+            us = total(video_result.ours)
+            print '\t' + feature_row_format.format(
+                    '{}total:'.format(prefix), bench, us, us - bench, perc(us, bench))
+
         print ''
     return video_results
 
