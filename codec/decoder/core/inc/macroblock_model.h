@@ -132,8 +132,9 @@ class MacroblockModel {
             16, // mbType
             511 // values
             > mbSkipRunPrior; // TODO: Assume max number of skips is 256
-    Sirikata::Array2d<DynProb,
+    Sirikata::Array3d<DynProb,
             2, // Whether it's the first MB.
+            3, // sign of the last delta
             128 // Max I've seen the value is in the 30s, but give it some buffer. (twice as big b/c sign bit)
             > mbQPLPrior;
     Sirikata::Array3d<DynProb,
@@ -241,7 +242,7 @@ public:
     Branch<4> getNumRefIdxL0ActivePrior();
     Branch<2> getCbpCPrior();
     Branch<4> getCbpLPrior();
-    Sirikata::Array1d<DynProb, 128>::Slice getQPLPrior(bool isFirstMB);
+    Sirikata::Array1d<DynProb, 128>::Slice getQPLPrior(bool isFirstMB, int32_t lastNonzeroDeltaLumaQp);
     Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
     Branch<8> getLumaNumNonzerosPriorBranch() {

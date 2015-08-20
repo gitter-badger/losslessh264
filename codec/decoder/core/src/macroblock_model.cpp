@@ -481,11 +481,9 @@ Sirikata::Array1d<DynProb, 511>::Slice MacroblockModel::getSkipRunPrior() {
 
     return mbSkipRunPrior.at(prior, encodeMacroblockType(mb->uiMbType));
 }
-Sirikata::Array1d<DynProb, 128>::Slice MacroblockModel::getQPLPrior(bool isFirstMB) {
-    //fprintf(stderr, "isFirstMB: %d\n", isFirstMB);
-
+Sirikata::Array1d<DynProb, 128>::Slice MacroblockModel::getQPLPrior(bool isFirstMB, int signLastDelta) {
     //return mbQPLPrior.slice<0,128>();
-    return mbQPLPrior.at(isFirstMB);
+  return mbQPLPrior.at(isFirstMB, signLastDelta<0?0:(signLastDelta==0?1:2));
 }
 Branch<4> MacroblockModel::getNumRefIdxL0ActivePrior() {
     using namespace Nei;

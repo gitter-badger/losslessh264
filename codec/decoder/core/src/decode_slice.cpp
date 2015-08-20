@@ -2144,6 +2144,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       PDqLayer pCurLayer,
                                       int& origSkipped,
                                       uint32_t& uiCachedLumaQp,
+                                      int32_t& uiLastNonzeroDeltaLumaQp,
                                       bool isFirstMB) {
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
@@ -2211,11 +2212,12 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 
     //fprintf(stderr, "LumaQp: %d\n", rtd.uiLumaQp);
     int32_t deltaLumaQp = rtd.uiLumaQp - uiCachedLumaQp;
-    deltaLumaQp = swizzle_sign(deltaLumaQp);
     //fprintf(stderr, "W LumaQp: %d, uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, deltaLumaQp, deltaLumaQpSign);
-    oMovie().tag(PIP_QPL_TAG).emitBitsZeroToPow2Inclusive<7>(deltaLumaQp, oMovie().model().getQPLPrior(isFirstMB));
+    oMovie().tag(PIP_QPL_TAG).emitBitsZeroToPow2Inclusive<7>(swizzle_sign(deltaLumaQp),
+                                                             oMovie().model().getQPLPrior(isFirstMB, uiLastNonzeroDeltaLumaQp));
     //oMovie().tag(PIP_QPL_TAG).emitBit(deltaLumaQpSign);
     uiCachedLumaQp = rtd.uiLumaQp;
+    if (deltaLumaQp) uiLastNonzeroDeltaLumaQp = deltaLumaQp;
     rtd.cachedDeltaLumaQp = deltaLumaQp;
     rtd.quantizationTable[DecodedMacroblock::LUMA_DC_QUANT] = getDequantCoeff(pCtx, pCurLayer->iMbXyIndex,
                                                                               DecodedMacroblock::getiResidualProperty(rtd.uiMbType, true, 0), rtd.uiLumaQp);
@@ -2429,6 +2431,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
                                    int& origSkipped,
                                    int& curSkipped,
                                    uint32_t& uiCachedLumaQp,
+                                   int32_t& uiLastNonzeroDeltaLumaQp,
                                    bool isFirstMB) {
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
@@ -2510,7 +2513,8 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     rtd.iLastMbQp = pSlice->iLastMbQp;
 
     //oMovie().tag(PIP_QPL_TAG).emitBits(rtd.uiLumaQp, oMovie().model().getQPLPrior());
-    res = iMovie().tag(PIP_QPL_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getQPLPrior(isFirstMB));
+    res = iMovie().tag(PIP_QPL_TAG).scanBitsZeroToPow2Inclusive<7>(oMovie().model().getQPLPrior(isFirstMB,
+                                                                                                uiLastNonzeroDeltaLumaQp));
     //bool resSign = iMovie().tag(PIP_QPL_TAG).scanBit();
     //res = iMovie().tag(PIP_QPL_TAG).scanBits(16);
 
@@ -2520,11 +2524,10 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     } else {
       //rtd.uiLumaQp = res.first;
       int deltaLumaQp = unswizzle_sign(res.first);
-      int origDeltaLumaQp = deltaLumaQp;
+      if (deltaLumaQp) uiLastNonzeroDeltaLumaQp = deltaLumaQp;
       rtd.uiLumaQp = uiCachedLumaQp + deltaLumaQp;
-      //fprintf(stderr, "R LumaQp: %d uiCachedLumaQp: %d, deltaLumaQp: %d, deltaLumaQpSign: %d\n", rtd.uiLumaQp, uiCachedLumaQp, res.first, resSign);
       uiCachedLumaQp = rtd.uiLumaQp;
-      rtd.cachedDeltaLumaQp = origDeltaLumaQp;
+      rtd.cachedDeltaLumaQp = deltaLumaQp;
     }
     res = iMovie().tag(PIP_REF_TAG).scanBits(oMovie().model().getNumRefIdxL0ActivePrior());
     if (res.second) {
@@ -3004,6 +3007,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     WelsEnc::WelsInitSliceCabac (&esCabac->pEncCtx, &esCabac->pSlice);
   }
   uint32_t uiCachedLumaQp = 0;
+  int32_t uiLastNonzeroDeltaLumaQp = 0;
   bool isFirstMB = true;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
@@ -3022,13 +3026,13 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                                         esCabac.get(),
                                         iNextMbXyIndex, uiEosFlag,
                                         rtd, pDecMbFunc, pCurLayer,
-                                        origSkipped, curSkipped, uiCachedLumaQp, isFirstMB);
+                                        origSkipped, curSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp, isFirstMB);
     } else {
       iRet = WelsDecodeSliceForNonRecoding(pCtx, pNalCur, pSlice,
                                            esCabac.get(),
                                            iNextMbXyIndex, uiEosFlag, rtd,
                                            pDecMbFunc, pCurLayer,
-                                           origSkipped, uiCachedLumaQp, isFirstMB);
+                                           origSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp, isFirstMB);
     }
     isFirstMB = false;
     if (iRet != ERR_NONE) {
