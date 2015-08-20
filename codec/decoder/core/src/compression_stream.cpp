@@ -204,9 +204,12 @@ void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     fprintf(stderr, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
     if (bill.size() > 1) {
       for (const auto& entry : bill) {
-        if (entry.second > 0) {
-          const auto& label = entry.first;
-          fprintf(stderr, "  %s %2d: %5.2f%%\n", label.first.c_str(), label.second, 100.0*entry.second/writer.pos);
+        const auto& label = entry.first;
+        const auto& bytes_symbols = entry.second;
+        if (bytes_symbols.second > 0) {
+          fprintf(stderr, "  %8s %2d: %5.2f%% compressed bytes, %6d bits encoded\n",
+                  label.first.c_str(), label.second,
+                  100.0*bytes_symbols.first/writer.pos, bytes_symbols.second);
         }
       }
     }

@@ -969,6 +969,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
     int bill_n_exp_base = PIP_LAC_N_EXP;
     int bill_sign_base = PIP_LAC_0_SIGN;
     int bill_n_sign_base = PIP_LAC_N_SIGN;
+    int bill_tag0_base = PIP_LAC_TAG0;
     if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U || iResidualProperty == CHROMA_AC
         || iResidualProperty == CHROMA_AC_U_INTER || iResidualProperty == CHROMA_AC_V_INTER) {
         bill_bitmask_base = PIP_CRAC_BITMASK;
@@ -979,6 +980,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
         bill_n_exp_base = PIP_CRAC_EXP;
         bill_sign_base = PIP_CRAC_SIGN;
         bill_n_sign_base = PIP_CRAC_SIGN;
+        bill_tag0_base = PIP_CRAC_TAG0;
     }
     bill[bill_base] += total_coeff_trailing_ones_and_num_zeros_cost;
     bool last_was_dc = false;;
@@ -996,6 +998,7 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       last_was_dc = (j == 0);
       if (level_cost[i]) {
           bill[j == 0 ? bill_exp_base : bill_n_exp_base] += level_cost[i] - 1;
+//          bill[j == 0 ? bill_tag0_base + std::min(15, std::max(iLevel[i], -iLevel[i])) : bill_n_exp_base] += level_cost[i] - 1;
           bill[j == 0 ? bill_sign_base : bill_n_sign_base] += 1;
       }
 #endif

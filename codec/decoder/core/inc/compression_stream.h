@@ -314,8 +314,8 @@ class ArithmeticCodedOutput {
 public:
     std::vector<uint8_t> buffer;
     vpx_writer writer;
-    std::map<std::pair<std::string, int>, int> bill;
-    int* bill_subtag = &bill[std::make_pair("(none)", 0)];  // always points into bill
+    std::map<std::pair<std::string, int>, std::pair<int, int>> bill;
+    std::pair<int, int>* bill_subtag = &bill[std::make_pair("(none)", 0)];  // always points into bill
 
     static DynProb TEST_PROB;
 
@@ -367,8 +367,9 @@ public:
         // Sampling based billing - bill whole byte to this bit, should be roughly accurate for big users.
         if (writer.pos > pos) {
           assert(writer.pos == pos + 1);
-          (*bill_subtag)++;
+          bill_subtag->first++;
         }
+        bill_subtag->second++;
     }
 
     void emitBit(bool bit) {
