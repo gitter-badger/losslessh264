@@ -314,6 +314,8 @@ class ArithmeticCodedOutput {
 public:
     std::vector<uint8_t> buffer;
     vpx_writer writer;
+    std::map<std::pair<std::string, int>, int> bill;
+    int* bill_subtag = &bill[std::make_pair("(none)", 0)];  // always points into bill
 
     static DynProb TEST_PROB;
 
@@ -338,6 +340,16 @@ public:
 
     void flushToWriter(int streamId, CompressedWriter&);
 
+    void billTo(const std::string& label_string, int label_int) {
+        bill_subtag = &bill[std::make_pair(label_string, label_int)];
+    }
+    void billTo(const std::string& label) {
+        billTo(label, 0);
+    }
+    void billTo(int label) {
+        billTo("", label);
+    }
+
     void emitBit(bool bit, DynProb *prob) {
         if (writer.pos + 512 > buffer.size()) {
             buffer.resize(buffer.size() * 2);
@@ -348,9 +360,15 @@ public:
         static int count = 0;
         fprintf(stderr, "bit %d prob %d -> %d\n", count++, (int)prob->getProb(), (int)bit);
 #endif
+        unsigned int pos = writer.pos;
         vpx_write(&writer, bit, prob->getProb());
-
         prob->updateProb(bit);
+
+        // Sampling based billing - bill whole byte to this bit, should be roughly accurate for big users.
+        if (writer.pos > pos) {
+          assert(writer.pos == pos + 1);
+          (*bill_subtag)++;
+        }
     }
 
     void emitBit(bool bit) {

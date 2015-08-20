@@ -1913,6 +1913,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     for (int i = 15; i >= 1; --i) {
         int coefficient = ac[kzz[i]];
         auto prior = oMovie().model().getACPrior(color, emitted);
+        oMovie().tag(PIP_LAC_N_EXP).billTo(std::max(coefficient, -coefficient));
         oMovie().emitInt(coefficient, prior,
             color ? PIP_CRAC_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : PIP_LAC_N_RES,
@@ -1922,6 +1923,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     }
     if (emit_dc) {
         auto prior = oMovie().model().getACPrior(color, emitted);
+        oMovie().tag(PIP_LAC_0_EXP).billTo(std::max<int>(ac[kzz[0]], -ac[kzz[0]]));
         oMovie().emitInt(ac[kzz[0]], prior,
             color ? PIP_CRAC_EXP     : PIP_LAC_0_EXP,
             color ? PIP_CRAC_RES     : PIP_LAC_0_RES,

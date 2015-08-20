@@ -202,6 +202,15 @@ void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     vpx_stop_encode(&writer);
 #ifdef BILLING
     fprintf(stderr, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
+    if (bill.size() > 1) {
+      for (const auto& entry : bill) {
+        if (entry.second > 0) {
+          const auto& label = entry.first;
+          fprintf(stderr, "  %s %2d: %5.2f%%\n", label.first.c_str(), label.second, 100.0*entry.second/writer.pos);
+        }
+      }
+    }
+
     compressed_total += writer.pos;
     if (streamId == PIP_PREV_PRED_TAG || streamId == PIP_NZC_TAG) {
         fprintf(stderr, "TOTAL written %d\n", compressed_total);
