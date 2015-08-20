@@ -109,7 +109,7 @@ namespace WelsDec{
 }
 
 // Utility functions for arithmetic
-uint8_t log2(uint16_t v);
+uint8_t ilog2(uint16_t v);
 uint8_t bit_length(uint16_t value);
 uint16_t swizzle_sign(int16_t v);
 int16_t unswizzle_sign(uint16_t v);

@@ -681,7 +681,7 @@ uint8_t MacroblockModel::get4x4NumNonzeros(uint8_t index, uint8_t color) const {
     return mb->numSubChromaNonzeros_[index];
 }
 
-uint8_t log2(uint16_t v) {
+uint8_t ilog2(uint16_t v) {
     const unsigned int b[] = {0x2, 0xC, 0xF0, 0xFF00};
     const unsigned int S[] = {1, 2, 4, 8, 16};
     int i;
@@ -700,7 +700,7 @@ uint8_t log2(uint16_t v) {
 
 uint8_t bit_length(uint16_t value) {
     if (value == 0) return 0;
-    uint16_t ret = log2(value) + 1;
+    uint16_t ret = ilog2(value) + 1;
     return (uint8_t)ret;
 }
 
