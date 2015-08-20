@@ -731,7 +731,7 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           }
           outputTrailingNalZeros(pDstNal, iDstIdx); // these were ignored from the header and added to consume bytes for no good reason
           if (!oMovie().isRecoding) {
-              flushPBitString(pCtx);
+              //flushPBitString(pCtx);
           }
           oMovie().def().stopEscape();
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
@@ -838,7 +838,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     if (oMovie().isRecoding) {
         oMovie().def().emitBit(1); // only emit stop bit
     } else {
-        flushPBitString(pCtx);
+        //flushPBitString(pCtx);
+        oMovie().def().emitBit(1); // only emit stop bit
     }
     oMovie().def().stopEscape();
 

@@ -62,11 +62,13 @@ CFLAGS += -fsanitize=address
 LDFLAGS += -fsanitize=address
 endif
 
+LDFLAGS += -Lx264
+LDFLAGS += -lx264 -ldl
+
 # Make sure the all target is the first one
 all: libraries binaries
 
 include $(SRC_PATH)build/platform-$(OS).mk
-
 
 CFLAGS += -DGENERATED_VERSION_HEADER
 LDFLAGS +=
@@ -75,6 +77,8 @@ ifeq (Yes, $(GCOV))
 CFLAGS += -fprofile-arcs -ftest-coverage
 LDFLAGS += -lgcov
 endif
+
+CFLAGS += -std=c++11 -Wno-deprecated-register
 
 #### No user-serviceable parts below this line
 ifneq ($(V),Yes)
@@ -98,7 +102,8 @@ DECODER_INCLUDES += \
 ENCODER_INCLUDES += \
     -I$(SRC_PATH)codec/encoder/core/inc \
     -I$(SRC_PATH)codec/encoder/plus/inc \
-    -I$(SRC_PATH)codec/processing/interface
+    -I$(SRC_PATH)codec/processing/interface \
+    -I$(SRC_PATH)x264
 
 PROCESSING_INCLUDES += \
     -I$(SRC_PATH)codec/processing/interface \

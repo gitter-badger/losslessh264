@@ -13,6 +13,7 @@ struct DecodedMacroblock {
   int32_t iPrevIntra4x4PredMode[16];
   int32_t iRemIntra4x4PredMode[16];
   int16_t sMbMvp[16][2];
+  int16_t sMbAbsoluteMv[16][2]; // absolute motion vectors. no need to serialized them
   int uiSubMbType[4];
   int8_t iRefIdx[4];
   uint32_t uiCbpC, uiCbpL;
@@ -26,14 +27,24 @@ struct DecodedMacroblock {
   uint8_t numLumaNonzeros_;
   uint8_t numChromaNonzeros_;
   uint8_t numSubLumaNonzeros_[16];
-  uint8_t numSubChromaNonzeros_[16];
+  uint8_t numSubChromaNonzeros_[8];
+
+  // populated by updateFrame
+  bool isSkipped;
+  uint16_t cachedSkips;
+  uint32_t cachedDeltaLumaQp;
+
   DecodedMacroblock()
       : eSliceType(), uiChromaQpIndexOffset(),
         iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
         uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0),
         uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
         uiNumRefIdxL0Active(), uiLumaQp(),
-        numLumaNonzeros_(0), numChromaNonzeros_(0), numSubLumaNonzeros_(), numSubChromaNonzeros_() {
+        numLumaNonzeros_(0), numChromaNonzeros_(0), numSubLumaNonzeros_(), numSubChromaNonzeros_(),
+        cachedSkips(0), cachedDeltaLumaQp(0) {
+
+      isSkipped = false;
+      cachedSkips = 0;
   }
   void preInit(const WelsDec::PSlice);
 };
@@ -55,6 +66,48 @@ struct FreqImage {
         if (frame != lastFrameId) {
             cur = cur?0:1;
             lastFrameId = frame;
+        }
+        //fprintf(stderr, "priorValid: %d\n", priorValid);
+        uint16_t contiguousSkips = 0;
+
+        std::vector<DecodedMacroblock> &cur_frame = this->frame[1-cur];
+        for (int i=0; i < cur_frame.size(); i++) {
+            DecodedMacroblock &dmb = cur_frame[i];
+            bool isZeroed = true;
+            for (size_t j = 0; j < sizeof(dmb.odata.lumaAC) / sizeof(dmb.odata.lumaDC[0]); ++j) {
+                if (dmb.odata.lumaAC[j] != 0) {
+                    isZeroed = false;
+                }
+            }
+            for (size_t j = 0; j < sizeof(dmb.odata.chromaAC) / sizeof(dmb.odata.chromaDC[0]); ++j) {
+                if (dmb.odata.chromaAC[j] != 0) {
+                    isZeroed = false;
+                }
+            }
+            for(int j=0; j<16; j++) {
+                if (dmb.odata.lumaDC[j] != 0) {
+                    isZeroed = false;
+                    break;
+                }
+            }
+            for(int j=0; j<8; j++) {
+                if (dmb.odata.chromaDC[j] != 0) {
+                    isZeroed = false;
+                    break;
+                }
+            }
+            //fprintf(stderr, "isZeroed: %d contiguousSkips: %d\n", isZeroed, contiguousSkips);
+
+            if (isZeroed) {
+                dmb.isSkipped = true;
+                contiguousSkips++;
+            } else {
+                dmb.isSkipped = false;
+                for (int j = 0; j < contiguousSkips; j++) {
+                    cur_frame[i - j].cachedSkips = contiguousSkips;
+                }
+                contiguousSkips = 0;
+            }
         }
     }
     DecodedMacroblock& at(int x, int y) {

@@ -30,12 +30,20 @@ typedef struct vpx_writer {
 void vpx_start_encode(vpx_writer *bc, uint8_t *buffer);
 void vpx_stop_encode(vpx_writer *bc);
 
+extern int w_bitcount;
+
 static INLINE void vpx_write(vpx_writer *br, int bit, int probability) {
   unsigned int split;
   int count = br->count;
   unsigned int range = br->range;
   unsigned int lowvalue = br->lowvalue;
   register unsigned int shift;
+
+  #ifdef DEBUG_ARICODER
+    //if (w_bitcount < 1000) {
+      fprintf(stderr, "W %d %d %d\n", w_bitcount++, probability, bit);
+    //}
+  #endif
 
   split = 1 + (((range - 1) * probability) >> 8);
 

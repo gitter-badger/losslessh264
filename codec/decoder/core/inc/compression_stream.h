@@ -1,5 +1,7 @@
 #ifndef _COMPRESSION_STREAM_H_
 #define _COMPRESSION_STREAM_H_
+#include <algorithm>
+#include <array>
 #include <string>
 #include <vector>
 #include <map>
@@ -159,6 +161,55 @@ public:
 };
 
 
+// Various int priors used to emit/scan Rice-coded integers.
+
+// UnaryIntPrior: encode values as '0', '10', '110', '1110', etc, with priors on the first N values.
+template <int N = 0>
+struct UnaryIntPrior {
+    std::array<DynProb, N> priors;
+    DynProb* at(int i) {
+      return &priors[std::min<int>(i, priors.size()-1)];
+    }
+};
+
+template <>
+struct UnaryIntPrior<0> {
+    // Special case: just emit 0/1, don't save counts. Uses no memory.
+    DynProb* at(int i) {
+        static DynProb staticDynProb;
+        staticDynProb = DynProb();
+        return &staticDynProb;
+    }
+};
+
+// PositiveIntPrior: encode 1..infinity as unary exponent + mantissa value.
+template <int Exponent = 0, int Mantissa = 0>
+struct PositiveIntPrior {
+    static constexpr bool hasSign = false, hasZero = false;
+    UnaryIntPrior<Exponent> exponent;
+    std::array<DynProb, Mantissa> mantissa;
+
+    DynProb* sign() { return nullptr; }
+    DynProb* zero() { return nullptr; }
+};
+
+// UnsignedIntPrior: encode 0..infinity as zero bit + unary exponent + mantissa value.
+template <int Exponent = 0, int Mantissa = 0>
+struct UnsignedIntPrior : public PositiveIntPrior<Exponent, Mantissa> {
+    static constexpr bool hasZero = true;
+    DynProb zeroPrior;
+    DynProb* zero() { return &zeroPrior; }
+};
+
+// IntPrior: encode -infinity..infinity as zero bit + sign bit + unary exponent + mantissa value.
+template <int Exponent = 0, int Mantissa = 0>
+struct IntPrior : public UnsignedIntPrior<Exponent, Mantissa> {
+    static constexpr bool hasSign = true;
+    DynProb signPrior;
+    DynProb* sign() { return &signPrior; }
+};
+
+
 class ArithmeticCodedInput {
 public:
     std::vector<uint8_t> buffer;
@@ -189,7 +240,7 @@ public:
         vpx_reader_init(&reader, buffer.data(), buffer.size());
     }
 
-    bool scanBit(DynProb *prob) {
+    bool scanBit(DynProb *prob = &TEST_PROB) {
         bool bit = !!vpx_read(&reader, prob->getProb());
 #ifdef CONTEXT_DIFF
         static int count = 0;
@@ -212,6 +263,79 @@ public:
 
     template <int nBits>
     std::pair<uint32_t, H264Error> scanBits(Branch<nBits> priors);
+    template <int nBits> struct Ident {
+        enum {VALUE =  nBits};
+    };
+    template <int nBits> struct IdentPow {
+        enum {VALUE =  (1<<nBits)};
+    };
+    template <int nBits> struct IdentPow_1 {
+        enum {VALUE =  (1<<nBits) - 1};
+    };
+    template<int start, int end> struct SliceRange{
+        enum {START=start, END=end};
+    };
+
+    template<int nBits>
+      std::pair<uint32_t, H264Error> scanBitsZeroToPow2Inclusive(typename Sirikata::Array1d<DynProb, (1<< nBits) >::Slice priors, uint32_t preferred = 0) {
+        bool zeroBit = scanBit(&priors.at(0));
+        std::pair<uint32_t, H264Error> retval (preferred, 0);
+        if (!zeroBit) {
+            return retval;
+        }
+        SliceRange<1, (1<<nBits)> sr;
+        retval = scanBits(Branch<nBits>(priors.slice(sr)));
+        retval.first += retval.first >= preferred ? 1 : 0;
+        return retval;
+    }
+
+    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
+    template <class Prior>
+    int scanInt(Prior* prior) {
+      if (prior->hasZero) {
+        if (scanBit(prior->zero())) return 0;
+      }
+      bool sign = true;
+      if (prior->hasSign) {
+        sign = scanBit(prior->sign());
+      }
+
+      int log2 = scanUnary(&prior->exponent);
+
+      int lo = 0, hi = prior->mantissa.size();
+      int data = 1;
+      for (int i = log2-1; i >= 0; i--) {
+        bool bit;
+        if (hi > lo) {
+          int mid = (hi + lo) / 2;
+          bit = scanBit(&prior->mantissa[mid]);
+          if (bit) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        } else {
+          bit = scanBit();
+        }
+        data = (data << 1) | bit;
+      }
+      return sign ? data : -data;
+    }
+
+    // The default prior emits a Rice coding (plus zero and sign bits).
+    int scanInt() {
+      IntPrior<> prior;
+      return scanInt(&prior);
+    }
+
+    template <int N>
+    int scanUnary(UnaryIntPrior<N>* prior) {
+      int i = 0;
+      while (scanBit(prior->at(i))) {
+        i++;
+      }
+      return i;
+    }
 };
 
 template <>
@@ -284,6 +408,69 @@ public:
 
     template <int nBits>
     void emitBits(uint32_t data, Branch<nBits> priors);
+    template<int start, int end> struct SliceRange{
+        enum {START=start, END=end};
+    };
+    template <int nBits>
+    void emitBitsZeroToPow2Inclusive(uint32_t data, typename Sirikata::Array1d<DynProb, (1<< nBits)>::Slice priors, uint32_t preferred = 0) {
+        bool zeroBit = (data != preferred);
+        emitBit(zeroBit, &priors.at(0));
+        if (data != preferred) {
+            SliceRange<1, (1<<nBits)>sr;
+            emitBits(data > preferred ? (data - 1) : data, Branch<nBits>(priors.slice(sr)));
+        }
+    }
+
+    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
+    template <class Prior>
+    void emitInt(int data, Prior* prior) {
+      if (prior->hasZero) {
+        emitBit(data == 0, prior->zero());
+        if (data == 0) return;
+      }
+      assert(data != 0);
+      if (prior->hasSign) {
+        emitBit(data > 0, prior->sign());
+        if (data < 0) data = -data;
+      }
+      assert(data > 0);
+
+      // TODO(ctl) use jongmin's faster log2 computation.
+      int log2 = 0;
+      while ((2 << log2) <= data) log2++;
+      assert((1 << log2) <= data && data < (2 << log2));
+      emitUnary(log2, &prior->exponent);
+
+      int lo = 0, hi = prior->mantissa.size();
+      for (int i = log2-1; i >= 0; i--) {
+        bool bit = (data & (1 << i)) != 0;
+        if (hi > lo) {
+          int mid = (hi + lo) / 2;
+          emitBit(bit, &prior->mantissa[mid]);
+          if (bit) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        } else {
+          emitBit(bit);
+        }
+      }
+    }
+
+    // The default prior emits a Rice coding (plus zero and sign bits).
+    void emitInt(int data) {
+      IntPrior<> prior;
+      emitInt(data, &prior);
+    }
+
+    template <int N>
+    void emitUnary(int data, UnaryIntPrior<N>* prior) {
+      for (int i = 0; i < data; i++) {
+        emitBit(true, prior->at(i));
+      }
+      emitBit(false, prior->at(data));
+    }
 };
 
 template <int nBits>

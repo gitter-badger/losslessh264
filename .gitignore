@@ -48,3 +48,9 @@ testbin/test.yuv
 
 # pkg-config file
 *.pc
+
+# Generic output directory
+/output
+
+# CLion IDE
+/.idea

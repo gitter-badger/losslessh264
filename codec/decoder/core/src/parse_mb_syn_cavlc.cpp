@@ -615,15 +615,6 @@ int32_t CheckIntraNxNPredMode (int32_t* pSampleAvail, int8_t* pMode, int32_t iIn
 
 void BsStartCavlc (PBitStringAux pBs) {
   pBs->iIndex = ((pBs->pCurBuf - pBs->pStartBuf) << 3) - (16 - pBs->iLeftBits);
-  if (!oMovie().isRecoding) {
-    int iBegin = pBs->iPrevIndex;
-    int iEnd = pBs->iIndex;
-    for (int i = iBegin; i < iEnd; i++) {
-      int whichBit = i & 0x07;
-      int x = (pBs->pStartBuf[i >> 3] >> (7 - whichBit)) & 0x01;
-      oMovie().def().emitBit(x);
-    }
-  }
   pBs->iPrevIndex = pBs->iIndex;
 }
 void BsEndCavlc (PBitStringAux pBs) {
@@ -970,11 +961,27 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
     }
   } else {
 #ifdef BILLING
-    bill[PIP_NZC_TAG] += total_coeff_trailing_ones_and_num_zeros_cost;
-    int bill_base = PIP_LAC_TAG0;
-    if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U) {
-        bill_base =  PIP_CRAC_TAG0;
+    int bill_base = PIP_LAC_0_EOB;
+    int bill_n_base = PIP_LAC_N_EOB;
+    int bill_bitmask_base = PIP_LAC_0_BITMASK;
+    int bill_n_bitmask_base = PIP_LAC_N_BITMASK;
+    int bill_exp_base = PIP_LAC_0_EXP;
+    int bill_n_exp_base = PIP_LAC_N_EXP;
+    int bill_sign_base = PIP_LAC_0_SIGN;
+    int bill_n_sign_base = PIP_LAC_N_SIGN;
+    if (iResidualProperty == CHROMA_AC_V || iResidualProperty == CHROMA_AC_U || iResidualProperty == CHROMA_AC
+        || iResidualProperty == CHROMA_AC_U_INTER || iResidualProperty == CHROMA_AC_V_INTER) {
+        bill_bitmask_base = PIP_CRAC_BITMASK;
+        bill_n_bitmask_base = PIP_CRAC_BITMASK;
+        bill_base =  PIP_CRAC_EOB;
+        bill_n_base = PIP_CRAC_EOB;
+        bill_exp_base = PIP_CRAC_EXP;
+        bill_n_exp_base = PIP_CRAC_EXP;
+        bill_sign_base = PIP_CRAC_SIGN;
+        bill_n_sign_base = PIP_CRAC_SIGN;
     }
+    bill[bill_base] += total_coeff_trailing_ones_and_num_zeros_cost;
+    bool last_was_dc = false;;
 #endif
     for (i = uiTotalCoeff - 1; i >= 0; --i) { //FIXME merge into  rundecode?
       int32_t j;
@@ -984,11 +991,13 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
       pTCoeff[j] = pCtx->bUseScalingList ? (iLevel[i] * kpDequantCoeff[j]) >> 4 : (iLevel[i] * kpDequantCoeff[j & 0x07]);
 
 #ifdef BILLING
-      for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
-          int jj          = kpZigzagTable[ k ];
-          bill[bill_base + jj] += run_cost[i]/(double)iRun[i];
+      if (j == 0) last_was_dc = true;
+      bill[last_was_dc ? bill_bitmask_base : bill_n_bitmask_base] += run_cost[i];
+      last_was_dc = (j == 0);
+      if (level_cost[i]) {
+          bill[j == 0 ? bill_exp_base : bill_n_exp_base] += level_cost[i] - 1;
+          bill[j == 0 ? bill_sign_base : bill_n_sign_base] += 1;
       }
-      bill[bill_base + j] += level_cost[i];
 #endif
     }
   }
@@ -1160,12 +1169,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][0] = iCode;
     iMv[0] += iCode;
+    rtd->sMbAbsoluteMv[0][0] = iMv[0];
 #ifdef BILLING
     curBillTag = PIP_MVY_TAG;
 #endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
     rtd->sMbMvp[0][1] = iCode;
     iMv[1] += iCode;
+    rtd->sMbAbsoluteMv[0][1] = iMv[1];
     WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
     UpdateP16x16MotionInfo (pCurDqLayer, iRefIdx, iMv);
   }
@@ -1213,12 +1224,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][0] = iCode; // MV is [8*i]. Cache is [i]
       iMv[0] += iCode;
+      rtd->sMbAbsoluteMv[8 * i][0] = iMv[0];
 #ifdef BILLING
       curBillTag = PIP_MVY_TAG;
 #endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[8 * i][1] = iCode; // MV is [8*i]. Cache is [i]
       iMv[1] += iCode;
+      rtd->sMbAbsoluteMv[8 * i][1] = iMv[1];
       WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP16x8MotionInfo (pCurDqLayer, iMvArray, iRefIdxArray, i << 3, iRefIdx[i], iMv);
     }
@@ -1270,12 +1283,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][0] = iCode; // MV is [2*i]. Cache is [i]
       iMv[0] += iCode;
+      rtd->sMbAbsoluteMv[2 * i][0] = iMv[0];
 #ifdef BILLING
       curBillTag = PIP_MVY_TAG;
 #endif
       WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ 0 ][ compIdx ]
       rtd->sMbMvp[2 * i][1] = iCode; // MV is [2*i]. Cache is [i]
       iMv[1] += iCode;
+      rtd->sMbAbsoluteMv[2 * i][1] = iMv[1];
       WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
       UpdateP8x16MotionInfo (pCurDqLayer, iMvArray, iRefIdxArray, i << 2, iRefIdx[i], iMv);
     }
@@ -1380,12 +1395,14 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l0[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[0] += iCode;
         rtd->sMbMvp[uiScan4Idx][0] = iCode;
+        rtd->sMbAbsoluteMv[uiScan4Idx][0] = iMv[0];
 #ifdef BILLING
         curBillTag = PIP_MVY_TAG;
 #endif
         WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mvd_l1[ mbPartIdx ][ subMbPartIdx ][ compIdx ]
         iMv[1] += iCode;
         rtd->sMbMvp[uiScan4Idx][1] = iCode;
+        rtd->sMbAbsoluteMv[uiScan4Idx][1] = iMv[1];
         WELS_CHECK_SE_BOTH_WARNING (iMv[1], iMinVmv, iMaxVmv, "vertical mv");
         if (SUB_MB_TYPE_8x8 == uiSubMbType) {
           ST32 (pCurDqLayer->pMv[0][iMbXy][uiScan4Idx], LD32 (iMv));

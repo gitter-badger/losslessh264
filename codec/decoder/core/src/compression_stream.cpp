@@ -196,15 +196,15 @@ void BitStream::flushBits() {
 
 DynProb ArithmeticCodedInput::TEST_PROB;
 DynProb ArithmeticCodedOutput::TEST_PROB;
+static int compressed_total = 0;
 
 void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     vpx_stop_encode(&writer);
 #ifdef BILLING
-    static int total = 0;
     fprintf(stderr, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
-    total += writer.pos;
+    compressed_total += writer.pos;
     if (streamId == PIP_PREV_PRED_TAG || streamId == PIP_NZC_TAG) {
-        fprintf(stderr, "TOTAL written %d\n", total);
+        fprintf(stderr, "TOTAL written %d\n", compressed_total);
     }
 #endif
     if (!buffer.empty()) {
@@ -229,7 +229,15 @@ uint32_t bufferBEToStreamLength(uint8_t *buf) {
 
 void CompressionStream::flushToWriter(CompressedWriter&w) {
     def().padToByte();
+#ifdef BILLING
+    if (!isRecoding) {
+        static int total = 0;
+        fprintf(stderr, "0 :: %d [boilerplate]\n", (int)def().buffer.size());
+        compressed_total += def().buffer.size();
+    }
+#endif
     def().flushToWriter(DEFAULT_STREAM, w);
+
     for (std::map<int32_t, ArithmeticCodedOutput>::iterator i = taggedStreams.begin(), ie = taggedStreams.end();
          i != ie;
          ++i) {

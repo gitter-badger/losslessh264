@@ -54,6 +54,9 @@
 #include "compression_stream.h"
 #include "error_code.h"
 
+#include "../../../encoder/core/inc/xencoder.h"
+
+
 #include <string>
 #include <sstream>
 
@@ -168,6 +171,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
     InitEncFuncPtrList();
     oMovie().isRecoding = true;
     iMovie().filenamePrefix = kpH264FileName;
+      XEncoder();
   } else {
     fprintf(stderr, "Either input or output filename must end with .pip!\n");
     return;
@@ -408,7 +412,9 @@ int32_t main (int32_t iArgC, char* pArgV[]) {
   int iLevelSetting = (int) WELS_LOG_WARNING;
 
   sDecParam.sVideoProperty.size = sizeof (sDecParam.sVideoProperty);
+  #ifndef DEBUG_ARICODER
   test_arithmetic_coding();
+  #endif
   if (iArgC < 2) {
     printf ("usage 1: h264dec.exe welsdec.cfg\n");
     printf ("usage 2: h264dec.exe welsdec.264 out.yuv\n");
