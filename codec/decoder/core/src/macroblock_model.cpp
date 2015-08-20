@@ -47,8 +47,8 @@ const char * billEnumToName(int en) {
     if(PIP_SUB_MB_TAG == en) return "sub mb";
     if(PIP_MVX_TAG == en) return "mv[0]";
     if(PIP_MVY_TAG == en) return "mv[1]";
-    if(PIP_LDC_TAG == en) return "ldc";
-    if(PIP_CRDC_TAG == en) return "crdc";
+    if(PIP_LDC_TAG == en) return "luma dc";
+    if(PIP_CRDC_TAG == en) return "chroma dc";
     if(PIP_LAC_TAG0 == en) return "luma ac 0";
     if(PIP_LAC_TAG0 + 1 == en) return "luma ac 1";
     if(PIP_LAC_TAG0 + 2 == en) return "luma ac 2";
@@ -560,6 +560,15 @@ IntPrior<2, 4>* MacroblockModel::getLumaDCIntPrior(size_t index) {
 
 IntPrior<2, 4>* MacroblockModel::getChromaDCIntPrior(size_t index) {
   return &chromaDCIntPriors[index];
+}
+
+MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted) {
+  int nonzero = 0, one = 0;
+  for (int coefficient : emitted) {
+    if (coefficient != 0) nonzero++;
+    if (coefficient == 1 || coefficient == -1) one++;
+  }
+  return &acPriors[mb->eSliceType][encodeMacroblockType(mb->uiMbType)][color][emitted.size()][std::min(nonzero, 4)][std::min(nonzero-one, 1)];
 }
 
 std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>

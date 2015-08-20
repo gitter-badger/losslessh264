@@ -1893,6 +1893,42 @@ void deserializeNonzerosDeprecated(DecodedMacroblock& rtd) {
 }
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
+#if 0
+    int num_nonzeros_left = 0;
+    for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
+        if (ac[coef_uzz]) {
+            ++num_nonzeros_left;
+        }
+    }
+    bool nonzero[16] = {0};
+    oMovie().tag((color ? PIP_CRAC_EOB : PIP_LAC_0_EOB)).emitBit(!num_nonzeros_left,
+                                    oMovie().model().getEOBPrior(nonzero,
+                                                                 index,
+                                                                 16,
+                                                                 emit_dc,
+                                                                 color));
+    if (!num_nonzeros_left) return;
+#endif
+    std::vector<int> emitted;
+    for (int i = 15; i >= 1; --i) {
+        int coefficient = ac[kzz[i]];
+        auto prior = oMovie().model().getACPrior(color, emitted);
+        oMovie().emitInt(coefficient, prior,
+            color ? PIP_CRAC_EXP     : PIP_LAC_N_EXP,
+            color ? PIP_CRAC_RES     : PIP_LAC_N_RES,
+            color ? PIP_CRAC_BITMASK : PIP_LAC_N_BITMASK,
+            color ? PIP_CRAC_SIGN    : PIP_LAC_N_SIGN);
+        emitted.push_back(coefficient);
+    }
+    if (emit_dc) {
+        auto prior = oMovie().model().getACPrior(color, emitted);
+        oMovie().emitInt(ac[kzz[0]], prior,
+            color ? PIP_CRAC_EXP     : PIP_LAC_0_EXP,
+            color ? PIP_CRAC_RES     : PIP_LAC_0_RES,
+            color ? PIP_CRAC_BITMASK : PIP_LAC_0_BITMASK,
+            color ? PIP_CRAC_SIGN    : PIP_LAC_0_SIGN);
+    }
+#if 0
     (void)unzz;
     int num_nonzeros_left = 0;
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
@@ -1993,9 +2029,11 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     }
 
     oMovie().model().checkSerializedNonzeros(nonzero, ac, index, emit_dc, color);
+#endif
 }
 
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
+#if 0  // Enable single "present" bit per block.
     memset(ac, 0, sizeof(int16_t)*16);
     bool nonzero[16] = {0};
     bool eob = iMovie().tag((color
@@ -2008,6 +2046,28 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
     if (eob) {
         return;
     }
+#endif
+    // Just read all coefficients in reverse zigzag order.
+    std::vector<int> emitted;
+    for (int i = 15; i >= 1; --i) {
+        auto prior = oMovie().model().getACPrior(color, emitted);
+        int coefficient = iMovie().scanInt(prior,
+            color ? PIP_CRAC_EXP     : PIP_LAC_N_EXP,
+            color ? PIP_CRAC_RES     : PIP_LAC_N_RES,
+            color ? PIP_CRAC_BITMASK : PIP_LAC_N_BITMASK,
+            color ? PIP_CRAC_SIGN    : PIP_LAC_N_SIGN);
+        ac[kzz[i]] = coefficient;
+        emitted.push_back(coefficient);
+    }
+    if (emit_dc) {
+        auto prior = oMovie().model().getACPrior(color, emitted);
+        ac[kzz[0]] = iMovie().scanInt(prior,
+            color ? PIP_CRAC_EXP     : PIP_LAC_0_EXP,
+            color ? PIP_CRAC_RES     : PIP_LAC_0_RES,
+            color ? PIP_CRAC_BITMASK : PIP_LAC_0_BITMASK,
+            color ? PIP_CRAC_SIGN    : PIP_LAC_0_SIGN);
+    }
+#if 0
     for (int coef_uzz = emit_dc ? 0 : 1; coef_uzz < 16; ++coef_uzz) {
         int coef = kzz[coef_uzz];
         int stream_id = (color ? PIP_CRAC_BITMASK : (coef == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK));
@@ -2100,6 +2160,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
             assert(ac[coef] == 0);
         }
     }
+#endif
 }
 
 void writeMv(int i, DecodedMacroblock &rtd) {
@@ -2107,15 +2168,15 @@ void writeMv(int i, DecodedMacroblock &rtd) {
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
   int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
   int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
-  oMovie().tag(PIP_MVX_TAG).emitInt(deltaX, priorX.first);
-  oMovie().tag(PIP_MVY_TAG).emitInt(deltaY, priorY.first);
+  oMovie().emitInt(deltaX, priorX.first, PIP_MVX_TAG);
+  oMovie().emitInt(deltaY, priorY.first, PIP_MVY_TAG);
 }
 
 void readMv(int i, DecodedMacroblock &rtd) {
   auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
-  rtd.sMbMvp[i][0] = iMovie().tag(PIP_MVX_TAG).scanInt(priorX.first) + priorX.second;
-  rtd.sMbMvp[i][1] = iMovie().tag(PIP_MVY_TAG).scanInt(priorY.first) + priorY.second;
+  rtd.sMbMvp[i][0] = iMovie().scanInt(priorX.first, PIP_MVX_TAG) + priorX.second;
+  rtd.sMbMvp[i][1] = iMovie().scanInt(priorY.first, PIP_MVY_TAG) + priorY.second;
 }
 // iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
 const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
@@ -2350,14 +2411,14 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       emitted_luma_dc = true;
       for (int i = 0; i < 16; i++) {
         auto prior = oMovie().model().getLumaDCIntPrior(i);
-        oMovie().tag(PIP_LDC_TAG).emitInt(rtd.odata.lumaDC[i], prior);
+        oMovie().emitInt(rtd.odata.lumaDC[i], prior, PIP_LDC_TAG);
       }
     }
     if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
       emitted_chroma_dc = true;
       for (int i = 0; i < 8; i++) {
         auto prior = oMovie().model().getChromaDCIntPrior(i);
-        oMovie().tag(PIP_CRDC_TAG).emitInt(rtd.odata.chromaDC[i], prior);
+        oMovie().emitInt(rtd.odata.chromaDC[i], prior, PIP_CRDC_TAG);
       }
     }
     if (rtd.uiCbpL) {
@@ -2745,14 +2806,14 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       scanned_luma_dc = true;
       for (int i = 0; i < 16; i++) {
         auto prior = oMovie().model().getLumaDCIntPrior(i);
-        rtd.odata.lumaDC[i] = iMovie().tag(PIP_LDC_TAG).scanInt(prior);
+        rtd.odata.lumaDC[i] = iMovie().scanInt(prior, PIP_LDC_TAG);
       }
     }
     if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
       scanned_chroma_dc = true;
       for (int i = 0; i < 8; i++) {
         auto prior = oMovie().model().getChromaDCIntPrior(i);
-        rtd.odata.chromaDC[i] = iMovie().tag(PIP_CRDC_TAG).scanInt(prior);
+        rtd.odata.chromaDC[i] = iMovie().scanInt(prior, PIP_CRDC_TAG);
       }
     }
     if (rtd.uiCbpL) {

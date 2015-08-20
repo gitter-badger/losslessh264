@@ -126,6 +126,8 @@ class MacroblockModel {
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
     IntPrior<2, 4> lumaDCIntPriors[16];
     IntPrior<2, 4> chromaDCIntPriors[8];
+    typedef IntPrior<2, 4> ACPrior;
+    ACPrior acPriors[5][16][3][16][10][10];
 
     Sirikata::Array3d<DynProb,
             512, // past
@@ -236,6 +238,7 @@ public:
     Branch<4> getPredictionModePrior();
     IntPrior<2, 4>* getLumaDCIntPrior(size_t index);
     IntPrior<2, 4>* getChromaDCIntPrior(size_t index);
+    ACPrior* getACPrior(int color, const std::vector<int>& emitted);
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
     std::pair<MotionVectorDifferencePrior*, int> getMotionVectorDifferencePrior(int subblockIndex, int xyIndex);

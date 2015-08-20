@@ -288,45 +288,6 @@ public:
         return retval;
     }
 
-    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
-    template <class Prior>
-    int scanInt(Prior* prior) {
-      if (prior->hasZero) {
-        if (scanBit(prior->zero())) return 0;
-      }
-      bool sign = true;
-      if (prior->hasSign) {
-        sign = scanBit(prior->sign());
-      }
-
-      int log2 = scanUnary(&prior->exponent);
-
-      int lo = 0, hi = prior->mantissa.size();
-      int data = 1;
-      for (int i = log2-1; i >= 0; i--) {
-        bool bit;
-        if (hi > lo) {
-          int mid = (hi + lo) / 2;
-          bit = scanBit(&prior->mantissa[mid]);
-          if (bit) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
-          }
-        } else {
-          bit = scanBit();
-        }
-        data = (data << 1) | bit;
-      }
-      return sign ? data : -data;
-    }
-
-    // The default prior emits a Rice coding (plus zero and sign bits).
-    int scanInt() {
-      IntPrior<> prior;
-      return scanInt(&prior);
-    }
-
     template <int N>
     int scanUnary(UnaryIntPrior<N>* prior) {
       int i = 0;
@@ -420,49 +381,6 @@ public:
         }
     }
 
-    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
-    template <class Prior>
-    void emitInt(int data, Prior* prior) {
-      if (prior->hasZero) {
-        emitBit(data == 0, prior->zero());
-        if (data == 0) return;
-      }
-      assert(data != 0);
-      if (prior->hasSign) {
-        emitBit(data > 0, prior->sign());
-        if (data < 0) data = -data;
-      }
-      assert(data > 0);
-
-      // TODO(ctl) use jongmin's faster log2 computation.
-      int log2 = 0;
-      while ((2 << log2) <= data) log2++;
-      assert((1 << log2) <= data && data < (2 << log2));
-      emitUnary(log2, &prior->exponent);
-
-      int lo = 0, hi = prior->mantissa.size();
-      for (int i = log2-1; i >= 0; i--) {
-        bool bit = (data & (1 << i)) != 0;
-        if (hi > lo) {
-          int mid = (hi + lo) / 2;
-          emitBit(bit, &prior->mantissa[mid]);
-          if (bit) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
-          }
-        } else {
-          emitBit(bit);
-        }
-      }
-    }
-
-    // The default prior emits a Rice coding (plus zero and sign bits).
-    void emitInt(int data) {
-      IntPrior<> prior;
-      emitInt(data, &prior);
-    }
-
     template <int N>
     void emitUnary(int data, UnaryIntPrior<N>* prior) {
       for (int i = 0; i < data; i++) {
@@ -512,6 +430,53 @@ struct CompressionStream {
         return taggedStreams[tag];
     }
     void flushToWriter(CompressedWriter&);
+
+    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
+    template <class Prior>
+    void emitInt(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+      if (tagMantissa == -1) tagMantissa = tagExponent;
+      if (tagZero == -1) tagZero = tagExponent;
+      if (tagSign == -1) tagSign = tagExponent;
+
+      if (prior->hasZero) {
+        tag(tagZero).emitBit(data == 0, prior->zero());
+        if (data == 0) return;
+      }
+      assert(data != 0);
+      if (prior->hasSign) {
+        tag(tagSign).emitBit(data > 0, prior->sign());
+        if (data < 0) data = -data;
+      }
+      assert(data > 0);
+
+      // TODO(ctl) use jongmin's faster log2 computation.
+      int log2 = 0;
+      while ((2 << log2) <= data) log2++;
+      assert((1 << log2) <= data && data < (2 << log2));
+      tag(tagExponent).emitUnary(log2, &prior->exponent);
+
+      int lo = 0, hi = prior->mantissa.size();
+      for (int i = log2-1; i >= 0; i--) {
+        bool bit = (data & (1 << i)) != 0;
+        if (hi > lo) {
+          int mid = (hi + lo) / 2;
+          tag(tagMantissa).emitBit(bit, &prior->mantissa[mid]);
+          if (bit) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        } else {
+          tag(tagMantissa).emitBit(bit);
+        }
+      }
+    }
+
+    // The default prior emits a Rice coding (plus zero and sign bits).
+    void emitInt(int data, int tag) {
+      IntPrior<> prior;
+      emitInt(data, &prior, tag);
+    }
 };
 CompressionStream &oMovie();
 
@@ -519,6 +484,50 @@ struct InputCompressionStream {
     std::string filenamePrefix;
     std::map<int32_t, ArithmeticCodedInput> taggedStreams;
     ArithmeticCodedInput&tag(int32_t tag);
+
+    // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
+    template <class Prior>
+    int scanInt(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+      if (tagMantissa == -1) tagMantissa = tagExponent;
+      if (tagZero == -1) tagZero = tagExponent;
+      if (tagSign == -1) tagSign = tagExponent;
+
+      if (prior->hasZero) {
+        if (tag(tagZero).scanBit(prior->zero())) return 0;
+      }
+      bool sign = true;
+      if (prior->hasSign) {
+        sign = tag(tagSign).scanBit(prior->sign());
+      }
+
+      int log2 = tag(tagExponent).scanUnary(&prior->exponent);
+
+      int lo = 0, hi = prior->mantissa.size();
+      int data = 1;
+      for (int i = log2-1; i >= 0; i--) {
+        bool bit;
+        if (hi > lo) {
+          int mid = (hi + lo) / 2;
+          bit = tag(tagMantissa).scanBit(&prior->mantissa[mid]);
+          if (bit) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        } else {
+          bit = tag(tagMantissa).scanBit();
+        }
+        data = (data << 1) | bit;
+      }
+      return sign ? data : -data;
+    }
+
+    // The default prior emits a Rice coding (plus zero and sign bits).
+    int scanInt(int tag) {
+      IntPrior<> prior;
+      return scanInt(&prior, tag);
+    }
+
 };
 InputCompressionStream &iMovie();
 
