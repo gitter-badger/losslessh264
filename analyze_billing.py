@@ -43,8 +43,8 @@ class VideoCompressionResult(object):
 
 def parse_outputs(output_path):
     video_files = []
-    video_result = None
-    video_results = []
+    video_result = VideoCompressionResult('video file')
+    video_results = [video_result]
     with open(output_path, 'r') as output_file:
         for line in output_file:
             if line.startswith('==='):
@@ -61,7 +61,8 @@ def parse_outputs(output_path):
                 else:
                     video_result.ours[label] = int(m.groupdict()['bytes'])
                 continue
-    return video_results
+    return [video_result for video_result in video_results
+            if video_result.ours or video_result.benchmark]
 
 def perc(num, denom):
     if denom == 0:
