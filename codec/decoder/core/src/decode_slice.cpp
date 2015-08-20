@@ -2160,7 +2160,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       int& origSkipped,
                                       uint32_t& uiCachedLumaQp,
                                       int32_t& uiLastNonzeroDeltaLumaQp,
-                                      bool isFirstMB) {
+                                      int macroblockIndexInSlice) {
+  bool isFirstMB = (macroblockIndexInSlice == 0);
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
   bool writeSkipRun = (-1 == pSlice->iMbSkipRun);
@@ -2187,7 +2188,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   }
   if (rtd.iMbSkipRun == 1) {
     // We are done while finishing a skip. writeBlock will not be true.
-    oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
+      oMovie().tag(PIP_SKIP_END_TAG).emitBit(hasExactlyOneStopBit, oMovie().model().getStopBitPrior(macroblockIndexInSlice));
   }
   bool initialSkip = (rtd.iMbSkipRun > 0 && origSkipped == -1);
   bool finalSkip = (rtd.iMbSkipRun == 0 && origSkipped != -1);
@@ -2209,7 +2210,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   if (writeBlock) {
     initRTDFromDecoderState(rtd, pCurLayer);
 
-    oMovie().tag(PIP_SKIP_END_TAG).emitBits(hasExactlyOneStopBit, 1);
+    oMovie().tag(PIP_SKIP_END_TAG).emitBit(hasExactlyOneStopBit, oMovie().model().getStopBitPrior(macroblockIndexInSlice));
     oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
     uint16_t numNonzerosL = oMovie().model().getAndUpdateMacroblockLumaNumNonzeros();
     uint8_t numNonzerosC = oMovie().model().getAndUpdateMacroblockChromaNumNonzeros();
@@ -2436,7 +2437,8 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
                                    int& curSkipped,
                                    uint32_t& uiCachedLumaQp,
                                    int32_t& uiLastNonzeroDeltaLumaQp,
-                                   bool isFirstMB) {
+                                   int macroblockIndexInSlice) {
+  bool isFirstMB = (macroblockIndexInSlice == 0);
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
   bool endOfSlice = false;
@@ -2473,20 +2475,10 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   }
   if (curSkipped == 1) {
     // We need to know if this macroblock ends in a skip or ends in a block.
-    res = iMovie().tag(PIP_SKIP_END_TAG).scanBits(1);
-    if (res.second) {
-      fprintf(stderr, "failed to read eos!\n");
-    } else {
-      endOfSlice = res.first;
-    }
+    endOfSlice = iMovie().tag(PIP_SKIP_END_TAG).scanBit(oMovie().model().getStopBitPrior(macroblockIndexInSlice));
   }
   if (curSkipped == 0) { // Decrementing after decode
-    res = iMovie().tag(PIP_SKIP_END_TAG).scanBits(1);
-    if (res.second) {
-      fprintf(stderr, "failed to read eos!\n");
-    } else {
-      endOfSlice = res.first;
-    }
+    endOfSlice = iMovie().tag(PIP_SKIP_END_TAG).scanBit(oMovie().model().getStopBitPrior(macroblockIndexInSlice));
     res = iMovie().tag(PIP_MB_TYPE_TAG).scanBits(oMovie().model().getMacroblockTypePrior());
     if (res.second) {
       fprintf(stderr, "failed to read iMbType!\n");
@@ -3013,7 +3005,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   }
   uint32_t uiCachedLumaQp = 0;
   int32_t uiLastNonzeroDeltaLumaQp = 0;
-  bool isFirstMB = true;
+  int macroblockSliceIndex = 0;
   do {
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
@@ -3031,15 +3023,15 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
                                         esCabac.get(),
                                         iNextMbXyIndex, uiEosFlag,
                                         rtd, pDecMbFunc, pCurLayer,
-                                        origSkipped, curSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp, isFirstMB);
+                                        origSkipped, curSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp, macroblockSliceIndex);
     } else {
       iRet = WelsDecodeSliceForNonRecoding(pCtx, pNalCur, pSlice,
                                            esCabac.get(),
                                            iNextMbXyIndex, uiEosFlag, rtd,
                                            pDecMbFunc, pCurLayer,
-                                           origSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp, isFirstMB);
+                                           origSkipped, uiCachedLumaQp, uiLastNonzeroDeltaLumaQp,
+                                           macroblockSliceIndex);
     }
-    isFirstMB = false;
     if (iRet != ERR_NONE) {
       curBillTag = PIP_DEFAULT_TAG;
       return iRet;
@@ -3065,6 +3057,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCurLayer->iMbX =  iMbX;
     pCurLayer->iMbY = iMbY;
     pCurLayer->iMbXyIndex = iNextMbXyIndex;
+    ++macroblockSliceIndex;
   } while (1);
   if (pCtx->pPps->bEntropyCodingModeFlag) {
     if (oMovie().isRecoding) {

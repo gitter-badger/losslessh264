@@ -203,6 +203,9 @@ class MacroblockModel {
         16,//which coef
         17,//num_nonzeros
         3> acSignPriors;
+    Sirikata::Array1d<DynProb,
+        2048// num macroblocks in slice
+        > stopBitPriors;
     struct SingleCoefNeighbors {
         int16_t past;
         int16_t left;
@@ -236,6 +239,7 @@ public:
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getLumaI16x16ModePrior();
     std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> getChromaI8x8ModePrior();
     Sirikata::Array1d<DynProb, 511>::Slice getSkipRunPrior();
+    DynProb* getStopBitPrior(int numMacroblocksThisSlice);
     Branch<9> getSkipRunPriorBranch() {
         return getSkipRunPrior().slice<0, 511>();
     }

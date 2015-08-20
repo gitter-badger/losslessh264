@@ -517,7 +517,9 @@ Branch<4> MacroblockModel::getCbpLPrior() {
     }
     return CbpLPrior.at(prior, encodeMacroblockType(mb->uiMbType));
 }
-
+DynProb * MacroblockModel::getStopBitPrior(int numMacroblocksThisSlice) {
+    return &stopBitPriors.at(numMacroblocksThisSlice < 2048 ? numMacroblocksThisSlice : 2047);
+}
 Branch<4> MacroblockModel::getMacroblockTypePrior() {
     using namespace Nei;
     int leftType = 15;
