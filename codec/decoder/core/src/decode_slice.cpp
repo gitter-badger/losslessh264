@@ -1871,7 +1871,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
           assert(ac[kzz[i]] == 0);
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros);
+        auto prior = oMovie().model().getACPrior(color, 16*index + kzz[i], emitted, nonzeros);
         int coefficient = ac[kzz[i]];
         oMovie().tag(
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP
@@ -1898,7 +1898,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
           ac[kzz[i]] = 0;
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros);
+        auto prior = oMovie().model().getACPrior(color, 16*index + kzz[i], emitted, nonzeros);
         int coefficient = iMovie().scanInt(prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,

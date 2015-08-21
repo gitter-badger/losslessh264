@@ -70,8 +70,12 @@ struct DecodedMacroblock {
   }
   void preInit(const WelsDec::PSlice);
 
+  const int16_t* getAC(int color, int subblockIndex = 0) const {
+    return &(color == 0 ? odata.lumaAC : odata.chromaAC)[16 * subblockIndex];
+  }
+
   int countSubblockNonzeros(int color, int subblockIndex) const {
-    const int16_t* ac = &(color == 0 ? odata.lumaAC : odata.chromaAC)[16 * subblockIndex];
+    const int16_t* ac = getAC(color, subblockIndex);
     int nonzeros = 0;
     for (int i = 0; i < 16; i++) {
       if (ac[i] != 0) nonzeros++;

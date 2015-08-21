@@ -512,14 +512,14 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
     [std::min(2, above)];
 }
 
-MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted, int nonzeros) {
+MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, int acIndex, const std::vector<int>& emitted, int nonzeros) {
   int nonzeros_left = nonzeros;
   for (int coefficient : emitted) {
     if (coefficient != 0) nonzeros_left--;
   }
-  int zeros_left = (16 - emitted.size()) - nonzeros_left;
   int prev = emitted.empty() ? 0 : emitted.back();
   int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
+  auto neighbors = priorCoef((acIndex/16) % (color ? 4 : 16), acIndex % 16, color);
 
   return &acPriors
     [mb->eSliceType]
@@ -528,7 +528,9 @@ MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vect
     [emitted.size()]
     [std::min(4, nonzeros_left)]
     [std::max(0, std::min(4, prev+2))]
-    [std::max(0, std::min(4, prev2+2))];
+    [std::max(0, std::min(4, prev2+2))]
+    [std::max(0, std::min(4, neighbors.left+2))]
+    [std::max(0, std::min(4, neighbors.above+2))];
 }
 
 std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>
