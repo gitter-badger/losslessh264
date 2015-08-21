@@ -10,8 +10,9 @@ struct DecodedMacroblock {
   } odata;
   uint8_t eSliceType;
   int uiChromaQpIndexOffset;
-  int32_t iPrevIntra4x4PredMode[16];
-  int32_t iRemIntra4x4PredMode[16];
+  int32_t iPrevIntra4x4PredMode[16]; // deprecated, not read
+  int32_t iRemIntra4x4PredMode[16]; // deprecated, not read
+  int32_t iBestIntra4x4PredMode[16];
   int16_t sMbMvp[16][2];
   int16_t sMbAbsoluteMv[16][2]; // absolute motion vectors. no need to serialized them
   int uiSubMbType[4];

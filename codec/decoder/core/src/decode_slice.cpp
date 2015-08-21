@@ -62,6 +62,8 @@ void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
     uiChromaQpIndexOffset = pSliceHeader->pPps->iChromaQpIndexOffset[0];
 }
 
+static int which_block = 0;
+
 namespace WelsDec {
 static void initCoeffsFromCoefPtr(DecodedMacroblock &rtd,
                                   int16_t * pScaledTCoeffQorNot) {
@@ -497,6 +499,7 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     } else {
       if (iPrevIntra4x4PredMode) {
         iBestMode = kiPredMode;
+        //fprintf(stderr, "dec %d bestmode=predmode %d\n", i, kiPredMode);
       } else {
 #ifdef BILLING
         curBillTag = PIP_PRED_MODE_TAG;
@@ -505,9 +508,11 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
         WELS_READ_VERIFY (BsGetBits (pBs, 3, &uiCode));
         rtd->iRemIntra4x4PredMode[i] = uiCode;
         iBestMode = uiCode + ((int32_t) uiCode >= kiPredMode);
+        //fprintf(stderr, "dec %d bestmode=%d %d %d\n", i, iBestMode, kiPredMode, uiCode);
       }
       rtd->iPrevIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
     }
+    rtd->iBestIntra4x4PredMode[i] = iBestMode;
 
     iFinalMode = CheckIntraNxNPredMode (&iSampleAvail[0], &iBestMode, i, false);
     if (iFinalMode  == ERR_INVALID_INTRA4X4_MODE) {
@@ -607,6 +612,7 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       }
       rtd->iPrevIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
     }
+    rtd->iBestIntra4x4PredMode[i] = iBestMode;
 
     iFinalMode = CheckIntraNxNPredMode (&iSampleAvail[0], &iBestMode, i << 2, true);
 
@@ -1524,14 +1530,46 @@ struct EncoderState {
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
     }
 
-    void initNonZeroCount(PDqLayer pCurLayer, const DecodedMacroblock::RawDCTData &odata) {
+    void initNonZeroCount(PWelsDecoderContext pCtx, PDqLayer pCurLayer, const DecodedMacroblock::RawDCTData &odata, DecodedMacroblock &rtd) {
       int8_t *pNonZeroCount = pSlice.sMbCacheInfo.iNonZeroCoeffCount;
       memset(pNonZeroCount, 0xe7, 48);
       {
         SWelsNeighAvail sNeighAvail;
         GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
-        WelsFillCacheNonZeroCount (
-            &sNeighAvail, (uint8_t*)pNonZeroCount, pCurLayer);
+        if (pCurMb().uiMbType == MB_TYPE_INTRA4x4 || pCurMb().uiMbType == MB_TYPE_INTRA8x8) {
+          ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
+          int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
+          uint8_t uiNeighAvail = 0;
+          // See WelsFillCacheConstrain0IntraNxN in parse_mb_syn_cavlc.cpp
+          pCtx->pFillInfoCacheIntraNxNFunc(&sNeighAvail,
+              (uint8_t*)pNonZeroCount, pIntraPredMode, pCurLayer);
+          pCtx->pMapNxNNeighToSampleFunc (&sNeighAvail, iSampleAvail);
+          uiNeighAvail = (iSampleAvail[6] << 2) | (iSampleAvail[0] << 1) | (iSampleAvail[1]);
+          if (pCurMb().uiMbType == MB_TYPE_INTRA4x4) {
+            for (int i = 0; i < 16; i++) {
+              const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i);
+              int curMode = rtd.iBestIntra4x4PredMode[i];
+              pIntraPredMode[g_kuiScan8[i]] = curMode;
+              prevIntra4x4PredModeFlag[i] = (curMode == kiPredMode);
+              remIntra4x4PredModeFlag[i] = (int8_t)(curMode - (curMode > kiPredMode));
+              if (!prevIntra4x4PredModeFlag[i]) {
+                //fprintf(stderr, "enc %d bestmode=%d %d %d\n", i, curMode, kiPredMode, remIntra4x4PredModeFlag[i]);
+              } else {
+                //fprintf(stderr, "enc %d bestmode=predmode %d\n", i, kiPredMode);
+              }
+            }
+          } else {
+            for (int i = 0; i < 4; i++) {
+              const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i << 2);
+              int curMode = rtd.iBestIntra4x4PredMode[i];
+              prevIntra4x4PredModeFlag[i] = (curMode == kiPredMode);
+              remIntra4x4PredModeFlag[i] = (int8_t)(curMode - (curMode > kiPredMode));
+            }
+          }
+        } else {
+          WelsFillCacheNonZeroCount (
+              &sNeighAvail, (uint8_t*)pNonZeroCount, pCurLayer);
+        }
          pCurMb().uiNeighborAvail = sNeighAvail.iLeftAvail ? WelsEnc::LEFT_MB_POS : 0;
          pCurMb().uiNeighborAvail |= sNeighAvail.iTopAvail ? WelsEnc::TOP_MB_POS : 0;
          pCurMb().uiNeighborAvail |= sNeighAvail.iLeftTopAvail ? WelsEnc::TOPLEFT_MB_POS : 0;
@@ -1589,17 +1627,6 @@ struct EncoderState {
         pSlice.sSliceHeaderExt.sSliceHeader.eSliceType = pEncCtx.eSliceType;
 
         // pSlice.sMbCacheInfo.sMvComponents may be need for cabac
-
-        size_t num_components = 0;
-        if (rtd->uiMbType == MB_TYPE_INTRA8x8) {
-            num_components = 4;
-        } else if (rtd->uiMbType == MB_TYPE_INTRA4x4) {
-            num_components = 16;
-        }
-        for (size_t i = 0; i < num_components; i++) {
-            prevIntra4x4PredModeFlag[i] = !!(rtd->iPrevIntra4x4PredMode[i]);
-            remIntra4x4PredModeFlag[i] = (int8_t)(rtd->iRemIntra4x4PredMode[i]);
-        }
 
         pSlice.sMbCacheInfo.uiChmaI8x8Mode = rtd->uiChmaI8x8Mode;
         pCurMb().uiChromPredMode = rtd->uiChmaI8x8Mode;
@@ -2062,24 +2089,14 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                                                luma_prior_pair.second);
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
-      // NOTE(jongmin): Reading spec suggests that there are up to 9 intra prediction modes for 4x4.
       for (int i = 0; i < 16; i++) {
-        oMovie().tag(PIP_PREV_PRED_TAG).emitBits((uint16_t)rtd.iPrevIntra4x4PredMode[i],
-                                                 oMovie().model().getPredictionModePrior(false));
-      }
-      for (int i = 0; i < 16; i++) {
-        oMovie().tag(PIP_PRED_TAG).emitBits((uint16_t)rtd.iRemIntra4x4PredMode[i],
+        oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint16_t)rtd.iBestIntra4x4PredMode[i],
                                             oMovie().model().getPredictionModePrior(true));
       }
     }
     if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
-      // NOTE(jongmin): Reading spec suggests that there are up to 9 intra prediction modes for 4x4.
       for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_PREV_PRED_MODE_TAG).emitBits((uint8_t)rtd.iPrevIntra4x4PredMode[i],
-                                                      oMovie().model().getPredictionModePrior(false));
-      }
-      for (int i = 0; i < 4; i++) {
-        oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iRemIntra4x4PredMode[i],
+        oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iBestIntra4x4PredMode[i],
                                                  oMovie().model().getPredictionModePrior(true));
       }
       for (int i = 0; i < 4; i++) {
@@ -2193,7 +2210,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
       esCabac->init(&rtd);
       esCabac->setupCoefficientsFromOdata(rtd.odata);
-      esCabac->initNonZeroCount(pCurLayer, rtd.odata);
+      esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       esCabac->computeNeighborPriorsCabac();
       WelsEnc::WelsSpatialWriteMbSynCabac (
           &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
@@ -2205,7 +2222,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       EncoderState es;
       es.init(&rtd);
       es.setupCoefficientsFromOdata(rtd.odata);
-      es.initNonZeroCount(pCurLayer, rtd.odata);
+      es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       woffset = 0;
       WelsEnc::WelsSpatialWriteMbSyn (
           &es.pEncCtx, &es.pSlice, &es.pCurMb());
@@ -2220,7 +2237,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
       esCabac->init(&rtd);
       esCabac->setupCoefficientsFromOdata(rtd.odata);
-      esCabac->initNonZeroCount(pCurLayer, rtd.odata);
+      esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       esCabac->computeNeighborPriorsCabac();
       WelsEnc::WelsSpatialWriteMbSynCabac (
           &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
@@ -2363,40 +2380,22 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
       for (int i = 0; i < 16; i++) {
-        res = iMovie().tag(PIP_PREV_PRED_TAG).scanBits(oMovie().model().getPredictionModePrior(false));
-        if (res.second) {
-          fprintf(stderr, "failed to read prevPredMode!\n");
-          rtd.iPrevIntra4x4PredMode[i] = 0;
-        } else {
-          rtd.iPrevIntra4x4PredMode[i] = res.first;
-        }
-      }
-      for (int i = 0; i < 16; i++) {
-        res = iMovie().tag(PIP_PRED_TAG).scanBits(oMovie().model().getPredictionModePrior(true));
+        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(true));
         if (res.second) {
           fprintf(stderr, "failed to read remPredMode!\n");
-          rtd.iRemIntra4x4PredMode[i] = 0;
+          rtd.iBestIntra4x4PredMode[i] = 0;
         } else {
-          rtd.iRemIntra4x4PredMode[i] = res.first;
+          rtd.iBestIntra4x4PredMode[i] = res.first;
         }
       }
     } else if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_PREV_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(false));
+        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(false));
         if (res.second) {
           fprintf(stderr, "failed to read prevPredMode!\n");
-          rtd.iPrevIntra4x4PredMode[i] = 0;
+          rtd.iBestIntra4x4PredMode[i] = 0;
         } else {
-          rtd.iPrevIntra4x4PredMode[i] = res.first;
-        }
-      }
-      for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(true));
-        if (res.second) {
-          fprintf(stderr, "failed to read remPredMode!\n");
-          rtd.iRemIntra4x4PredMode[i] = 0;
-        } else {
-          rtd.iRemIntra4x4PredMode[i] = res.first;
+          rtd.iBestIntra4x4PredMode[i] = res.first;
         }
       }
       for (int i = 0; i < 4; i++) {
@@ -2612,7 +2611,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
     esCabac->init(&rtd);
     esCabac->setupCoefficientsFromOdata(rtd.odata);
-    esCabac->initNonZeroCount(pCurLayer, rtd.odata);
+    esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     WelsEnc::WelsSpatialWriteMbSynCabac (
         &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
 #ifdef DEBUG_PRINTS
@@ -2625,7 +2624,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     rtd.iMbSkipRun = origSkipped;
     es.init(&rtd);
     es.setupCoefficientsFromOdata(rtd.odata);
-    es.initNonZeroCount(pCurLayer, rtd.odata);
+    es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     WelsEnc::WelsSpatialWriteMbSyn (
         &es.pEncCtx, &es.pSlice, &es.pCurMb());
 
@@ -2699,7 +2698,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     EncoderState es2;
     es2.init(&rtd);
     es2.setupCoefficientsFromOdata(rtd.odata);
-    es2.initNonZeroCount(pCurLayer, rtd.odata);
+    es2.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     woffset = 0;
     WelsEnc::WelsSpatialWriteMbSyn (
         &es2.pEncCtx, &es2.pSlice, &es2.pCurMb());
