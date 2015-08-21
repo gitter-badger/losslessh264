@@ -85,7 +85,7 @@ class DynProb {
     unsigned counts[2];
 
     enum {
-        RESCALE_CONST = 4096,
+        RESCALE_CONST = 512,  // What is special about this number? Could it be adaptive?
     };
 public:
 
