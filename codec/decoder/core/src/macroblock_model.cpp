@@ -419,9 +419,9 @@ Branch<8> MacroblockModel::getSubMbPrior(int i) {
 }
 
 
-Branch<4> MacroblockModel::getPredictionModePrior(bool res) {
-  return predictionModePriors.at(res,
-      encodeMacroblockType(mb->uiMbType));
+Branch<4> MacroblockModel::getPredictionModePrior(int predMode, int leftAvail, int topAvail, int leftTopAvail) {
+  int availIdx = (leftAvail << 2) | (topAvail << 1) | (leftTopAvail);
+  return predictionModePriors.at(encodeMacroblockType(mb->uiMbType), availIdx, predMode);
 }
 
 MacroblockModel::DCPrior* MacroblockModel::getLumaDCIntPrior(size_t index) {

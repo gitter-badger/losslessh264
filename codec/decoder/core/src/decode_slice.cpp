@@ -1530,26 +1530,40 @@ struct EncoderState {
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
     }
 
+    static void getNeighborBlocks(PWelsDecoderContext pCtx, PDqLayer pCurLayer, SWelsNeighAvail *pNeighAvail, int8_t *pNonZeroCount, int8_t *pIntraPredMode, int32_t *iSampleAvail, uint8_t *uiNeighAvail, int mbType) {
+      *uiNeighAvail = 0;
+      memset(pNonZeroCount, 0xe7, 48);
+      GetNeighborAvailMbType (pNeighAvail, pCurLayer);
+      if (mbType == MB_TYPE_INTRA4x4 || mbType == MB_TYPE_INTRA8x8) {
+        // See WelsFillCacheConstrain0IntraNxN in parse_mb_syn_cavlc.cpp
+        pCtx->pFillInfoCacheIntraNxNFunc(pNeighAvail,
+            (uint8_t*)pNonZeroCount, pIntraPredMode, pCurLayer);
+        pCtx->pMapNxNNeighToSampleFunc (pNeighAvail, iSampleAvail);
+        *uiNeighAvail = (iSampleAvail[6] << 2) | (iSampleAvail[0] << 1) | (iSampleAvail[1]);
+      } else {
+        if (mbType == MB_TYPE_INTRA16x16) {
+          pCtx->pMap16x16NeighToSampleFunc (pNeighAvail, uiNeighAvail);
+        }
+        WelsFillCacheNonZeroCount (
+            pNeighAvail, (uint8_t*)pNonZeroCount, pCurLayer);
+      }
+    }
+
     void initNonZeroCount(PWelsDecoderContext pCtx, PDqLayer pCurLayer, const DecodedMacroblock::RawDCTData &odata, DecodedMacroblock &rtd) {
       int8_t *pNonZeroCount = pSlice.sMbCacheInfo.iNonZeroCoeffCount;
-      memset(pNonZeroCount, 0xe7, 48);
       {
         SWelsNeighAvail sNeighAvail;
-        GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
+        ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
+        uint8_t uiNeighAvail;
+        int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
+        getNeighborBlocks(pCtx, pCurLayer, &sNeighAvail, pNonZeroCount, pIntraPredMode, iSampleAvail, &uiNeighAvail, pCurMb().uiMbType);
         if (pCurMb().uiMbType == MB_TYPE_INTRA4x4 || pCurMb().uiMbType == MB_TYPE_INTRA8x8) {
-          ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
-          int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
-          uint8_t uiNeighAvail = 0;
-          // See WelsFillCacheConstrain0IntraNxN in parse_mb_syn_cavlc.cpp
-          pCtx->pFillInfoCacheIntraNxNFunc(&sNeighAvail,
-              (uint8_t*)pNonZeroCount, pIntraPredMode, pCurLayer);
-          pCtx->pMapNxNNeighToSampleFunc (&sNeighAvail, iSampleAvail);
-          uiNeighAvail = (iSampleAvail[6] << 2) | (iSampleAvail[0] << 1) | (iSampleAvail[1]);
           if (pCurMb().uiMbType == MB_TYPE_INTRA4x4) {
             for (int i = 0; i < 16; i++) {
               const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i);
               int curMode = rtd.iBestIntra4x4PredMode[i];
               pIntraPredMode[g_kuiScan8[i]] = curMode;
+              iSampleAvail[g_kuiCache30ScanIdx[i]] = 1;
               prevIntra4x4PredModeFlag[i] = (curMode == kiPredMode);
               remIntra4x4PredModeFlag[i] = (int8_t)(curMode - (curMode > kiPredMode));
               if (!prevIntra4x4PredModeFlag[i]) {
@@ -1562,6 +1576,11 @@ struct EncoderState {
             for (int i = 0; i < 4; i++) {
               const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i << 2);
               int curMode = rtd.iBestIntra4x4PredMode[i];
+              for (int j = 0; j < 4; j++) {
+                pIntraPredMode[g_kuiScan8[ (i << 2) + j]] = curMode;
+                iSampleAvail[g_kuiCache30ScanIdx[ (i << 2) + j]] = 1;
+              }
+              pIntraPredMode[g_kuiScan4[i]] = curMode;
               prevIntra4x4PredModeFlag[i] = (curMode == kiPredMode);
               remIntra4x4PredModeFlag[i] = (int8_t)(curMode - (curMode > kiPredMode));
             }
@@ -2089,15 +2108,28 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                                                luma_prior_pair.second);
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
+      SWelsNeighAvail sNeighAvail;
+      ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
+      ENFORCE_STACK_ALIGN_1D (int8_t, pNonZeroCount, 48, 16);
+      uint8_t uiNeighAvail;
+      int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
+      EncoderState::getNeighborBlocks(pCtx, pCurLayer, &sNeighAvail, pNonZeroCount, pIntraPredMode, iSampleAvail, &uiNeighAvail, rtd.uiMbType);
       for (int i = 0; i < 16; i++) {
+        const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i);
+        int iIdx = g_kuiCache30ScanIdx[i];
+        iSampleAvail[iIdx] = 1;
+        int32_t iLeftAvail     = iSampleAvail[iIdx - 1];
+        int32_t iTopAvail      = iSampleAvail[iIdx - 6];
+        int32_t bLeftTopAvail  = iSampleAvail[iIdx - 7];
         oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint16_t)rtd.iBestIntra4x4PredMode[i],
-                                            oMovie().model().getPredictionModePrior(true));
+                                            oMovie().model().getPredictionModePrior(kiPredMode, !!iLeftAvail, !!iTopAvail, !!bLeftTopAvail));
+        pIntraPredMode[g_kuiScan8[i]] = (uint16_t)rtd.iBestIntra4x4PredMode[i];
       }
     }
     if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iBestIntra4x4PredMode[i],
-                                                 oMovie().model().getPredictionModePrior(true));
+                                                 oMovie().model().getPredictionModePrior(1, 1, 1, 0));
       }
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_SUB_MB_TAG).emitBits(rtd.uiSubMbType[i], oMovie().model().getSubMbPrior(i));
@@ -2379,8 +2411,21 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     }
 
     if (MB_TYPE_INTRA4x4 == rtd.uiMbType) {
+      SWelsNeighAvail sNeighAvail;
+      ENFORCE_STACK_ALIGN_1D (int8_t, pIntraPredMode, 48, 16);
+      ENFORCE_STACK_ALIGN_1D (int8_t, pNonZeroCount, 48, 16);
+      uint8_t uiNeighAvail;
+      int32_t iSampleAvail[5 * 6] = { 0 }; //initialize as 0
+      EncoderState::getNeighborBlocks(pCtx, pCurLayer, &sNeighAvail, pNonZeroCount, pIntraPredMode, iSampleAvail, &uiNeighAvail, rtd.uiMbType);
       for (int i = 0; i < 16; i++) {
-        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(true));
+        const int32_t kiPredMode = PredIntra4x4Mode (pIntraPredMode, i);
+        int iIdx = g_kuiCache30ScanIdx[i];
+        iSampleAvail[iIdx] = 1;
+        int32_t iLeftAvail     = iSampleAvail[iIdx - 1];
+        int32_t iTopAvail      = iSampleAvail[iIdx - 6];
+        int32_t bLeftTopAvail  = iSampleAvail[iIdx - 7];
+        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(kiPredMode, !!iLeftAvail, !!iTopAvail, !!bLeftTopAvail));
+        pIntraPredMode[g_kuiScan8[i]] = res.first;
         if (res.second) {
           fprintf(stderr, "failed to read remPredMode!\n");
           rtd.iBestIntra4x4PredMode[i] = 0;
@@ -2390,7 +2435,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
     } else if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
       for (int i = 0; i < 4; i++) {
-        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(false));
+        res = iMovie().tag(PIP_PRED_MODE_TAG).scanBits(oMovie().model().getPredictionModePrior(1, 1, 1, 0));
         if (res.second) {
           fprintf(stderr, "failed to read prevPredMode!\n");
           rtd.iBestIntra4x4PredMode[i] = 0;
