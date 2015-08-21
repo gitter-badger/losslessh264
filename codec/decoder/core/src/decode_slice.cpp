@@ -2424,13 +2424,21 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
         oMovie().emitInt(rtd.odata.chromaDC[i], prior, PIP_CRDC_TAG);
       }
     }
-    if (rtd.uiCbpL) {
-      for (int i = 0; i < 16; i++) {
-          encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
-          /*
-          if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
-              oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
-              }*/
+    for (int i8x8 =0; i8x8 < 4; i8x8++){
+      if (rtd.uiCbpL & (1 << i8x8)) {
+        for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+            int i = i8x8*4 + i4x4;
+            encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+            /*
+            if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
+                oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
+                }*/
+        }
+      }
+      else {
+
+        //make sure that the lumaAC are really zero
+        
       }
     }
     if (rtd.uiCbpC == 2) {
@@ -2823,9 +2831,12 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         rtd.odata.chromaDC[i] = iMovie().scanInt(prior, PIP_CRDC_TAG);
       }
     }
-    if (rtd.uiCbpL) {
-      for (int i = 0; i < 16; i++) {
-          decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+    for (int i8x8 =0; i8x8 < 4; i8x8++){
+      if (rtd.uiCbpL & (1 << i8x8)) {
+        for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+            int i = i8x8*4 + i4x4;
+            decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+        }
       }
     }
     if (rtd.uiCbpC == 2) {
