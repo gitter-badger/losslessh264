@@ -2010,7 +2010,7 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
     int qp = pCtx->pPps->bEntropyCodingModeFlag ? pSliceHeader->iSliceQp : rtd.uiLumaQp;
     int blockType = (color ? 0 : 1) | (emit_dc ? 0 : 2); // TODO: DC encoding?
 
-    if (!color) {
+    if (pCtx->pPps->bEntropyCodingModeFlag && !color) {
       static int i;
       fprintf(stderr, "Enc Prior luma %d exists: [%d][%d] %d %d/%d->%d\n", i, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iCabacInitIdc, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iSliceQp, emit_dc ? 8 : 4, nonzeroLeft, nonzeroTop, (nonzeroLeft ? 1 : 0) | (nonzeroTop ? 2 : 0));
       i++;
@@ -2584,7 +2584,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
     if (rtd.uiCbpL) {
       for (int i = 0; i < 16; i++) {
+        if (rtd.uiCbpL & (1 << (i / 4))) {
           encode4x4(pCtx, rtd, &rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+        }
           /*
           if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
               oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
@@ -2995,7 +2997,11 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     }
     if (rtd.uiCbpL) {
       for (int i = 0; i < 16; i++) {
+        if (rtd.uiCbpL & (1 << (i / 4))) {
           decode4x4(pCtx, rtd, &rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+        } else {
+          memset(&rtd.odata.lumaAC[i * 16], 0, sizeof(rtd.odata.lumaAC[0]) * 16);
+        }
       }
     }
     if (rtd.uiCbpC == 2) {
