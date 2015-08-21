@@ -2435,11 +2435,6 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                 }*/
         }
       }
-      else {
-
-        //make sure that the lumaAC are really zero
-        
-      }
     }
     if (rtd.uiCbpC == 2) {
       for (int i = 0; i < 8; i++) {
