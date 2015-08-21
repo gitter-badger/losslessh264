@@ -106,6 +106,7 @@ struct Neighbors {
 namespace WelsDec{
     struct TagWelsDecoderContext;
     typedef struct TagWelsDecoderContext *PWelsDecoderContext;
+    class LumaPicture;
 }
 
 // Utility functions for arithmetic
@@ -119,13 +120,15 @@ class MacroblockModel {
     DecodedMacroblock *mb;
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
+    std::vector<uint16_t> prev_block_luma_dc_nonresidual;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
     typedef IntPrior<2, 4> MotionVectorDifferencePrior;
     MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
+
     typedef IntPrior<3, 4> DCPrior;
-    DCPrior lumaDCIntPriors[16][5][16];
+    DCPrior lumaDCIntPriors[256][256][5][16];  // [prev_frame_value][slice_type][mb_type]
     DCPrior chromaDCIntPriors[8][5][16];
 
     //typedef IntPrior<2, 4> ACPrior;
@@ -211,7 +214,7 @@ class MacroblockModel {
     SingleCoefNeighbors priorCoef(int index, int coef, int color);
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
-                               const FreqImage *, int mbx, int mby);
+                               const FreqImage *, int mbx, int mby, const WelsDec::LumaPicture *prevFrameLuma);
     Sirikata::Array1d<DynProb, 15>::Slice getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             bool emit_dc, int color);
     DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
@@ -220,8 +223,9 @@ public:
     DynProb *getAcSignPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             int color);
     Branch<4> getMacroblockTypePrior();
+    bool isPFrame() const;
     Branch<4> getPredictionModePrior(bool res);
-    DCPrior* getLumaDCIntPrior(size_t index);
+    DCPrior* getLumaDCIntPrior(size_t index, int value);
     DCPrior* getChromaDCIntPrior(size_t index);
 
     NonzerosPrior* getNonzerosPrior(int color, int subblockIndex);

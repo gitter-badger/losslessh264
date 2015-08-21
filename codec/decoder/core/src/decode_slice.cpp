@@ -55,6 +55,8 @@
 
 #include "encoder_from_decoder.h"
 
+ #include "clone_picture.h"
+
 void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
     WelsDec::PSliceHeader pSliceHeader = &pSlice->sSliceHeaderExt.sSliceHeader;
     iLastMbQp = pSlice->iLastMbQp;
@@ -63,6 +65,7 @@ void DecodedMacroblock::preInit(const WelsDec::PSlice pSlice) {
 }
 
 namespace WelsDec {
+
 static void initCoeffsFromCoefPtr(DecodedMacroblock &rtd,
                                   int16_t * pScaledTCoeffQorNot) {
     memcpy(rtd.odata.lumaAC, pScaledTCoeffQorNot, sizeof(rtd.odata.lumaAC));
@@ -1861,6 +1864,9 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     std::vector<int> emitted;
     for (int i = 0; i < 16; i++) {
         if (i == 0 && !emit_dc) continue;
+        if (i == 0) {
+          fprintf(stderr, "dc=%d\n", ac[0]);
+        }
         if (nonzeros_left == 0) {
           assert(ac[kzz[i]] == 0);
           continue;
@@ -2151,7 +2157,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
       emitted_luma_dc = true;
       for (int i = 0; i < 16; i++) {
-        auto prior = oMovie().model().getLumaDCIntPrior(i);
+        fprintf(stderr, "%s ", oMovie().model().isPFrame() ? "p" : "i" );
+        auto prior = oMovie().model().getLumaDCIntPrior(i, rtd.odata.lumaDC[i]);
         oMovie().emitInt(rtd.odata.lumaDC[i], prior, PIP_LDC_TAG);
       }
     }
@@ -2166,6 +2173,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       if (rtd.uiCbpL & (1 << i8x8)) {
         for (int i4x4 = 0; i4x4 < 4; i4x4++) {
             int i = i8x8*4 + i4x4;
+            fprintf(stderr, "%s ", oMovie().model().isPFrame() ? "P" : "I" );
             encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
             /*
             if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
@@ -2552,7 +2560,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
       scanned_luma_dc = true;
       for (int i = 0; i < 16; i++) {
-        auto prior = oMovie().model().getLumaDCIntPrior(i);
+        auto prior = oMovie().model().getLumaDCIntPrior(i, -1);
         rtd.odata.lumaDC[i] = iMovie().scanInt(prior, PIP_LDC_TAG);
         rtd.odata.lumaAC[i * 16 + kzz[0]] = rtd.odata.lumaDC[i];
       }
@@ -2825,6 +2833,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   int32_t uiLastNonzeroDeltaLumaQp = 0;
   int macroblockSliceIndex = 0;
   do {
+    // top of code
     if ((-1 == iNextMbXyIndex) || (iNextMbXyIndex >= kiCountNumMb)) { // slice group boundary or end of a frame
       break;
     }
@@ -2839,7 +2848,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     memset(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex], 0,
            sizeof(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex]));
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
-    oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
+    oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY, gLastPicture);
     woffset = 0;
     if (oMovie().isRecoding) {
       iRet = WelsDecodeSliceForRecoding(pCtx, pNalCur, pSlice,

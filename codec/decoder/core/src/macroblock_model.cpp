@@ -6,6 +6,8 @@
 #include "wels_common_defs.h"
 #include "decoded_macroblock.h"
 
+#include "clone_picture.h"
+
 void Neighbors::init(const FreqImage *f, int x, int y) {
     using namespace Nei;
     for (int i = 0; i < Nei::NUMNEIGHBORS; ++i) {
@@ -123,10 +125,21 @@ void MacroblockModel::initCurrentMacroblock(
                                             DecodedMacroblock *curMb,
                                             WelsDec::PWelsDecoderContext pCtx,
                                             const FreqImage*f,
-                                            int mbx, int mby) {
+                                            int mbx, int mby,
+                                            const WelsDec::LumaPicture *prevFrameLuma) {
     this->mb = curMb;
     this->pCtx = pCtx;
     this->n.init(f, mbx, mby);
+    if (prevFrameLuma != NULL) {
+        this->prev_block_luma_dc_nonresidual = prevFrameLuma->get_b_sum(mbx, mby);
+    } else {
+        // this is the very first frame
+        this->prev_block_luma_dc_nonresidual.resize(16);
+        for (int i=0; i < 16; ++i) {
+            // when averaged, this will be grey
+            this->prev_block_luma_dc_nonresidual[i] = UINT8_MAX * 16 / 2;
+        }
+    }
 }
 
 uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
@@ -408,9 +421,12 @@ Branch<4> MacroblockModel::getMacroblockTypePrior() {
     }
 
     prior += prevType;
-    return mbTypePriors.at(prior,(uint32_t)(
-        pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
-             .sSliceHeader.eSliceType == P_SLICE));
+    return mbTypePriors.at(prior,(uint32_t)(isPFrame()));
+}
+
+bool MacroblockModel::isPFrame() const {
+    return pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt
+             .sSliceHeader.eSliceType == P_SLICE;
 }
 
 Branch<8> MacroblockModel::getSubMbPrior(int i) {
@@ -424,8 +440,14 @@ Branch<4> MacroblockModel::getPredictionModePrior(bool res) {
       encodeMacroblockType(mb->uiMbType));
 }
 
-MacroblockModel::DCPrior* MacroblockModel::getLumaDCIntPrior(size_t index) {
-  return &lumaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
+MacroblockModel::DCPrior* MacroblockModel::getLumaDCIntPrior(size_t index, int value) {
+  assert(index < 16);
+  assert(rasterTo8x8OrderLuma[index] < prev_block_luma_dc_nonresidual.size());
+  const uint16_t &prior_value = prev_block_luma_dc_nonresidual[rasterTo8x8OrderLuma[index]] / 16;
+  assert(prior_value < 256);
+  fprintf(stderr, "p=%d n=%d\n", prior_value, value);
+  assert(mb->uiLumaQp < 256);
+  return &lumaDCIntPriors[prior_value][mb->uiLumaQp][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
 }
 
 MacroblockModel::DCPrior* MacroblockModel::getChromaDCIntPrior(size_t index) {
