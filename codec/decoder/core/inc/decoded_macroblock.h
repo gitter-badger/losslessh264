@@ -69,6 +69,15 @@ struct DecodedMacroblock {
       cachedSkips = 0;
   }
   void preInit(const WelsDec::PSlice);
+
+  int countSubblockNonzeros(int color, int subblockIndex) const {
+    const int16_t* ac = &(color == 0 ? odata.lumaAC : odata.chromaAC)[16 * subblockIndex];
+    int nonzeros = 0;
+    for (int i = 0; i < 16; i++) {
+      if (ac[i] != 0) nonzeros++;
+    }
+    return nonzeros;
+  }
 };
 
 struct FreqImage {

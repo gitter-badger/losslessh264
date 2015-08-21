@@ -578,13 +578,61 @@ MacroblockModel::DCPrior* MacroblockModel::getChromaDCIntPrior(size_t index) {
   return &chromaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
 }
 
-MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted) {
-  int nonzero = 0, one = 0;
-  for (int coefficient : emitted) {
-    if (coefficient != 0) nonzero++;
-    if (coefficient == 1 || coefficient == -1) one++;
+MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int subblockIndex) {
+  using namespace Nei;
+  int past = 0, left = 0, above = 0;
+  if (n[PAST]) {
+    past = n[PAST]->countSubblockNonzeros(color, subblockIndex);
   }
-  return &acPriors[mb->eSliceType][encodeMacroblockType(mb->uiMbType)][color][emitted.size()][std::min(nonzero, 4)][std::min(nonzero-one, 1)];
+  if ((subblockIndex & 3) == 0) {
+    if (n[LEFT]) {
+      left = n[LEFT]->countSubblockNonzeros(color, subblockIndex + 3);
+    }
+  } else {
+    left = mb->countSubblockNonzeros(color, subblockIndex - 1);
+  }
+  if (subblockIndex < 4) {
+    if (n[ABOVE]) {
+      above = n[ABOVE]->countSubblockNonzeros(color, subblockIndex + 12);
+    }
+  } else {
+    above = mb->countSubblockNonzeros(color, subblockIndex - 4);
+  }
+  return &nonzerosPriors
+    [mb->eSliceType]                       // makes very little difference
+    [encodeMacroblockType(mb->uiMbType)]   // small but significant
+    [color]                                // makes very little difference
+    [std::min(2, past)]                    // past + left + above priors give a pretty decent boost!
+    [std::min(2, left)]
+    [std::min(2, above)];
+}
+
+MacroblockModel::OnesPrior* MacroblockModel::getOnesPrior(int color, int nonzeros) {
+  return &onesPriors
+    [0 && mb->eSliceType]                  // makes no difference
+    [encodeMacroblockType(mb->uiMbType)]
+    [color]
+    [std::min(8, nonzeros)];
+}
+
+MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted, int nonzeros, int ones) {
+  int nonzeros_left = nonzeros, ones_left = ones;
+  for (int coefficient : emitted) {
+    if (coefficient != 0) nonzeros_left--;
+    if (coefficient == 1 || coefficient == -1) ones_left--;
+  }
+  int zeros_left = (16 - emitted.size()) - nonzeros_left;
+  int prev = emitted.empty() ? 0 : emitted.back();
+  int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
+
+  return &acPriors
+    [mb->eSliceType]
+    [encodeMacroblockType(mb->uiMbType)]
+    [color]
+    [emitted.size()]
+    [std::min(4, nonzeros_left)]
+    [std::max(0, std::min(4, prev+2))]
+    [std::max(0, std::min(4, prev2+2))];
 }
 
 std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>
