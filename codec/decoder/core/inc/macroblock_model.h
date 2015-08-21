@@ -120,7 +120,7 @@ class MacroblockModel {
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
-    typedef IntPrior<2, 4> MotionVectorDifferencePrior;
+    typedef UEG0IntPrior<9, 4, 2, 4> MotionVectorDifferencePrior;
     MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;

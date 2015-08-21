@@ -549,6 +549,9 @@ struct CompressionStream {
   // Encode values as '0', '10', '110', ... etc up to N.
   template<class Prior>
   void emitUEG0Int(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    if (tagMantissa == -1) tagMantissa = tagExponent;
+    if (tagZero == -1) tagZero = tagExponent;
+    if (tagSign == -1) tagSign = tagExponent;
     if (prior->hasZero) {
       tag(tagZero).emitBit(data == 0, prior->zero());
       if (data == 0) return;
@@ -614,6 +617,9 @@ struct InputCompressionStream {
 
   template<class Prior>
   int scanUEG0Int(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    if (tagMantissa == -1) tagMantissa = tagExponent;
+    if (tagZero == -1) tagZero = tagExponent;
+    if (tagSign == -1) tagSign = tagExponent;
     if (prior->hasZero) {
       if (tag(tagZero).scanBit(prior->zero())) return 0;
     }

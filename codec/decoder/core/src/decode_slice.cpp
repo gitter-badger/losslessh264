@@ -1909,15 +1909,15 @@ void writeMv(int i, DecodedMacroblock &rtd) {
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
   int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
   int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
-  oMovie().emitInt(deltaX, priorX.first, PIP_MVX_TAG);
-  oMovie().emitInt(deltaY, priorY.first, PIP_MVY_TAG);
+  oMovie().emitUEG0Int(deltaX, priorX.first, PIP_MVX_TAG);
+  oMovie().emitUEG0Int(deltaY, priorY.first, PIP_MVY_TAG);
 }
 
 void readMv(int i, DecodedMacroblock &rtd) {
   auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
-  rtd.sMbMvp[i][0] = iMovie().scanInt(priorX.first, PIP_MVX_TAG) + priorX.second;
-  rtd.sMbMvp[i][1] = iMovie().scanInt(priorY.first, PIP_MVY_TAG) + priorY.second;
+  rtd.sMbMvp[i][0] = iMovie().scanUEG0Int(priorX.first, PIP_MVX_TAG) + priorX.second;
+  rtd.sMbMvp[i][1] = iMovie().scanUEG0Int(priorY.first, PIP_MVY_TAG) + priorY.second;
 }
 // iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
 const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
