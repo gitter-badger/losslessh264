@@ -184,9 +184,10 @@ struct UnaryIntPrior<0> {
 };
 
 // PositiveIntPrior: encode 1..infinity as unary exponent + mantissa value.
-template <int Exponent = 0, int Mantissa = 0>
+template <int Exponent = 0, int Mantissa = 0, int Order = 0>
 struct PositiveIntPrior {
     static constexpr bool hasSign = false, hasZero = false;
+    static constexpr int order = Order;
     UnaryIntPrior<Exponent> exponent;
     std::array<DynProb, Mantissa> mantissa;
 
@@ -195,42 +196,42 @@ struct PositiveIntPrior {
 };
 
 // UnsignedIntPrior: encode 0..infinity as zero bit + unary exponent + mantissa value.
-template <int Exponent = 0, int Mantissa = 0>
-struct UnsignedIntPrior : public PositiveIntPrior<Exponent, Mantissa> {
+template <int Exponent = 0, int Mantissa = 0, int Order = 0>
+  struct UnsignedIntPrior : public PositiveIntPrior<Exponent, Mantissa, Order> {
     static constexpr bool hasZero = true;
     DynProb zeroPrior;
     DynProb* zero() { return &zeroPrior; }
 };
 
 // Encode 1='0', 2='10', 3='110', ... up to N.
-template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0>
-struct UEG0NonzeroIntPrior {
+template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0, int Order = 0>
+struct UEGkNonzeroIntPrior {
   static constexpr bool hasZero = false, hasSign = true;
   DynProb signPrior;
   DynProb* sign() { return &signPrior; }
 
   static constexpr int threshold = N;
   UnaryIntPrior<M> first;
-  UnsignedIntPrior<Exponent, Mantissa> second;
+  UnsignedIntPrior<Exponent, Mantissa, Order> second;
 };
 
-template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0>
-  struct UEG0IntPrior : public UEG0NonzeroIntPrior<N, M, Exponent, Mantissa> {
+template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0, int Order = 0>
+  struct UEGkIntPrior : public UEGkNonzeroIntPrior<N, M, Exponent, Mantissa, Order> {
   static constexpr bool hasZero = true;
   DynProb zeroPrior;
   DynProb* zero() { return &zeroPrior; }
 };
 
 // IntPrior: encode -infinity..infinity as zero bit + sign bit + unary exponent + mantissa value.
-template <int Exponent = 0, int Mantissa = 0>
-struct IntPrior : public UnsignedIntPrior<Exponent, Mantissa> {
+template <int Exponent = 0, int Mantissa = 0, int Order = 0>
+  struct IntPrior : public UnsignedIntPrior<Exponent, Mantissa, Order> {
     static constexpr bool hasSign = true;
     DynProb signPrior;
     DynProb* sign() { return &signPrior; }
 };
 
-template <int Exponent = 0, int Mantissa = 0>
-struct NonzeroIntPrior : public PositiveIntPrior<Exponent, Mantissa>{
+template <int Exponent = 0, int Mantissa = 0, int Order = 0>
+  struct NonzeroIntPrior : public PositiveIntPrior<Exponent, Mantissa, Order>{
     static constexpr bool hasSign = true;
     DynProb signPrior;
     DynProb* sign() { return &signPrior; }
@@ -524,31 +525,42 @@ struct CompressionStream {
       assert(data > 0);
 
       // TODO(ctl) use jongmin's faster log2 computation.
+      data--; // Now the range of data is [0, infty).
+      // We split data into two parts: the lower k-bits (where k=order) which are
+      // stored explicitly, and then the rest of the bits, stored in unary exponent + mantissa.
       int log2 = 0;
-      while ((2 << log2) <= data) log2++;
-      assert((1 << log2) <= data && data < (2 << log2));
+      int data_high = 1 + (data >> Prior::order);
+      while ((2 << log2) <= data_high) log2++;
       tag(tagExponent).emitUnary(log2, &prior->exponent);
 
+      std::vector<bool> bits_to_feed;
+      for (int i = log2-1; i >= 0; i--) { // data_high is positive, so we skip the highest-order bit.
+        bits_to_feed.push_back((data_high & (1 << i)) != 0);
+      }
+      for (int i = Prior::order - 1; i >= 0; --i) {
+        bits_to_feed.push_back((data >> i) & 0x1);
+      }
+      // NOTE(jongmin): The fact that we always store the lower k-bits does mess
+      // with the fact that we used to skip the highest-order bit, since the lower k-bits can be all zero.
       int lo = 0, hi = prior->mantissa.size();
-      for (int i = log2-1; i >= 0; i--) {
-        bool bit = (data & (1 << i)) != 0;
-        if (hi > lo) {
-          int mid = (hi + lo) / 2;
-          tag(tagMantissa).emitBit(bit, &prior->mantissa[mid]);
-          if (bit) {
-            lo = mid + 1;
-          } else {
-            hi = mid;
-          }
-        } else {
-          tag(tagMantissa).emitBit(bit);
-        }
+      for (const int bit : bits_to_feed) {
+	if (hi > lo) {
+	  int mid = (hi + lo) / 2;
+	  tag(tagMantissa).emitBit(bit, &prior->mantissa[mid]);
+	  if (bit) {
+	    lo = mid + 1;
+	  } else {
+	    hi = mid;
+	  }
+	} else {
+	  tag(tagMantissa).emitBit(bit);
+	}
       }
     }
 
   // Encode values as '0', '10', '110', ... etc up to N.
   template<class Prior>
-  void emitUEG0Int(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+  void emitUEGkInt(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
     if (tagMantissa == -1) tagMantissa = tagExponent;
     if (tagZero == -1) tagZero = tagExponent;
     if (tagSign == -1) tagSign = tagExponent;
@@ -596,7 +608,7 @@ struct InputCompressionStream {
       int log2 = tag(tagExponent).scanUnary(&prior->exponent);
 
       int lo = 0, hi = prior->mantissa.size();
-      int data = 1;
+      int data_high = 1;
       for (int i = log2-1; i >= 0; i--) {
         bool bit;
         if (hi > lo) {
@@ -610,13 +622,31 @@ struct InputCompressionStream {
         } else {
           bit = tag(tagMantissa).scanBit();
         }
-        data = (data << 1) | bit;
+        data_high = (data_high << 1) | bit;
       }
+
+      int data_low = 0;
+      for (int i = 0; i < Prior::order; i++) {
+        bool bit;
+        if (hi > lo) {
+          int mid = (hi + lo) / 2;
+          bit = tag(tagMantissa).scanBit(&prior->mantissa[mid]);
+          if (bit) {
+            lo = mid + 1;
+          } else {
+            hi = mid;
+          }
+        } else {
+          bit = tag(tagMantissa).scanBit();
+        }
+	data_low = (data_low << 1) | bit;
+      }
+      int data = (data_low | ((data_high - 1) << Prior::order)) + 1;
       return sign ? data : -data;
     }
 
   template<class Prior>
-  int scanUEG0Int(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+  int scanUEGkInt(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
     if (tagMantissa == -1) tagMantissa = tagExponent;
     if (tagZero == -1) tagZero = tagExponent;
     if (tagSign == -1) tagSign = tagExponent;

@@ -120,7 +120,7 @@ class MacroblockModel {
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
-    typedef UEG0IntPrior<9, 4, 2, 4> MotionVectorDifferencePrior;
+    typedef UEGkIntPrior<9, 4, 3, 4, 3> MotionVectorDifferencePrior;
     MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
@@ -129,7 +129,7 @@ class MacroblockModel {
     DCPrior chromaDCIntPriors[8][5][16];
 
     //typedef IntPrior<2, 4> ACPrior;
-    typedef UEG0IntPrior<14, 4, 2, 4> ACPrior;
+    typedef UEGkIntPrior<14, 4, 2, 4, 0> ACPrior;
     typedef UnsignedIntPrior<3, 4> NonzerosPrior;
     NonzerosPrior nonzerosPriors[5][16][3][3][3][3];  // eSliceType, mbType, color, past, left, above
     ACPrior acPriors[5][16][3][16][5][5][5][5][5]; // eSliceType, mbType, color, index, nonzeros, prev, prev2, left, above

@@ -1870,7 +1870,7 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
         oMovie().tag(
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP
             ).billTo(std::max(coefficient, -coefficient));
-        oMovie().emitUEG0Int(coefficient, prior,
+        oMovie().emitUEGkInt(coefficient, prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
             color ? PIP_CRAC_BITMASK : i == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK,
@@ -1893,7 +1893,7 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
           continue;
         }
         auto prior = oMovie().model().getACPrior(index, kzz[i], color, emitted, nonzeros);
-        int coefficient = iMovie().scanUEG0Int(prior,
+        int coefficient = iMovie().scanUEGkInt(prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
             color ? PIP_CRAC_BITMASK : i == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK,
@@ -1909,15 +1909,15 @@ void writeMv(int i, DecodedMacroblock &rtd) {
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
   int deltaX = (int)rtd.sMbMvp[i][0] - priorX.second;
   int deltaY = (int)rtd.sMbMvp[i][1] - priorY.second;
-  oMovie().emitUEG0Int(deltaX, priorX.first, PIP_MVX_TAG);
-  oMovie().emitUEG0Int(deltaY, priorY.first, PIP_MVY_TAG);
+  oMovie().emitUEGkInt(deltaX, priorX.first, PIP_MVX_TAG);
+  oMovie().emitUEGkInt(deltaY, priorY.first, PIP_MVY_TAG);
 }
 
 void readMv(int i, DecodedMacroblock &rtd) {
   auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
   auto priorY = oMovie().model().getMotionVectorDifferencePrior(i, 1);
-  rtd.sMbMvp[i][0] = iMovie().scanUEG0Int(priorX.first, PIP_MVX_TAG) + priorX.second;
-  rtd.sMbMvp[i][1] = iMovie().scanUEG0Int(priorY.first, PIP_MVY_TAG) + priorY.second;
+  rtd.sMbMvp[i][0] = iMovie().scanUEGkInt(priorX.first, PIP_MVX_TAG) + priorX.second;
+  rtd.sMbMvp[i][1] = iMovie().scanUEGkInt(priorY.first, PIP_MVY_TAG) + priorY.second;
 }
 // iResidualProperty should be I16_LUMA_DC I16_LUMA_AC LUMA_DC_AC_INTRA LUMA_DC_AC_INTER LUMA_DC_AC_INTRA CHROMA_DC_V CHROMA_DC_U or CHROMA_AC_V or CHROMA_AC_U or CHROMA_DC_V_INTER CHROMA_DC_U_INTER  (wow too many of these options)
 const uint16_t* getDequantCoeff(PWelsDecoderContext pCtx, uint32_t iMbXy, int iResidualProperty, uint8_t uiQp) {
