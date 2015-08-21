@@ -24,6 +24,8 @@ DECODER_CPP_SRCS=\
 	$(DECODER_SRCDIR)/core/src/pic_queue.cpp\
 	$(DECODER_SRCDIR)/core/src/rec_mb.cpp\
 	$(DECODER_SRCDIR)/plus/src/welsDecoderExt.cpp\
+	$(DECODER_SRCDIR)/core/src/clone_picture.cpp
+
 
 DECODER_OBJS += $(DECODER_CPP_SRCS:.cpp=.$(OBJ))
 

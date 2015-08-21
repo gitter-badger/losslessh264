@@ -31,6 +31,9 @@
  *      decoder_core.c: Wels decoder framework core implementation
  */
 
+#include <stdio.h>
+#include <string>
+
 #include "decoder_core.h"
 #include "error_code.h"
 #include "memmgr_nal_unit.h"
@@ -42,8 +45,14 @@
 #include "decode_mb_aux.h"
 #include "memory_align.h"
 #include "error_concealment.h"
+#include "clone_picture.h"
 
 namespace WelsDec {
+
+void saveLumaFrame(const char *filename, const PPicture pic);
+void saveLumaFrame(const char *filename, const LumaPicture &pic);
+void saveLumaFrame(const char *filename, const LumaPicture &pic, int block_size);
+
 static inline int32_t DecodeFrameConstruction (PWelsDecoderContext pCtx, uint8_t** ppDst, SBufferInfo* pDstInfo) {
   PDqLayer pCurDq = pCtx->pCurDqLayer;
   PPicture pPic = pCtx->pDec;
@@ -2367,6 +2376,33 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
                                     pCtx->pDec->iLinesize,
                                     pCtx->sExpandPicFunc.pfExpandLumaPicture, pCtx->sExpandPicFunc.pfExpandChromaPicture);
       }
+
+      assert(!pCtx->bParseOnly);  // probably won't work if we don't expand?
+      // Save a copy of the picture
+      #if 0
+      char filename[128];
+      static int frameNum = 0;
+      ::sprintf(filename, "luma-%d.pgm", frameNum);
+      saveLumaFrame(filename, pCtx->pDec);
+      frameNum++;
+      #endif
+      if (gLastPicture != NULL) {
+        delete gLastPicture;
+        gLastPicture = NULL;
+      }
+      gLastPicture = new LumaPicture(*pCtx->pDec);
+
+      // save picture via block extractor
+      #if 0
+      char filename[128];
+      static int frameNum = 0;
+      int mb_size = 8;
+      ::sprintf(filename, "luma-%dx%d-%d.pgm", mb_size, mb_size, frameNum);
+      saveLumaFrame(filename, *gLastPicture, mb_size);
+      //saveLumaFrame(filename, *gLastPicture);
+      frameNum++;
+      #endif
+
       pCtx->pDec = NULL; //after frame decoding, always set to NULL
     }
 
@@ -2378,6 +2414,58 @@ int32_t DecodeCurrentAccessUnit (PWelsDecoderContext pCtx, uint8_t** ppDst, SBuf
   }
 
   return ERR_NONE;
+}
+
+// Various functions for dumping to PGM. Used for visual debugging & testing.
+
+void saveLumaFrame(const char *filename, const PPicture ppic) {
+  FILE *fp = ::fopen(filename, "w");
+  const TagPicture &pic = *ppic;
+  assert(&pic);
+  int stride = pic.iLinesize[0];
+  ::fprintf(stderr, "Dumping frame, linesize = %d\n", stride);
+  ::fprintf(fp, "P2\n");
+  ::fprintf(fp, "%d %d\n  ", pic.iWidthInPixel, pic.iHeightInPixel);
+  for (int y = 0; y < pic.iHeightInPixel; ++y) {
+    for (int x = 0; x < pic.iWidthInPixel; ++x) {
+      ::fprintf(fp, "%d ", pic.pData[0][y * stride + x]);
+      if (x % 32 == 0) fprintf(fp, "\n");
+    }
+  }
+  ::fclose(fp);
+}
+
+void saveLumaFrame(const char *filename, const LumaPicture &pic) {
+  FILE *fp = ::fopen(filename, "w");
+  ::fprintf(stderr, "Dumping frame\n");
+  ::fprintf(fp, "P2\n");
+  ::fprintf(fp, "%d %d\n  ", pic.width(), pic.height());
+  for (int y = 0; y < pic.height(); ++y) {
+    for (int x = 0; x < pic.width(); ++x) {
+      ::fprintf(fp, "%d ", pic.at(x, y));
+      if (x % 32 == 0) fprintf(fp, "\n");
+    }
+  }
+  ::fclose(fp);
+}
+
+// at works
+
+void saveLumaFrame(const char *filename, const LumaPicture &pic_orig, int block_size) {
+  FILE *fp = ::fopen(filename, "w");
+  ::fprintf(stderr, "Dumping frame\n");
+  ::fprintf(fp, "P2\n");
+  LumaPicture pic = pic_orig;
+  pic.set_mb_size(block_size);
+
+  ::fprintf(fp, "%d %d\n  ", pic.width() / block_size, pic.height() / block_size);
+  for (int y = 0; y < pic.height() / block_size; ++y) {
+    for (int x = 0; x < pic.width() / block_size; ++x) {
+      ::fprintf(fp, "%d ", pic.get_sum(x, y) / (block_size * block_size));
+      if (x % 32 == 0) fprintf(fp, "\n");
+    }
+  }
+  ::fclose(fp);
 }
 
 bool CheckAndFinishLastPic (PWelsDecoderContext pCtx, uint8_t** ppDst, SBufferInfo* pDstInfo) {
