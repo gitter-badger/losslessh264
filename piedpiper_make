@@ -11,4 +11,4 @@ make
 popd
 
 #compiling losslessh264
-make
+make CFLAGS_DEBUG='-O3 -g -fno-strict-aliasing'
