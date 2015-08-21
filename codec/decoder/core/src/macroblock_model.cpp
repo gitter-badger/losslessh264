@@ -555,12 +555,12 @@ Branch<4> MacroblockModel::getPredictionModePrior(bool res) {
       encodeMacroblockType(mb->uiMbType));
 }
 
-IntPrior<2, 4>* MacroblockModel::getLumaDCIntPrior(size_t index) {
-  return &lumaDCIntPriors[index];
+MacroblockModel::DCPrior* MacroblockModel::getLumaDCIntPrior(size_t index) {
+  return &lumaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
 }
 
-IntPrior<2, 4>* MacroblockModel::getChromaDCIntPrior(size_t index) {
-  return &chromaDCIntPriors[index];
+MacroblockModel::DCPrior* MacroblockModel::getChromaDCIntPrior(size_t index) {
+  return &chromaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
 }
 
 MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted) {

@@ -124,8 +124,9 @@ class MacroblockModel {
     MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
-    IntPrior<2, 4> lumaDCIntPriors[16];
-    IntPrior<2, 4> chromaDCIntPriors[8];
+    typedef IntPrior<3, 4> DCPrior;
+    DCPrior lumaDCIntPriors[16][5][16];
+    DCPrior chromaDCIntPriors[8][5][16];
     typedef IntPrior<2, 4> ACPrior;
     ACPrior acPriors[5][16][3][16][10][10];
 
@@ -236,8 +237,8 @@ public:
                             int color);
     Branch<4> getMacroblockTypePrior();
     Branch<4> getPredictionModePrior(bool res);
-    IntPrior<2, 4>* getLumaDCIntPrior(size_t index);
-    IntPrior<2, 4>* getChromaDCIntPrior(size_t index);
+    DCPrior* getLumaDCIntPrior(size_t index);
+    DCPrior* getChromaDCIntPrior(size_t index);
     ACPrior* getACPrior(int color, const std::vector<int>& emitted);
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
