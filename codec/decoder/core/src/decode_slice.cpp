@@ -2923,7 +2923,10 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   // We also force this to the correct value at the beginning
   // of a run so it never reads iMbSkipRun early.
   pSlice->iMbSkipRun = curSkipped > 0 ? curSkipped : -1;
+  bool isCabac = pCurLayer->sLayerInfo.pPps->bEntropyCodingModeFlag;
+  pCurLayer->sLayerInfo.pPps->bEntropyCodingModeFlag = false;
   int32_t iRet = pDecMbFunc (pCtx,  pNalCur, uiEosFlag, &rtd);
+  pCurLayer->sLayerInfo.pPps->bEntropyCodingModeFlag = isCabac;
 #ifdef DEBUG_PRINTS
   fprintf(stderr, "EOSTEST which_block=%d origSkipped=%d skip=%d endofslice=%d uiEosFlag=%d\n", which_block, origSkipped, pSlice->iMbSkipRun, endOfSlice, uiEosFlag);
 #endif
@@ -2977,7 +2980,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
 
   pSlice->iTotalMbInCurSlice = 0; //initialize at the starting of slice decoding.
 
-  if (pCtx->pPps->bEntropyCodingModeFlag) {
+  if (pCtx->pPps->bEntropyCodingModeFlag && !oMovie().isRecoding) {
     if (pSlice->sSliceHeaderExt.bAdaptiveMotionPredFlag ||
         pSlice->sSliceHeaderExt.bAdaptiveBaseModeFlag ||
         pSlice->sSliceHeaderExt.bAdaptiveResidualPredFlag) {
@@ -3015,7 +3018,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     WelsCabacContextInit (pCtx, pSlice->eSliceType, iCabacInitIdc, iQp);
     //InitCabacCtx (pCtx->pCabacCtx, pSlice->eSliceType, iCabacInitIdc, iQp);
     pSlice->iLastDeltaQp = 0;
-    WELS_READ_VERIFY (InitCabacDecEngineFromBS (pCtx->pCabacDecEngine, pCtx->pCurDqLayer->pBitStringAux));
+    if (!oMovie().isRecoding) {
+      WELS_READ_VERIFY (InitCabacDecEngineFromBS (pCtx->pCabacDecEngine, pCtx->pCurDqLayer->pBitStringAux));
+    }
   }
   //try to calculate  the dequant_coeff
   WelsCalcDeqCoeffScalingList (pCtx);
