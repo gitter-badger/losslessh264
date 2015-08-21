@@ -607,19 +607,10 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
     [std::min(2, above)];
 }
 
-MacroblockModel::OnesPrior* MacroblockModel::getOnesPrior(int color, int nonzeros) {
-  return &onesPriors
-    [0 && mb->eSliceType]                  // makes no difference
-    [encodeMacroblockType(mb->uiMbType)]
-    [color]
-    [std::min(8, nonzeros)];
-}
-
-MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted, int nonzeros, int ones) {
-  int nonzeros_left = nonzeros, ones_left = ones;
+MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, const std::vector<int>& emitted, int nonzeros) {
+  int nonzeros_left = nonzeros;
   for (int coefficient : emitted) {
     if (coefficient != 0) nonzeros_left--;
-    if (coefficient == 1 || coefficient == -1) ones_left--;
   }
   int zeros_left = (16 - emitted.size()) - nonzeros_left;
   int prev = emitted.empty() ? 0 : emitted.back();

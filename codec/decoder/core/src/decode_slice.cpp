@@ -1915,28 +1915,23 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
                                                                  color));
     if (!num_nonzeros_left) return;
 #endif
-    int nonzeros = 0, ones = 0;
+    int nonzeros = 0;
     for (int i = 15; i >= (emit_dc ? 0 : 1); --i) {
       if (ac[kzz[i]] != 0) nonzeros++;
-      if (ac[kzz[i]] == 1 || ac[kzz[i]] == -1) ones++;
     }
     auto nonzeros_prior = oMovie().model().getNonzerosPrior(color, index);
     oMovie().tag(color ? PIP_CRAC_EOB : PIP_LAC_0_EOB).billTo("nonzeros", nonzeros);
     oMovie().emitInt(nonzeros, nonzeros_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
-//    auto ones_prior = oMovie().model().getOnesPrior(color, nonzeros);
-//    oMovie().tag(color ? PIP_CRAC_EOB : PIP_LAC_0_EOB).billTo("ones", ones);
-//    oMovie().emitInt(nonzeros - ones, ones_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
 
     int nonzeros_left = nonzeros;
     std::vector<int> emitted;
-//    for (int i = 15; i >= 0; --i) {
     for (int i = 0; i < 16; i++) {
         if (i == 0 && !emit_dc) continue;
         if (nonzeros_left == 0) {
           assert(ac[kzz[i]] == 0);
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros, ones);
+        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros);
         int coefficient = ac[kzz[i]];
         oMovie().tag(
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP
@@ -1949,7 +1944,6 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
         emitted.push_back(coefficient);
         if (coefficient != 0) nonzeros_left--;
     }
-//    for (; i < 16; i++) assert(ac[kzz[i]] == 0);
 #if 0
     (void)unzz;
     int num_nonzeros_left = 0;
@@ -2071,19 +2065,16 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
 #endif
     auto nonzeros_prior = oMovie().model().getNonzerosPrior(color, index);
     int nonzeros = iMovie().scanInt(nonzeros_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
-//    auto ones_prior = oMovie().model().getOnesPrior(color, nonzeros);
-//    int ones = nonzeros - iMovie().scanInt(ones_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
 
     int nonzeros_left = nonzeros;
     std::vector<int> emitted;
-//    for (int i = 15; i >= 0; --i) {
     for (int i = 0; i < 16; i++) {
         if (i == 0 && !emit_dc) continue;
         if (nonzeros_left == 0) {
           ac[kzz[i]] = 0;
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros, 0 /*ones*/);
+        auto prior = oMovie().model().getACPrior(color, emitted, nonzeros);
         int coefficient = iMovie().scanInt(prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
