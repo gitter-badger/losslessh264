@@ -202,6 +202,18 @@ struct UnsignedIntPrior : public PositiveIntPrior<Exponent, Mantissa> {
     DynProb* zero() { return &zeroPrior; }
 };
 
+// Encode 1='0', 2='10', 3='110', ... up to N.
+template <int N = 0, int Exponent = 0, int Mantissa = 0>
+struct UEG0NonzeroIntPrior {
+  static constexpr bool hasZero = false, hasSign = true;
+  DynProb signPrior;
+  DynProb* sign() { return &signPrior; }
+
+  static constexpr int threshold = N;
+  UnaryIntPrior<N> first;
+  UnsignedIntPrior<Exponent, Mantissa> second;
+};
+
 // IntPrior: encode -infinity..infinity as zero bit + sign bit + unary exponent + mantissa value.
 template <int Exponent = 0, int Mantissa = 0>
 struct IntPrior : public UnsignedIntPrior<Exponent, Mantissa> {
@@ -210,6 +222,12 @@ struct IntPrior : public UnsignedIntPrior<Exponent, Mantissa> {
     DynProb* sign() { return &signPrior; }
 };
 
+template <int Exponent = 0, int Mantissa = 0>
+struct NonzeroIntPrior : public PositiveIntPrior<Exponent, Mantissa>{
+    static constexpr bool hasSign = true;
+    DynProb signPrior;
+    DynProb* sign() { return &signPrior; }
+};
 
 class ArithmeticCodedInput {
 public:
@@ -294,10 +312,11 @@ public:
     }
 
     template <int N>
-    int scanUnary(UnaryIntPrior<N>* prior) {
+    int scanUnary(UnaryIntPrior<N>* prior, int early_termination = -1) {
       int i = 0;
       while (scanBit(prior->at(i))) {
         i++;
+	if (i == early_termination) break;
       }
       return i;
     }
@@ -427,9 +446,12 @@ public:
     }
 
     template <int N>
-    void emitUnary(int data, UnaryIntPrior<N>* prior) {
+    void emitUnary(int data, UnaryIntPrior<N>* prior, int early_termination = -1) {
       for (int i = 0; i < data; i++) {
           emitBit(true, prior->at(i));
+	  if (i == early_termination - 1) {
+	    return;
+	  }
       }
       emitBit(false, prior->at(data));
     }
@@ -517,6 +539,19 @@ struct CompressionStream {
       }
     }
 
+  // Encode values as '0', '10', '110', ... etc up to N.
+  template<class Prior>
+  void emitUEG0NonzeroInt(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    assert(data != 0);
+    tag(tagSign).emitBit(data < 0, prior->sign());
+    data = data < 0 ? -data : data;
+    tag(tagMantissa).emitUnary(data - 1, &prior->first, Prior::threshold);
+    if (data - 1 >= Prior::threshold) { // No terminating zero. Ambiguous.
+      emitInt(data - 1 - Prior::threshold, &prior->second,
+	      tagExponent, tagMantissa, tagZero, tagSign);
+    }
+  }
+
     // The default prior emits a Rice coding (plus zero and sign bits).
     void emitInt(int data, int tag) {
       IntPrior<> prior;
@@ -566,6 +601,17 @@ struct InputCompressionStream {
       }
       return sign ? data : -data;
     }
+
+  template<class Prior>
+  int scanUEG0NonzeroInt(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    int sign = tag(tagSign).scanBit(prior->sign());
+    int first = tag(tagMantissa).scanUnary(&prior->first, Prior::threshold) + 1;
+    if (first <= Prior::threshold) {
+      return sign ? -first : first;
+    }
+    int second = scanInt(&prior->second, tagExponent, tagMantissa, tagZero, tagSign);
+    return sign ? -(first + second) : (first + second);
+  }
 
     // The default prior emits a Rice coding (plus zero and sign bits).
     int scanInt(int tag) {
