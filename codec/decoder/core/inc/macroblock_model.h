@@ -128,7 +128,8 @@ class MacroblockModel {
     DCPrior lumaDCIntPriors[16][5][16];
     DCPrior chromaDCIntPriors[8][5][16];
 
-    typedef IntPrior<2, 4> ACPrior;
+    //typedef IntPrior<2, 4> ACPrior;
+    typedef UEG0IntPrior<14, 4, 2, 4> ACPrior;
     typedef UnsignedIntPrior<3, 4> NonzerosPrior;
     NonzerosPrior nonzerosPriors[5][16][3][3][3][3];  // eSliceType, mbType, color, past, left, above
     ACPrior acPriors[5][16][3][16][5][5][5][5][5]; // eSliceType, mbType, color, index, nonzeros, prev, prev2, left, above
@@ -163,19 +164,20 @@ class MacroblockModel {
             15 //values
             > CbpLPrior;
     Sirikata::Array6d<DynProb,
-        16,//which coef
-        3,//left_zero
-        3,//above_zero
-        3,//past_zero
-        2,//coef above
-        2// coef left
-        > nonzeroBitmaskPriors;
-    Sirikata::Array5d<DynProb, // <-- really bad priors
-        17,//which coef -- 16 is the magic early exit bit
-        17,//num_nonzeros
-        3,//past_zero
-        2,//coef above
-        2// coef left
+      17, // index
+      17, // # of checks
+      5, // slicetype
+      16, // mbtype
+      3, // color
+      2 // nonzero prior
+      > nonzeroBitmaskPriors;
+    Sirikata::Array6d<DynProb,
+        17,//index
+        18, // # of nonzeros from past
+        17,// # of checks
+        5, //slicetype
+        16,//mbtype
+        3 //color
         > eobPriors;
     Sirikata::Array6d<DynProb,
         16,//which coef
@@ -210,8 +212,6 @@ class MacroblockModel {
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
                                const FreqImage *, int mbx, int mby);
-    DynProb *getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
-    DynProb *getEOBPrior(const bool *this_4x4, int index, int coef, bool emit_dc, int color);
     Sirikata::Array1d<DynProb, 15>::Slice getAcExpPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             bool emit_dc, int color);
     DynProb *getAcSignificandPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
@@ -225,7 +225,7 @@ public:
     DCPrior* getChromaDCIntPrior(size_t index);
 
     NonzerosPrior* getNonzerosPrior(int color, int subblockIndex);
-    ACPrior* getACPrior(int color, int acIndex, const std::vector<int>& emitted, int nonzeros);
+    ACPrior* getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
     std::pair<MotionVectorDifferencePrior*, int> getMotionVectorDifferencePrior(int subblockIndex, int xyIndex);
@@ -250,6 +250,9 @@ public:
     // this is just a sanity check
     void checkSerializedNonzeros(const bool *nonzeros, const int16_t *ac,
                                  int index, bool emit_dc, int color);
+    const Neighbors& getNeighbors() { return n; }
+    const int getPastNonzeroACCount(int index, int color); // return -1 if no PAST
+    const bool isPastCorrespondingACNonzero(int index, int coef, int color); // return 0 if no PAST
 };
 
 #endif

@@ -225,57 +225,6 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
     }
     return retval;
 }
-DynProb *MacroblockModel::getNonzeroBitmaskPrior(const bool *this_4x4, int index, int coef,
-                                                 bool emit_dc, int color) {
-    SingleCoefNeighbors priors = priorCoef(index, coef, color);
-    int past_prior = 2;
-    int left_prior = 2;
-    int above_prior = 2;
-    if (priors.has_past) {
-        past_prior = priors.past ? 1 : 0;
-    }
-    if (priors.has_left) {
-        left_prior = priors.left ? 1 : 0;
-    }
-    if (priors.has_above) {
-        above_prior = priors.above ? 1 : 0;
-    }
-    int left_freq = 0;
-    int above_freq = 0;
-    int coef_x = coef & 3;
-    int coef_y = coef >> 2;
-    if (coef_x > 0) {
-        left_freq = !!this_4x4[coef - 1];
-    }
-    if (coef_y > 0) {
-        above_freq = !!this_4x4[coef - 4];
-    }
-    return &nonzeroBitmaskPriors.at(coef,
-                                    left_prior,
-                                    above_prior,
-                                    past_prior,
-                                    left_freq, above_freq);
-}
-
-
-DynProb *MacroblockModel::getEOBPrior(const bool *this_4x4, int index, int coef,
-                                                 bool emit_dc, int color) {
-
-    int left_freq = 0;
-    int above_freq = 0;
-    int coef_x = coef & 3;
-    int coef_y = coef >> 2;
-    if (coef_x > 0) {
-        left_freq = !!this_4x4[coef - 1];
-    }
-    if (coef_y > 0) {
-        above_freq = !!this_4x4[coef - 4];
-    }
-    return &eobPriors.at(coef, 0, // <-- probably the worst prior I could come up with
-                                    0,
-                                    left_freq, above_freq);
-}
-
 
 void MacroblockModel::checkSerializedNonzeros(const bool *nonzeros, const int16_t *ac,
                                               int index, bool emit_dc, int color) {
@@ -512,14 +461,14 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
     [std::min(2, above)];
 }
 
-MacroblockModel::ACPrior* MacroblockModel::getACPrior(int color, int acIndex, const std::vector<int>& emitted, int nonzeros) {
+MacroblockModel::ACPrior* MacroblockModel::getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
   int nonzeros_left = nonzeros;
   for (int coefficient : emitted) {
     if (coefficient != 0) nonzeros_left--;
   }
   int prev = emitted.empty() ? 0 : emitted.back();
   int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
-  auto neighbors = priorCoef((acIndex/16) % (color ? 4 : 16), acIndex % 16, color);
+  auto neighbors = priorCoef(index % (color ? 4 : 16), coef, color);
 
   return &acPriors
     [mb->eSliceType]
@@ -735,4 +684,35 @@ int32_t DecodedMacroblock::getiResidualProperty(uint32_t uiMbType, bool dc, int 
         assert(false && "Can't handle quantization for this kind of macroblock");
     }
     return LUMA_DC_AC_INTRA;
+}
+
+const bool MacroblockModel::isPastCorrespondingACNonzero(int index, int coef, int color) {
+  if (n[Nei::PAST]) {
+    int nonzero_past = 0;
+    const int16_t* last;
+    switch (color) {
+    case 0: last = n[Nei::PAST]->odata.lumaAC + (index * 16); break;
+    case 1: last = n[Nei::PAST]->odata.chromaAC + (index * 16); break;
+    case 2: last = n[Nei::PAST]->odata.chromaAC + ((index + 4) * 16); break;
+    }
+    return !!last[coef];
+  }
+  return false;
+}
+const int MacroblockModel::getPastNonzeroACCount(int index, int color) {
+  if (n[Nei::PAST]) {
+    // TODO: some code duplication here as the above helper.
+    int nonzero_past = 0;
+    const int16_t* last;
+    switch (color) {
+    case 0: last = n[Nei::PAST]->odata.lumaAC + (index * 16); break;
+    case 1: last = n[Nei::PAST]->odata.chromaAC + (index * 16); break;
+    case 2: last = n[Nei::PAST]->odata.chromaAC + ((index + 4) * 16); break;
+    }
+    for (int i = 0; i < 16; i++) {
+      nonzero_past += !!last[i];
+    }
+    return nonzero_past;
+  }
+  return -1;
 }

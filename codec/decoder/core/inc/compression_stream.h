@@ -203,15 +203,22 @@ struct UnsignedIntPrior : public PositiveIntPrior<Exponent, Mantissa> {
 };
 
 // Encode 1='0', 2='10', 3='110', ... up to N.
-template <int N = 0, int Exponent = 0, int Mantissa = 0>
+template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0>
 struct UEG0NonzeroIntPrior {
   static constexpr bool hasZero = false, hasSign = true;
   DynProb signPrior;
   DynProb* sign() { return &signPrior; }
 
   static constexpr int threshold = N;
-  UnaryIntPrior<N> first;
+  UnaryIntPrior<M> first;
   UnsignedIntPrior<Exponent, Mantissa> second;
+};
+
+template <int N = 0, int M = 0, int Exponent = 0, int Mantissa = 0>
+  struct UEG0IntPrior : public UEG0NonzeroIntPrior<N, M, Exponent, Mantissa> {
+  static constexpr bool hasZero = true;
+  DynProb zeroPrior;
+  DynProb* zero() { return &zeroPrior; }
 };
 
 // IntPrior: encode -infinity..infinity as zero bit + sign bit + unary exponent + mantissa value.
@@ -541,8 +548,11 @@ struct CompressionStream {
 
   // Encode values as '0', '10', '110', ... etc up to N.
   template<class Prior>
-  void emitUEG0NonzeroInt(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
-    assert(data != 0);
+  void emitUEG0Int(int data, Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    if (prior->hasZero) {
+      tag(tagZero).emitBit(data == 0, prior->zero());
+      if (data == 0) return;
+    }
     tag(tagSign).emitBit(data < 0, prior->sign());
     data = data < 0 ? -data : data;
     tag(tagMantissa).emitUnary(data - 1, &prior->first, Prior::threshold);
@@ -603,7 +613,10 @@ struct InputCompressionStream {
     }
 
   template<class Prior>
-  int scanUEG0NonzeroInt(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+  int scanUEG0Int(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
+    if (prior->hasZero) {
+      if (tag(tagZero).scanBit(prior->zero())) return 0;
+    }
     int sign = tag(tagSign).scanBit(prior->sign());
     int first = tag(tagMantissa).scanUnary(&prior->first, Prior::threshold) + 1;
     if (first <= Prior::threshold) {

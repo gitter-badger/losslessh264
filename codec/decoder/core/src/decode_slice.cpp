@@ -1871,12 +1871,12 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
           assert(ac[kzz[i]] == 0);
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, 16*index + kzz[i], emitted, nonzeros);
+        auto prior = oMovie().model().getACPrior(index, kzz[i], color, emitted, nonzeros);
         int coefficient = ac[kzz[i]];
         oMovie().tag(
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP
             ).billTo(std::max(coefficient, -coefficient));
-        oMovie().emitInt(coefficient, prior,
+        oMovie().emitUEG0Int(coefficient, prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
             color ? PIP_CRAC_BITMASK : i == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK,
@@ -1898,8 +1898,8 @@ void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
           ac[kzz[i]] = 0;
           continue;
         }
-        auto prior = oMovie().model().getACPrior(color, 16*index + kzz[i], emitted, nonzeros);
-        int coefficient = iMovie().scanInt(prior,
+        auto prior = oMovie().model().getACPrior(index, kzz[i], color, emitted, nonzeros);
+        int coefficient = iMovie().scanUEG0Int(prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
             color ? PIP_CRAC_BITMASK : i == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK,
