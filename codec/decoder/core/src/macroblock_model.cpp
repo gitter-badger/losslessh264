@@ -550,8 +550,9 @@ Branch<8> MacroblockModel::getSubMbPrior(int i) {
 }
 
 
-Branch<4> MacroblockModel::getPredictionModePrior() {
-  return predictionModePriors.at(0); // TODO: this is a dumb prior.
+Branch<4> MacroblockModel::getPredictionModePrior(bool res) {
+  return predictionModePriors.at(res,
+      encodeMacroblockType(mb->uiMbType));
 }
 
 IntPrior<2, 4>* MacroblockModel::getLumaDCIntPrior(size_t index) {
