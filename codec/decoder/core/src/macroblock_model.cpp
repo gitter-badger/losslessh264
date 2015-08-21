@@ -144,15 +144,30 @@ uint16_t MacroblockModel::getAndUpdateMacroblockLumaNumNonzeros() {
     mb->numLumaNonzeros_ = retval;
     return retval;
 }
-MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int coef, int color) {
+
+const int rasterTo8x8OrderLuma[16] = {
+    0, 1, 4, 5,
+    2, 3, 6, 7,
+    8, 9, 12, 13,
+    10, 11, 14, 15
+};
+
+const int rasterTo8x8OrderChroma[16] = {
+    0, 1,
+    2, 3
+};
+
+MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, int coef, int color) {
     using namespace Nei;
     SingleCoefNeighbors retval = {};
+    const int *rasterTo8x8Order = color ? rasterTo8x8OrderChroma : rasterTo8x8OrderLuma;
     int w = 4;
     int h = 4;
     if (color) {
         w = 2;
         h = 2;
     }
+    int index = rasterTo8x8Order[index8x8];
     int ix = (index & (w - 1));
     int iy = (index / w);
     int coloroffset = 0;
@@ -160,7 +175,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         coloroffset = w * h * 16;
     }
     if (ix > 0) {
-        int full_index = (index - 1) * 16 + coef + coloroffset;
+        int full_index = (rasterTo8x8Order[index - 1]) * 16 + coef + coloroffset;
         if (color) {
             retval.left = mb->odata.chromaAC[full_index];
         }else {
@@ -171,7 +186,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         const DecodedMacroblock *left = n[LEFT];
         if (left) {
             retval.has_left = true;
-            int full_index = (index + w - 1) * 16 + coef + coloroffset;
+            int full_index = (rasterTo8x8Order[index + w - 1]) * 16 + coef + coloroffset;
             if (color) {
                 retval.left = left->odata.chromaAC[full_index];
             } else {
@@ -179,8 +194,8 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
             }
         }
     }
-    if (iy >= w) {
-        int full_index = (index - w) * 16 + coef + coloroffset;
+    if (iy > 0) {
+        int full_index = (rasterTo8x8Order[index - w]) * 16 + coef + coloroffset;
         if (color) {
             retval.above = mb->odata.chromaAC[full_index];
         }else {
@@ -188,9 +203,9 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
         }
         retval.has_above = true;
     } else {
-        const DecodedMacroblock *above = n[LEFT];
+        const DecodedMacroblock *above = n[ABOVE];
         if (above) {
-            int full_index = (index + w * (h - 1)) * 16 + coef + coloroffset;
+            int full_index = (rasterTo8x8Order[index + w * (h - 1)]) * 16 + coef + coloroffset;
             if (color) {
                 retval.above = above->odata.chromaAC[full_index];
             } else {
@@ -201,7 +216,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index, int c
     const DecodedMacroblock *past = n[PAST];
     if (past) {
         retval.has_past = true;
-        int full_index = index * 16 + coef + coloroffset;
+        int full_index = rasterTo8x8Order[index] * 16 + coef + coloroffset;
         if (color) {
             retval.past = past->odata.chromaAC[full_index];
         } else {
