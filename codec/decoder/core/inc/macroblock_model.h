@@ -162,25 +162,6 @@ class MacroblockModel {
             16, // mbType
             15 //values
             > CbpLPrior;
-    Sirikata::Array3d<DynProb,
-        257, // prev frame or neighbor 4x16 + 16x4
-        16,//mbType
-        256 // number of nonzero values possible
-        > numNonZerosLumaPriors; // <-- deprecated
-    Sirikata::Array3d<DynProb,
-                      129, // prev frame num nonzeros
-                      16, // mbType
-                      128> numNonZerosChromaPriors; // <--deprecated
-    Sirikata::Array4d<DynProb,
-        17,//past
-        17,//left
-        17,//above
-        16> numSubNonZerosLumaPriors; // <--deprecated
-    Sirikata::Array4d<DynProb,
-        17,//past
-        17,//left
-        17,//above
-        16> numSubNonZerosChromaPriors; // <--deprecated
     Sirikata::Array6d<DynProb,
         16,//which coef
         3,//left_zero
@@ -261,17 +242,7 @@ public:
     Branch<2> getCbpCPrior();
     Branch<4> getCbpLPrior();
     Sirikata::Array1d<DynProb, 128>::Slice getQPLPrior(bool isFirstMB, int32_t lastNonzeroDeltaLumaQp);
-    Sirikata::Array1d<DynProb, 256>::Slice getLumaNumNonzerosPrior();
-    Sirikata::Array1d<DynProb, 128>::Slice getChromaNumNonzerosPrior();
-    Branch<8> getLumaNumNonzerosPriorBranch() {
-        return getLumaNumNonzerosPrior().slice<1, 256>();
-    }
-    Branch<7> getChromaNumNonzerosPriorBranch() {
-        return getChromaNumNonzerosPrior().slice<1, 128>();
-    }
     Branch<8> getSubMbPrior(int which);
-    Sirikata::Array1d<DynProb, 16>::Slice getSubLumaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
-    Sirikata::Array1d<DynProb, 16>::Slice getSubChromaNumNonzerosPrior(uint8_t i, uint8_t runningCount);
     uint16_t getAndUpdateMacroblockLumaNumNonzeros(); // between 0 and 256, inclusive
     uint8_t getAndUpdateMacroblockChromaNumNonzeros(); // between 0 and 128, inclusive
     int encodeMacroblockType(int welsType);
