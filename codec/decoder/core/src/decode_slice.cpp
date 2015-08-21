@@ -1847,12 +1847,6 @@ const uint8_t kzz[16] ={
     9, 12, 13, 10,
     7, 11, 14, 15
 };
-const uint8_t unzz[16] ={
-    0, 1, 5, 6,
-    2, 4, 7, 12,
-    3, 8, 11, 13,
-    9, 10, 14, 15
-};
 
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     int nonzeros = 0;
@@ -2576,6 +2570,11 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         for (int i4x4 = 0; i4x4 < 4; i4x4++) {
             int i = i8x8*4 + i4x4;
             decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+        }
+      } else {
+        for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+            int i = i8x8*4 + i4x4;
+            memset(&rtd.odata.lumaAC[i * 16], 0, sizeof(rtd.odata.lumaAC[0]) * 16);
         }
       }
     }
