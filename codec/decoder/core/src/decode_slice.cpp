@@ -2006,10 +2006,15 @@ void encode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         nonzeroLeft = IS_INTRA (mbType);
       }
     }
-    int isPSlice = pSliceHeader->eSliceType != I_SLICE;
-    int qp = rtd.uiLumaQp;
+    int isPSlice = pCtx->pPps->bEntropyCodingModeFlag ? pSliceHeader->iCabacInitIdc : pSliceHeader->eSliceType != I_SLICE;
+    int qp = pCtx->pPps->bEntropyCodingModeFlag ? pSliceHeader->iSliceQp : rtd.uiLumaQp;
     int blockType = (color ? 0 : 1) | (emit_dc ? 0 : 2); // TODO: DC encoding?
 
+    if (!color) {
+      static int i;
+      fprintf(stderr, "Enc Prior luma %d exists: [%d][%d] %d %d/%d->%d\n", i, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iCabacInitIdc, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iSliceQp, emit_dc ? 8 : 4, nonzeroLeft, nonzeroTop, (nonzeroLeft ? 1 : 0) | (nonzeroTop ? 2 : 0));
+      i++;
+    }
     oMovie().tag((color ? PIP_CEXIST_TAG : PIP_LEXIST_TAG)).emitBit(
         !!num_nonzeros,
         oMovie().model().getContainsNonzerosPrior(
@@ -2190,8 +2195,8 @@ void decode4x4(PWelsDecoderContext pCtx, DecodedMacroblock &rtd,
         nonzeroLeft = IS_INTRA (mbType);
       }
     }
-    int isPSlice = pSliceHeader->eSliceType != I_SLICE;
-    int qp = rtd.uiLumaQp;
+    int isPSlice = pCtx->pPps->bEntropyCodingModeFlag ? pSliceHeader->iCabacInitIdc : pSliceHeader->eSliceType != I_SLICE;
+    int qp = pCtx->pPps->bEntropyCodingModeFlag ? pSliceHeader->iSliceQp : rtd.uiLumaQp;
     int blockType = (color ? 0 : 1) | (emit_dc ? 0 : 2); // TODO: DC encoding?
 
     bool hasAny = iMovie().tag((color ? PIP_CEXIST_TAG : PIP_LEXIST_TAG)).scanBit(

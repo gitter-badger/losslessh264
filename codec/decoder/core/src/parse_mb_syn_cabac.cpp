@@ -798,6 +798,13 @@ int32_t ParseCbfInfoCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNzcCache, int3
     }
 
     iCtxInc = nA + (nB << 1);
+    // CHROMA_AC_V : CHROMA_AC_U
+    //if (iResProperty == I16_LUMA_AC || iResProperty == LUMA_DC_AC_INTRA_8 || LUMA_DC_AC_INTER_8 || LUMA_DC_AC_INTRA || LUMA_DC_AC_INTER) {
+    if (iResProperty == I16_LUMA_AC || iResProperty == LUMA_DC_AC_8 || LUMA_DC_AC) {
+      static int i = 0;
+      fprintf(stderr, "Dec Prior luma %d exists: [%d][%d] %d %d/%d->%d\n", i, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iCabacInitIdc, pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer.sSliceHeaderExt.sSliceHeader.iSliceQp, g_kBlockCat2CtxOffsetCBF[iResProperty], nA, nB, iCtxInc);
+      i++;
+    }
     WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine,
                                       pCtx->pCabacCtx + NEW_CTX_OFFSET_CBF + g_kBlockCat2CtxOffsetCBF[iResProperty] + iCtxInc, uiCbfBit));
   }

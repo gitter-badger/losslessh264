@@ -202,32 +202,32 @@ public:
         > eobPriors;
     */
     Sirikata::Array4d<DynProb,
-        2, // slice type
+        4, // slice type
         52, // qp, should be by slice but we do by macroblock
         5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
         4 // nonzeros top+left, nonzeros left, nonzeros top, no nonzeros
     > containsNonzeros;
     Sirikata::Array4d<DynProb,
-        2, // slice type
+        4, // slice type
         52, // qp, should be by slice but we do by macroblock
         5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
         16 // which coefficient
     > coefIsNonzero;
     Sirikata::Array4d<DynProb,
-        2, // slice type
+        4, // slice type
         52, // qp, should be by slice but we do by macroblock
         5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
         16 // which coefficient
     > coefIsLastNonzero;
     Sirikata::Array4d<DynProb,
-        2, // slice type
+        4, // slice type
         52, // qp, should be by slice but we do by macroblock
         5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
         5 // 0 if any nonone,nonzero components found thus far.
           // Else, 1 + min(3, num ones thus far)
     > coefIsNonone;
     Sirikata::Array4d<DynProb,
-        2, // slice type
+        4, // slice type
         52, // qp, should be by slice but we do by macroblock
         5, // block type (lac16x16, ldc16x16, lac, crac, crdc)
         5 // min(4, num nonone,nonzeros)
