@@ -9,16 +9,14 @@ pushd "$BASEDIR/.."
 ./piedpiper_make
 popd
 
-FILES=($BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264)
-
-if [ "$#" -eq 1 ]
+if [ "$#" -ge 1 ]
 then
-    SAVEIFS=$IFS
-    IFS=$(echo -en "\n\b")
-    for f in $(ls $1); do
-        FILES+=("$1$f")
+    FILES=()
+    for f in "$@"; do
+        FILES+=("$f")
     done
-    IFS=$SAVEIFS
+else
+    FILES=($BASEDIR/tibby.264 $BASEDIR/black.264 $BASEDIR/../res/BAMQ2_JVC_C.264 $BASEDIR/../res/BA1_FT_C.264)
 fi
 
 IFS=""
