@@ -1,6 +1,9 @@
-OpenH264
+OpenH264 - Lossless H.264 Compression
 ========
 OpenH264 is a codec library which supports H.264 encoding and decoding. It is suitable for use in real time applications such as WebRTC. See http://www.openh264.org/ for more details.
+
+Ontop of this we built a recompression layer that can get additional win ontop of CAVLC and other algorithms.
+
 
 Encoder Features
 ----------------
