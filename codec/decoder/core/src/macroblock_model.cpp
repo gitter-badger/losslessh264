@@ -12,19 +12,34 @@ void Neighbors::init(const FreqImage *f, int x, int y) {
         n[i] = NULL;
     }
     if (x > 0) {
-        n[Nei::LEFT] = &f->at(x-1, y);
+        n[LEFT] = &f->at(x-1, y);
+        if (!n[LEFT]->odata.initialized) {
+            n[LEFT] = NULL;
+        }
         if (y > 0) {
-            n[Nei::ABOVELEFT] = &f->at(x-1, y-1);
+            n[ABOVELEFT] = &f->at(x-1, y-1);
+            if (!n[ABOVELEFT]->odata.initialized) {
+                n[ABOVELEFT] = NULL;
+            }
         }
     }
     if (y > 0) {
-        n[Nei::ABOVE] = &f->at(x, y-1);
+        n[ABOVE] = &f->at(x, y-1);
+        if (!n[ABOVE]->odata.initialized) {
+            n[ABOVE] = NULL;
+        }
         if (x + 1 < (int)f->width) {
-            n[Nei::ABOVERIGHT] = &f->at(x + 1, y - 1);
+            n[ABOVERIGHT] = &f->at(x + 1, y - 1);
+            if (!n[ABOVERIGHT]->odata.initialized) {
+                n[ABOVERIGHT] = NULL;
+            }
         }
     }
     if (f->priorValid) {
-        n[Nei::PAST] = &f->last(x, y);
+        n[PAST] = &f->last(x, y);
+        if (!n[PAST]->odata.initialized) {
+            n[PAST] = NULL;
+        }
     }
 }
 

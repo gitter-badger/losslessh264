@@ -2949,6 +2949,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     pCurLayer->pSliceIdc[iNextMbXyIndex] = iSliceIdc;
     pCtx->bMbRefConcealed = false;
     DecodedMacroblock rtd = {};
+    rtd.odata.initialized = true;
     // these guys are set to some mashup of prior decoded macroblocks. Set them to zero
     memset(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex], 0,
            sizeof(pCurLayer->pScaledTCoeff[ pCurLayer->iMbXyIndex]));

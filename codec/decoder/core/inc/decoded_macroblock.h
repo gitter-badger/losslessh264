@@ -7,6 +7,7 @@ struct DecodedMacroblock {
     int16_t chromaDC[8];
     int16_t lumaAC[256];
     int16_t chromaAC[128];
+    bool initialized;
   } odata;
   uint8_t eSliceType;
   int uiChromaQpIndexOffset;
