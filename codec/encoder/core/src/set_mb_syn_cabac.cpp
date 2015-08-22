@@ -43,6 +43,9 @@
 #include "set_mb_syn_cabac.h"
 #include "encoder.h"
 
+// Duplicated with compression_stream.h. Make sure to change both.
+//#define CABAC_LOG_DECISIONS
+
 namespace WelsEnc {
 
 
@@ -106,7 +109,6 @@ void WelsCabacPutBit (SCabacCtx* pCbCtx, uint32_t iValue) {
       else
         pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
       *pCbCtx->m_pBufCur ++ = uiByte;
-        //fprintf(stderr, "Encode Decision: byte\n");
     }
   } else {
 
@@ -122,7 +124,6 @@ void WelsCabacPutBit (SCabacCtx* pCbCtx, uint32_t iValue) {
         else
           pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
         *pCbCtx->m_pBufCur ++ = uiByte;
-        // fprintf(stderr, "Encode Decision: byte\n");
       }
     }
   }
@@ -149,7 +150,9 @@ void WelsCabacEncodeDecision (SCabacCtx* pCbCtx, int32_t iCtx, uint32_t uiBin) {
   uint8_t uiState = pCbCtx->m_sStateCtx[iCtx].m_uiState;
   uint8_t uiValMps = pCbCtx->m_sStateCtx[iCtx].m_uiValMps;
   ecabacoffset++;
+#ifdef CABAC_LOG_DECISIONS
   fprintf(stderr, "Encode Decision %d: [%d]:%d/%d -> %d\n", ecabacoffset, iCtx, uiState, uiValMps, uiBin);
+#endif
   uint32_t uiRangeLps = g_kuiCabacRangeLps[uiState][ (pCbCtx->m_uiRange >> 6) & 3];
 
   pCbCtx->m_uiRange -= uiRangeLps;
@@ -169,7 +172,9 @@ void WelsCabacEncodeDecision (SCabacCtx* pCbCtx, int32_t iCtx, uint32_t uiBin) {
 
 void WelsCabacEncodeBypassOne (SCabacCtx* pCbCtx, uint32_t uiBin) {
   ecabacoffset++;
+#ifdef CABAC_LOG_DECISIONS
   fprintf(stderr, "Encode Decision %d: Bypass -> %d\n", ecabacoffset, uiBin);
+#endif
   pCbCtx->m_uiLow <<= 1;
   if (uiBin) {
     pCbCtx->m_uiLow += pCbCtx->m_uiRange;
@@ -189,7 +194,9 @@ void WelsCabacEncodeBypassOne (SCabacCtx* pCbCtx, uint32_t uiBin) {
 }
 void WelsCabacEncodeTerminate (SCabacCtx* pCbCtx, uint32_t uiBin) {
   ecabacoffset++;
+#ifdef CABAC_LOG_DECISIONS
   fprintf(stderr, "Encode Decision %d: Terminate -> %d\n", ecabacoffset, uiBin);
+#endif
   pCbCtx->m_uiRange -= 2;
   if (uiBin) {
     pCbCtx->m_uiLow  += pCbCtx->m_uiRange;
@@ -230,14 +237,12 @@ void WelsCabacEncodeFlush (SCabacCtx* pCbCtx) {
       uint32_t uiByte = pCbCtx->m_uData >> (pCbCtx->m_uiBitsUsed);
       pCbCtx->m_uData &= (uint32_t) ((0xFFFFFFFF) >> (32 - pCbCtx->m_uiBitsUsed));
       *pCbCtx->m_pBufCur ++ = uiByte;
-        //fprintf(stderr, "Encode Decision: byte\n");
     } else {
       if (pCbCtx->m_uiBitsUsed == 8) {
         *pCbCtx->m_pBufCur ++ = pCbCtx->m_uData & 0xff;
       } else {
         *pCbCtx->m_pBufCur ++ = (pCbCtx->m_uData << (8 - pCbCtx->m_uiBitsUsed));
       }
-        //fprintf(stderr, "Encode Decision: byte\n");
       pCbCtx->m_uiBitsUsed = 0;
     }
   }
