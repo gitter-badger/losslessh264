@@ -472,16 +472,13 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   for (i = 0; i < 16; i++) {
     int32_t iPrevIntra4x4PredMode = 0;
     rtd->iRemIntra4x4PredMode[i] = 0;
-    if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
 #ifdef BILLING
-      curBillTag = PIP_PREV_PRED_MODE_TAG;
+    curBillTag = PIP_PRED_MODE_TAG;
 #endif
+    if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
       iPrevIntra4x4PredMode = iCode;
     } else {
-#ifdef BILLING
-      curBillTag = PIP_PREV_PRED_MODE_TAG;
-#endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
     }
@@ -583,7 +580,7 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
       iPrevIntra4x4PredMode = iCode;
     } else {
 #ifdef BILLING
-      curBillTag = PIP_PREV_PRED_MODE_TAG;
+      curBillTag = PIP_PRED_MODE_TAG;
 #endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode));
       iPrevIntra4x4PredMode = uiCode;
@@ -672,6 +669,9 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
     return ERR_NONE;
  // Only for intra4x4 // Only for intra4xe
   if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
+#ifdef BILLING
+      curBillTag = PIP_8x8_TAG;
+#endif
     WELS_READ_VERIFY (ParseIntraPredModeChromaCabac (pCtx, uiNeighAvail, iCode));
     if (iCode > MAX_PRED_MODE_ID_CHROMA) {
       return ERR_INFO_INVALID_I_CHROMA_PRED_MODE;
@@ -679,7 +679,7 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
     pCurDqLayer->pChromaPredMode[iMbXy] = iCode;
   } else {
 #ifdef BILLING
-      curBillTag = PIP_PRED_MODE_TAG;
+      curBillTag = PIP_16x16_TAG;
 #endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //intra_chroma_pred_mode
     if (uiCode > MAX_PRED_MODE_ID_CHROMA) {
@@ -735,6 +735,9 @@ int32_t WelsDecodeMbCabacISliceBaseMode0 (PWelsDecoderContext pCtx, uint32_t& ui
     pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
     if (pCtx->pPps->bTransform8x8ModeFlag) {
       // Transform 8x8 cabac will be added soon
+#ifdef BILLING
+        //FIXME
+#endif
       WELS_READ_VERIFY (ParseTransformSize8x8FlagCabac (pCtx, &sNeighAvail, pCtx->pCurDqLayer->pTransformSize8x8Flag[iMbXy]));
     }
     if (pCtx->pCurDqLayer->pTransformSize8x8Flag[iMbXy]) {
@@ -2134,7 +2137,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     (void) numNonzerosC;
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
       //fprintf(stderr, "cbpc: %d\n", rtd.uiCbpC);
-      oMovie().tag(PIP_CBPC_TAG).emitBits(rtd.uiCbpC, oMovie().model().getCbpCPrior()); // Valid values are 0..2
+      // bill this to CBPL since the bill is the same for cavlc
+      oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpC, oMovie().model().getCbpCPrior()); // Valid values are 0..2
     }
     //fprintf(stderr, "cbpl: %d\n", rtd.uiCbpL);
     oMovie().tag(PIP_CBPL_TAG).emitBits(rtd.uiCbpL, oMovie().model().getCbpLPrior()); // Valid values are 0..15
@@ -2413,7 +2417,8 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     }
 
     if (pCtx->pSps->uiChromaFormatIdc != 0) {
-      res = iMovie().tag(PIP_CBPC_TAG).scanBits(oMovie().model().getCbpCPrior());
+      // bill this to CBPL since the bill is the same for cavlc
+      res = iMovie().tag(PIP_CBPL_TAG).scanBits(oMovie().model().getCbpCPrior());
       if (res.second) {
         fprintf(stderr, "failed to read uiCbpC!\n");
         rtd.uiCbpC = 255;
@@ -3142,7 +3147,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
 
     //uiCbp
 #ifdef BILLING
-      curBillTag = PIP_16x16_TAG;
+      curBillTag = PIP_CBPL_TAG;
 #endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //coded_block_pattern
     uiCbp = uiCode;

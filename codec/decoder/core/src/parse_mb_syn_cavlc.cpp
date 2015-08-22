@@ -965,8 +965,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
     int bill_n_base = PIP_LAC_N_EOB;
     int bill_bitmask_base = PIP_LAC_0_BITMASK;
     int bill_n_bitmask_base = PIP_LAC_N_BITMASK;
-    int bill_exp_base = PIP_LAC_0_EXP;
-    int bill_n_exp_base = PIP_LAC_N_EXP;
+    int bill_exp_base = PIP_LAC_0_RES;
+    int bill_n_exp_base = PIP_LAC_N_RES;
     int bill_sign_base = PIP_LAC_0_SIGN;
     int bill_n_sign_base = PIP_LAC_N_SIGN;
     int bill_tag0_base = PIP_LAC_TAG0;
@@ -976,8 +976,8 @@ int32_t WelsResidualBlockCavlc (SVlcTable* pVlcTable, uint8_t* pNonZeroCountCach
         bill_n_bitmask_base = PIP_CRAC_BITMASK;
         bill_base =  PIP_CRAC_EOB;
         bill_n_base = PIP_CRAC_EOB;
-        bill_exp_base = PIP_CRAC_EXP;
-        bill_n_exp_base = PIP_CRAC_EXP;
+        bill_exp_base = PIP_CRAC_RES;
+        bill_n_exp_base = PIP_CRAC_RES;
         bill_sign_base = PIP_CRAC_SIGN;
         bill_n_sign_base = PIP_CRAC_SIGN;
         bill_tag0_base = PIP_CRAC_TAG0;
