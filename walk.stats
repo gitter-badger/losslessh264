@@ -1,47 +1,914 @@
-Keeping existing codec/common/inc/version_gen.h
-/opt/dev/openh264
-============== walk.264 ================
-    ./h264dec walk.264 /tmp/a.pip
-H264 source file name: walk.264..
+~/src/losslessh264 ~/src/losslessh264
+sh ./codec/common/generate_version.sh ./
+Generated codec/common/inc/version_gen.h
+c++ -O3 -g -fno-strict-aliasing -m64 -Wall -fPIC -MMD -MP -DGENERATED_VERSION_HEADER -std=c++11 -Wno-deprecated-register  -I./codec/api/svc -I./codec/common/inc -Icodec/common/inc  -I./codec/decoder/core/inc -I./codec/decoder/plus/inc -I./codec/processing/interface -c -o codec/decoder/plus/src/welsDecoderExt.o codec/decoder/plus/src/welsDecoderExt.cpp
+rm -f libdecoder.a
+ar cr libdecoder.a codec/decoder/core/src/au_parser.o codec/decoder/core/src/bit_stream.o codec/decoder/core/src/cabac_decoder.o codec/decoder/core/src/compression_stream.o codec/decoder/core/src/bitreader.o codec/decoder/core/src/bitwriter.o codec/decoder/core/src/deblocking.o codec/decoder/core/src/decode_mb_aux.o codec/decoder/core/src/decode_slice.o codec/decoder/core/src/decoder.o codec/decoder/core/src/decoder_core.o codec/decoder/core/src/decoder_data_tables.o codec/decoder/core/src/error_concealment.o codec/decoder/core/src/fmo.o codec/decoder/core/src/get_intra_predictor.o codec/decoder/core/src/macroblock_model.o codec/decoder/core/src/manage_dec_ref.o codec/decoder/core/src/memmgr_nal_unit.o codec/decoder/core/src/mv_pred.o codec/decoder/core/src/parse_mb_syn_cabac.o codec/decoder/core/src/parse_mb_syn_cavlc.o codec/decoder/core/src/pic_queue.o codec/decoder/core/src/rec_mb.o codec/decoder/plus/src/welsDecoderExt.o codec/decoder/core/src/clone_picture.o
+c++ -O3 -g -fno-strict-aliasing -m64 -Wall -fPIC -MMD -MP -DGENERATED_VERSION_HEADER -std=c++11 -Wno-deprecated-register  -I./codec/api/svc -I./codec/common/inc -Icodec/common/inc  -I./codec/encoder/core/inc -I./codec/encoder/plus/inc -I./codec/processing/interface -c -o codec/encoder/plus/src/welsEncoderExt.o codec/encoder/plus/src/welsEncoderExt.cpp
+rm -f libencoder.a
+ar cr libencoder.a codec/encoder/core/src/au_set.o codec/encoder/core/src/deblocking.o codec/encoder/core/src/decode_mb_aux.o codec/encoder/core/src/encode_mb_aux.o codec/encoder/core/src/encoder.o codec/encoder/core/src/encoder_data_tables.o codec/encoder/core/src/encoder_ext.o codec/encoder/core/src/get_intra_predictor.o codec/encoder/core/src/md.o codec/encoder/core/src/mv_pred.o codec/encoder/core/src/nal_encap.o codec/encoder/core/src/picture_handle.o codec/encoder/core/src/property.o codec/encoder/core/src/ratectl.o codec/encoder/core/src/ref_list_mgr_svc.o codec/encoder/core/src/sample.o codec/encoder/core/src/set_mb_syn_cabac.o codec/encoder/core/src/set_mb_syn_cavlc.o codec/encoder/core/src/slice_multi_threading.o codec/encoder/core/src/svc_base_layer_md.o codec/encoder/core/src/svc_enc_slice_segment.o codec/encoder/core/src/svc_encode_mb.o codec/encoder/core/src/svc_encode_slice.o codec/encoder/core/src/svc_mode_decision.o codec/encoder/core/src/svc_motion_estimate.o codec/encoder/core/src/svc_set_mb_syn_cabac.o codec/encoder/core/src/svc_set_mb_syn_cavlc.o codec/encoder/core/src/wels_preprocess.o codec/encoder/plus/src/welsEncoderExt.o
+rm -f libopenh264.a
+ar cr libopenh264.a codec/encoder/core/src/au_set.o codec/encoder/core/src/deblocking.o codec/encoder/core/src/decode_mb_aux.o codec/encoder/core/src/encode_mb_aux.o codec/encoder/core/src/encoder.o codec/encoder/core/src/encoder_data_tables.o codec/encoder/core/src/encoder_ext.o codec/encoder/core/src/get_intra_predictor.o codec/encoder/core/src/md.o codec/encoder/core/src/mv_pred.o codec/encoder/core/src/nal_encap.o codec/encoder/core/src/picture_handle.o codec/encoder/core/src/property.o codec/encoder/core/src/ratectl.o codec/encoder/core/src/ref_list_mgr_svc.o codec/encoder/core/src/sample.o codec/encoder/core/src/set_mb_syn_cabac.o codec/encoder/core/src/set_mb_syn_cavlc.o codec/encoder/core/src/slice_multi_threading.o codec/encoder/core/src/svc_base_layer_md.o codec/encoder/core/src/svc_enc_slice_segment.o codec/encoder/core/src/svc_encode_mb.o codec/encoder/core/src/svc_encode_slice.o codec/encoder/core/src/svc_mode_decision.o codec/encoder/core/src/svc_motion_estimate.o codec/encoder/core/src/svc_set_mb_syn_cabac.o codec/encoder/core/src/svc_set_mb_syn_cavlc.o codec/encoder/core/src/wels_preprocess.o codec/encoder/plus/src/welsEncoderExt.o codec/decoder/core/src/au_parser.o codec/decoder/core/src/bit_stream.o codec/decoder/core/src/cabac_decoder.o codec/decoder/core/src/compression_stream.o codec/decoder/core/src/bitreader.o codec/decoder/core/src/bitwriter.o codec/decoder/core/src/deblocking.o codec/decoder/core/src/decode_mb_aux.o codec/decoder/core/src/decode_slice.o codec/decoder/core/src/decoder.o codec/decoder/core/src/decoder_core.o codec/decoder/core/src/decoder_data_tables.o codec/decoder/core/src/error_concealment.o codec/decoder/core/src/fmo.o codec/decoder/core/src/get_intra_predictor.o codec/decoder/core/src/macroblock_model.o codec/decoder/core/src/manage_dec_ref.o codec/decoder/core/src/memmgr_nal_unit.o codec/decoder/core/src/mv_pred.o codec/decoder/core/src/parse_mb_syn_cabac.o codec/decoder/core/src/parse_mb_syn_cavlc.o codec/decoder/core/src/pic_queue.o codec/decoder/core/src/rec_mb.o codec/decoder/plus/src/welsDecoderExt.o codec/decoder/core/src/clone_picture.o codec/processing/src/adaptivequantization/AdaptiveQuantization.o codec/processing/src/backgrounddetection/BackgroundDetection.o codec/processing/src/common/memory.o codec/processing/src/common/WelsFrameWork.o codec/processing/src/common/WelsFrameWorkEx.o codec/processing/src/complexityanalysis/ComplexityAnalysis.o codec/processing/src/denoise/denoise.o codec/processing/src/denoise/denoise_filter.o codec/processing/src/downsample/downsample.o codec/processing/src/downsample/downsamplefuncs.o codec/processing/src/imagerotate/imagerotate.o codec/processing/src/imagerotate/imagerotatefuncs.o codec/processing/src/scenechangedetection/SceneChangeDetection.o codec/processing/src/scrolldetection/ScrollDetection.o codec/processing/src/scrolldetection/ScrollDetectionFuncs.o codec/processing/src/vaacalc/vaacalcfuncs.o codec/processing/src/vaacalc/vaacalculation.o codec/common/src/common_tables.o codec/common/src/copy_mb.o codec/common/src/cpu.o codec/common/src/crt_util_safe_x.o codec/common/src/deblocking_common.o codec/common/src/expand_pic.o codec/common/src/intra_pred_common.o codec/common/src/mc.o codec/common/src/memory_align.o codec/common/src/sad_common.o codec/common/src/utils.o codec/common/src/welsCodecTrace.o codec/common/src/WelsThreadLib.o
+rm -f libopenh264.0.dylib
+c++ -dynamiclib -o libopenh264.0.dylib codec/encoder/core/src/au_set.o codec/encoder/core/src/deblocking.o codec/encoder/core/src/decode_mb_aux.o codec/encoder/core/src/encode_mb_aux.o codec/encoder/core/src/encoder.o codec/encoder/core/src/encoder_data_tables.o codec/encoder/core/src/encoder_ext.o codec/encoder/core/src/get_intra_predictor.o codec/encoder/core/src/md.o codec/encoder/core/src/mv_pred.o codec/encoder/core/src/nal_encap.o codec/encoder/core/src/picture_handle.o codec/encoder/core/src/property.o codec/encoder/core/src/ratectl.o codec/encoder/core/src/ref_list_mgr_svc.o codec/encoder/core/src/sample.o codec/encoder/core/src/set_mb_syn_cabac.o codec/encoder/core/src/set_mb_syn_cavlc.o codec/encoder/core/src/slice_multi_threading.o codec/encoder/core/src/svc_base_layer_md.o codec/encoder/core/src/svc_enc_slice_segment.o codec/encoder/core/src/svc_encode_mb.o codec/encoder/core/src/svc_encode_slice.o codec/encoder/core/src/svc_mode_decision.o codec/encoder/core/src/svc_motion_estimate.o codec/encoder/core/src/svc_set_mb_syn_cabac.o codec/encoder/core/src/svc_set_mb_syn_cavlc.o codec/encoder/core/src/wels_preprocess.o codec/encoder/plus/src/welsEncoderExt.o codec/decoder/core/src/au_parser.o codec/decoder/core/src/bit_stream.o codec/decoder/core/src/cabac_decoder.o codec/decoder/core/src/compression_stream.o codec/decoder/core/src/bitreader.o codec/decoder/core/src/bitwriter.o codec/decoder/core/src/deblocking.o codec/decoder/core/src/decode_mb_aux.o codec/decoder/core/src/decode_slice.o codec/decoder/core/src/decoder.o codec/decoder/core/src/decoder_core.o codec/decoder/core/src/decoder_data_tables.o codec/decoder/core/src/error_concealment.o codec/decoder/core/src/fmo.o codec/decoder/core/src/get_intra_predictor.o codec/decoder/core/src/macroblock_model.o codec/decoder/core/src/manage_dec_ref.o codec/decoder/core/src/memmgr_nal_unit.o codec/decoder/core/src/mv_pred.o codec/decoder/core/src/parse_mb_syn_cabac.o codec/decoder/core/src/parse_mb_syn_cavlc.o codec/decoder/core/src/pic_queue.o codec/decoder/core/src/rec_mb.o codec/decoder/plus/src/welsDecoderExt.o codec/decoder/core/src/clone_picture.o codec/processing/src/adaptivequantization/AdaptiveQuantization.o codec/processing/src/backgrounddetection/BackgroundDetection.o codec/processing/src/common/memory.o codec/processing/src/common/WelsFrameWork.o codec/processing/src/common/WelsFrameWorkEx.o codec/processing/src/complexityanalysis/ComplexityAnalysis.o codec/processing/src/denoise/denoise.o codec/processing/src/denoise/denoise_filter.o codec/processing/src/downsample/downsample.o codec/processing/src/downsample/downsamplefuncs.o codec/processing/src/imagerotate/imagerotate.o codec/processing/src/imagerotate/imagerotatefuncs.o codec/processing/src/scenechangedetection/SceneChangeDetection.o codec/processing/src/scrolldetection/ScrollDetection.o codec/processing/src/scrolldetection/ScrollDetectionFuncs.o codec/processing/src/vaacalc/vaacalcfuncs.o codec/processing/src/vaacalc/vaacalculation.o codec/common/src/common_tables.o codec/common/src/copy_mb.o codec/common/src/cpu.o codec/common/src/crt_util_safe_x.o codec/common/src/deblocking_common.o codec/common/src/expand_pic.o codec/common/src/intra_pred_common.o codec/common/src/mc.o codec/common/src/memory_align.o codec/common/src/sad_common.o codec/common/src/utils.o codec/common/src/welsCodecTrace.o codec/common/src/WelsThreadLib.o -m64 -lpthread  -dynamiclib -twolevel_namespace -undefined dynamic_lookup -fno-common -headerpad_max_install_names -install_name /usr/local/lib/libopenh264.0.dylib
+ln -sfn libopenh264.0.dylib libopenh264.dylib
+c++ -o h264dec codec/console/dec/src/d3d9_utils.o codec/console/dec/src/test_arithmetic_coding.o codec/console/dec/src/h264dec.o -L. -ldecoder -lencoder -lprocessing -lcommon -lconsole_common -m64 -lpthread 
+c++ -o h264enc codec/console/enc/src/welsenc.o -L. -lencoder -lprocessing -lcommon -lconsole_common -m64 -lpthread 
+~/src/losslessh264
+============== ./roundtriptest/tibby.264 ================
+    ./h264dec ./roundtriptest/tibby.264 /tmp/a.pip
+H264 source file name: ./roundtriptest/tibby.264..
 Sequence output file name: /tmp/a.pip..
+-------------------------------------------------------
+iWidth:		320
+height:		240
+Frames:		94
+decode time:	0.908249 sec
+FPS:		103.495848 fps
+-------------------------------------------------------
+0 :: 847 [boilerplate]
+1 :: 3042 [skip]
+2 :: 253 [skip end]
+3 :: 1357 [cbpc]
+4 :: 6465 [cbpl]
+6 :: 352 [qpl]
+7 :: 3658 [mb type]
+8 :: 117 [ref]
+9 :: 2542 [8x8]
+10 :: 1455 [16x16]
+12 :: 9410 [pred mode]
+13 :: 31 [sub mb]
+14 :: 10687 [mv[0]]
+15 :: 10238 [mv[1]]
+16 :: 665 [luma dc]
+17 :: 1678 [chroma dc]
+18 :: 22195 [luma 0 eob]
+  nonzeros  0: 26.28% compressed bytes,  34494 bits encoded
+  nonzeros  1: 27.85% compressed bytes,  68266 bits encoded
+  nonzeros  2: 23.24% compressed bytes,  63748 bits encoded
+  nonzeros  3: 12.30% compressed bytes,  21576 bits encoded
+  nonzeros  4:  5.85% compressed bytes,  11094 bits encoded
+  nonzeros  5:  2.56% compressed bytes,   4176 bits encoded
+  nonzeros  6:  1.06% compressed bytes,   1578 bits encoded
+  nonzeros  7:  0.37% compressed bytes,    522 bits encoded
+  nonzeros  8:  0.26% compressed bytes,    384 bits encoded
+  nonzeros  9:  0.11% compressed bytes,    136 bits encoded
+  nonzeros 10:  0.04% compressed bytes,     48 bits encoded
+  nonzeros 11:  0.04% compressed bytes,     56 bits encoded
+  nonzeros 13:  0.00% compressed bytes,      8 bits encoded
+19 :: 6347 [luma 0 bitmask]
+20 :: 7 [luma 0 exponent]
+           17:  0.00% compressed bytes,      6 bits encoded
+           19:  0.00% compressed bytes,      3 bits encoded
+           20: 14.29% compressed bytes,      3 bits encoded
+           24: 14.29% compressed bytes,      4 bits encoded
+           25:  0.00% compressed bytes,      4 bits encoded
+           26:  0.00% compressed bytes,      4 bits encoded
+           30:  0.00% compressed bytes,      4 bits encoded
+           31:  0.00% compressed bytes,      5 bits encoded
+           38: 14.29% compressed bytes,      5 bits encoded
+21 :: 4302 [luma 0 significand]
+22 :: 4350 [luma 0 sign]
+24 :: 13467 [luma Nth bitmask]
+25 :: 2 [luma Nth exponent]
+           17:  0.00% compressed bytes,      2 bits encoded
+26 :: 3774 [luma Nth significand]
+27 :: 6678 [luma Nth sign]
+28 :: 48 [chroma eob]
+  nonzeros  0: 39.58% compressed bytes,    304 bits encoded
+  nonzeros  1: 45.83% compressed bytes,    148 bits encoded
+  nonzeros  2:  6.25% compressed bytes,     24 bits encoded
+29 :: 14 [chroma bitmask]
+30 :: 2 [chroma exp]
+31 :: 8 [chroma significand]
+32 :: 12 [chroma sign]
+TOTAL written 114003
+0 :: 263.500000   [boilerplate] 
+1 :: 3548.500000   [skip] 
+6 :: 159.125000   [qpl] 
+7 :: 4678.375000   [mb type] 
+10 :: 10885.125000   [16x16] 
+12 :: 6430.500000   [pred mode] 
+13 :: 336.500000   [sub mb] 
+14 :: 11651.875000   [mv[0]] 
+15 :: 11109.375000   [mv[1]] 
+16 :: 2769.875000   [luma dc] 
+17 :: 2023.000000   [chroma dc] 
+18 :: 46306.125000   [luma 0 eob] 
+19 :: 2036.000000   [luma 0 bitmask] 
+20 :: 1581.250000   [luma 0 exponent] 
+22 :: 5000.375000   [luma 0 sign] 
+24 :: 3458.750000   [luma Nth bitmask] 
+25 :: 1018.125000   [luma Nth exponent] 
+27 :: 6992.000000   [luma Nth sign] 
+28 :: 64.125000   [chroma eob] 
+32 :: 10.750000   [chroma sign] 
+66 :: 4634.000000   [prev pred mode] 
+TOTAL: 124957.250000
 ------------------------------------------------------
+    ./h264dec /tmp/a.pip /tmp/a.264
+H264 source file name: /tmp/a.pip..
+Sequence output file name: /tmp/a.264..
+-------------------------------------------------------
+iWidth:		320
+height:		240
+Frames:		94
+decode time:	1.546709 sec
+FPS:		60.774199 fps
+-------------------------------------------------------
+TOTAL written 0
+0 :: 263.500000   [boilerplate] 
+1 :: 3501.875000   [skip] 
+6 :: 159.125000   [qpl] 
+7 :: 4678.375000   [mb type] 
+10 :: 10885.125000   [16x16] 
+12 :: 6430.500000   [pred mode] 
+13 :: 336.500000   [sub mb] 
+14 :: 11651.875000   [mv[0]] 
+15 :: 11109.375000   [mv[1]] 
+16 :: 2769.875000   [luma dc] 
+17 :: 2023.000000   [chroma dc] 
+18 :: 46306.125000   [luma 0 eob] 
+19 :: 2036.000000   [luma 0 bitmask] 
+20 :: 1581.250000   [luma 0 exponent] 
+22 :: 5000.375000   [luma 0 sign] 
+24 :: 3458.750000   [luma Nth bitmask] 
+25 :: 1018.125000   [luma Nth exponent] 
+27 :: 6992.000000   [luma Nth sign] 
+28 :: 64.125000   [chroma eob] 
+32 :: 10.750000   [chroma sign] 
+66 :: 4634.000000   [prev pred mode] 
+TOTAL: 124910.625000
+------------------------------------------------------
+============== ./roundtriptest/black.264 ================
+    ./h264dec ./roundtriptest/black.264 /tmp/a.pip
+H264 source file name: ./roundtriptest/black.264..
+Sequence output file name: /tmp/a.pip..
+-------------------------------------------------------
+iWidth:		352
+height:		288
+Frames:		250
+decode time:	0.584966 sec
+FPS:		427.375266 fps
+-------------------------------------------------------
+0 :: 3036 [boilerplate]
+1 :: 94 [skip]
+2 :: 52 [skip end]
+3 :: 4 [cbpc]
+4 :: 7 [cbpl]
+6 :: 4 [qpl]
+7 :: 8 [mb type]
+8 :: 7 [ref]
+9 :: 35 [8x8]
+10 :: 23 [16x16]
+16 :: 25 [luma dc]
+TOTAL written 3295
+0 :: 1627.750000   [boilerplate] 
+1 :: 529.125000   [skip] 
+6 :: 49.500000   [qpl] 
+7 :: 154.000000   [mb type] 
+12 :: 49.500000   [pred mode] 
+16 :: 7.875000   [luma dc] 
+TOTAL: 2417.750000
+------------------------------------------------------
+    ./h264dec /tmp/a.pip /tmp/a.264
+H264 source file name: /tmp/a.pip..
+Sequence output file name: /tmp/a.264..
+-------------------------------------------------------
+iWidth:		352
+height:		288
+Frames:		250
+decode time:	2.844720 sec
+FPS:		87.882111 fps
+-------------------------------------------------------
+TOTAL written 0
+0 :: 1627.750000   [boilerplate] 
+6 :: 49.500000   [qpl] 
+7 :: 154.000000   [mb type] 
+12 :: 49.500000   [pred mode] 
+16 :: 7.875000   [luma dc] 
+TOTAL: 1888.625000
+------------------------------------------------------
+============== ./roundtriptest/../res/BAMQ2_JVC_C.264 ================
+    ./h264dec ./roundtriptest/../res/BAMQ2_JVC_C.264 /tmp/a.pip
+H264 source file name: ./roundtriptest/../res/BAMQ2_JVC_C.264..
+Sequence output file name: /tmp/a.pip..
+-------------------------------------------------------
+iWidth:		176
+height:		144
+Frames:		30
+decode time:	1.219932 sec
+FPS:		24.591535 fps
+-------------------------------------------------------
+0 :: 263 [boilerplate]
+1 :: 119 [skip]
+2 :: 65 [skip end]
+3 :: 298 [cbpc]
+4 :: 499 [cbpl]
+6 :: 1775 [qpl]
+7 :: 773 [mb type]
+8 :: 952 [ref]
+9 :: 94 [8x8]
+10 :: 23 [16x16]
+12 :: 633 [pred mode]
+13 :: 1161 [sub mb]
+14 :: 5953 [mv[0]]
+15 :: 5622 [mv[1]]
+17 :: 4605 [chroma dc]
+18 :: 22828 [luma 0 eob]
+  nonzeros  0:  6.35% compressed bytes,   4766 bits encoded
+  nonzeros  1:  5.95% compressed bytes,   6834 bits encoded
+  nonzeros  2:  5.85% compressed bytes,  11448 bits encoded
+  nonzeros  3:  5.59% compressed bytes,   9976 bits encoded
+  nonzeros  4:  4.55% compressed bytes,  14748 bits encoded
+  nonzeros  5:  4.53% compressed bytes,  14604 bits encoded
+  nonzeros  6:  4.42% compressed bytes,  14700 bits encoded
+  nonzeros  7:  4.91% compressed bytes,  14766 bits encoded
+  nonzeros  8:  7.76% compressed bytes,  21400 bits encoded
+  nonzeros  9:  8.00% compressed bytes,  21232 bits encoded
+  nonzeros 10:  7.81% compressed bytes,  20968 bits encoded
+  nonzeros 11:  7.73% compressed bytes,  19848 bits encoded
+  nonzeros 12:  7.11% compressed bytes,  19072 bits encoded
+  nonzeros 13:  6.69% compressed bytes,  17272 bits encoded
+  nonzeros 14:  5.68% compressed bytes,  14792 bits encoded
+  nonzeros 15:  4.22% compressed bytes,  11016 bits encoded
+  nonzeros 16:  2.83% compressed bytes,   7060 bits encoded
+19 :: 4028 [luma 0 bitmask]
+20 :: 456 [luma 0 exponent]
+           16:  5.48% compressed bytes,     84 bits encoded
+           17:  3.51% compressed bytes,    168 bits encoded
+           18:  3.29% compressed bytes,    130 bits encoded
+           19:  4.17% compressed bytes,    168 bits encoded
+           20:  3.51% compressed bytes,    147 bits encoded
+           21:  4.17% compressed bytes,    111 bits encoded
+           22:  2.41% compressed bytes,    123 bits encoded
+           23:  5.04% compressed bytes,    196 bits encoded
+           24:  2.63% compressed bytes,    128 bits encoded
+           25:  2.41% compressed bytes,    140 bits encoded
+           26:  2.41% compressed bytes,    132 bits encoded
+           27:  1.97% compressed bytes,     84 bits encoded
+           28:  1.75% compressed bytes,     96 bits encoded
+           29:  3.07% compressed bytes,     96 bits encoded
+           30:  2.19% compressed bytes,    108 bits encoded
+           31:  3.29% compressed bytes,    150 bits encoded
+           32:  2.63% compressed bytes,    110 bits encoded
+           33:  1.97% compressed bytes,    115 bits encoded
+           34:  2.19% compressed bytes,     75 bits encoded
+           35:  1.97% compressed bytes,     70 bits encoded
+           36:  1.32% compressed bytes,     80 bits encoded
+           37:  2.41% compressed bytes,     95 bits encoded
+           38:  1.54% compressed bytes,     80 bits encoded
+           39:  2.85% compressed bytes,     95 bits encoded
+           40:  1.97% compressed bytes,     90 bits encoded
+           41:  1.54% compressed bytes,     60 bits encoded
+           42:  1.32% compressed bytes,     45 bits encoded
+           43:  1.10% compressed bytes,     50 bits encoded
+           44:  0.44% compressed bytes,     45 bits encoded
+           45:  1.10% compressed bytes,     55 bits encoded
+           46:  1.32% compressed bytes,     60 bits encoded
+           47:  1.10% compressed bytes,     48 bits encoded
+           48:  0.88% compressed bytes,     42 bits encoded
+           49:  1.32% compressed bytes,     54 bits encoded
+           50:  0.88% compressed bytes,     48 bits encoded
+           51:  0.88% compressed bytes,     60 bits encoded
+           52:  0.22% compressed bytes,     12 bits encoded
+           53:  0.66% compressed bytes,     24 bits encoded
+           54:  1.10% compressed bytes,     42 bits encoded
+           55:  0.22% compressed bytes,     12 bits encoded
+           56:  1.10% compressed bytes,     42 bits encoded
+           57:  0.44% compressed bytes,     18 bits encoded
+           58:  0.00% compressed bytes,     18 bits encoded
+           59:  0.66% compressed bytes,     30 bits encoded
+           60:  0.22% compressed bytes,      6 bits encoded
+           61:  0.22% compressed bytes,     12 bits encoded
+           62:  0.22% compressed bytes,     30 bits encoded
+           63:  0.22% compressed bytes,     18 bits encoded
+           64:  0.44% compressed bytes,     24 bits encoded
+           65:  0.22% compressed bytes,     12 bits encoded
+           66:  0.44% compressed bytes,     12 bits encoded
+           67:  0.44% compressed bytes,     18 bits encoded
+           68:  0.44% compressed bytes,     18 bits encoded
+           69:  0.22% compressed bytes,     12 bits encoded
+           70:  0.44% compressed bytes,     18 bits encoded
+           71:  0.44% compressed bytes,     12 bits encoded
+           72:  0.44% compressed bytes,     18 bits encoded
+           73:  0.66% compressed bytes,     30 bits encoded
+           74:  0.00% compressed bytes,      6 bits encoded
+           75:  0.22% compressed bytes,     12 bits encoded
+           76:  0.22% compressed bytes,     12 bits encoded
+           77:  0.22% compressed bytes,      6 bits encoded
+           78:  0.00% compressed bytes,     24 bits encoded
+           79:  0.44% compressed bytes,     21 bits encoded
+           80:  0.44% compressed bytes,     21 bits encoded
+           81:  0.44% compressed bytes,     14 bits encoded
+           83:  0.22% compressed bytes,     14 bits encoded
+           84:  0.22% compressed bytes,     28 bits encoded
+           85:  0.44% compressed bytes,     14 bits encoded
+           86:  0.00% compressed bytes,     14 bits encoded
+           87:  0.22% compressed bytes,      7 bits encoded
+           91:  0.44% compressed bytes,     21 bits encoded
+           95:  0.00% compressed bytes,      7 bits encoded
+           96:  0.00% compressed bytes,      7 bits encoded
+           97:  0.22% compressed bytes,      7 bits encoded
+           99:  0.22% compressed bytes,      7 bits encoded
+           100:  0.22% compressed bytes,      7 bits encoded
+           102:  0.00% compressed bytes,      7 bits encoded
+           104:  0.22% compressed bytes,      7 bits encoded
+           105:  0.22% compressed bytes,     14 bits encoded
+           107:  0.44% compressed bytes,     14 bits encoded
+           108:  0.44% compressed bytes,     14 bits encoded
+           113:  0.22% compressed bytes,     21 bits encoded
+           114:  0.22% compressed bytes,      7 bits encoded
+           115:  0.00% compressed bytes,     14 bits encoded
+           117:  0.22% compressed bytes,      7 bits encoded
+           118:  0.22% compressed bytes,      7 bits encoded
+           122:  0.00% compressed bytes,      7 bits encoded
+           130:  0.22% compressed bytes,      7 bits encoded
+           131:  0.00% compressed bytes,      7 bits encoded
+           133:  0.22% compressed bytes,      7 bits encoded
+           134:  0.22% compressed bytes,      7 bits encoded
+           139:  0.22% compressed bytes,      7 bits encoded
+           140:  0.00% compressed bytes,      7 bits encoded
+           151:  0.00% compressed bytes,      8 bits encoded
+           155:  0.00% compressed bytes,      8 bits encoded
+           156:  0.22% compressed bytes,      8 bits encoded
+           162:  0.22% compressed bytes,      8 bits encoded
+           191:  0.00% compressed bytes,      8 bits encoded
+21 :: 8163 [luma 0 significand]
+22 :: 2900 [luma 0 sign]
+24 :: 50578 [luma Nth bitmask]
+25 :: 1903 [luma Nth exponent]
+           16:  3.84% compressed bytes,    460 bits encoded
+           17:  5.31% compressed bytes,    862 bits encoded
+           18:  4.57% compressed bytes,    676 bits encoded
+           19:  6.46% compressed bytes,    924 bits encoded
+           20:  4.68% compressed bytes,    675 bits encoded
+           21:  4.78% compressed bytes,    702 bits encoded
+           22:  3.99% compressed bytes,    609 bits encoded
+           23:  5.04% compressed bytes,    692 bits encoded
+           24:  4.94% compressed bytes,    652 bits encoded
+           25:  4.78% compressed bytes,    676 bits encoded
+           26:  3.36% compressed bytes,    456 bits encoded
+           27:  3.78% compressed bytes,    548 bits encoded
+           28:  2.31% compressed bytes,    404 bits encoded
+           29:  3.05% compressed bytes,    428 bits encoded
+           30:  2.68% compressed bytes,    344 bits encoded
+           31:  2.73% compressed bytes,    420 bits encoded
+           32:  2.15% compressed bytes,    360 bits encoded
+           33:  1.63% compressed bytes,    245 bits encoded
+           34:  2.26% compressed bytes,    345 bits encoded
+           35:  1.68% compressed bytes,    260 bits encoded
+           36:  2.52% compressed bytes,    325 bits encoded
+           37:  1.73% compressed bytes,    245 bits encoded
+           38:  1.58% compressed bytes,    240 bits encoded
+           39:  1.42% compressed bytes,    220 bits encoded
+           40:  1.16% compressed bytes,    180 bits encoded
+           41:  1.26% compressed bytes,    180 bits encoded
+           42:  0.95% compressed bytes,    155 bits encoded
+           43:  0.63% compressed bytes,    120 bits encoded
+           44:  0.95% compressed bytes,    140 bits encoded
+           45:  0.53% compressed bytes,     95 bits encoded
+           46:  1.05% compressed bytes,    140 bits encoded
+           47:  0.53% compressed bytes,    108 bits encoded
+           48:  0.84% compressed bytes,    138 bits encoded
+           49:  0.68% compressed bytes,    102 bits encoded
+           50:  0.79% compressed bytes,    108 bits encoded
+           51:  0.58% compressed bytes,     96 bits encoded
+           52:  0.47% compressed bytes,     78 bits encoded
+           53:  0.74% compressed bytes,    102 bits encoded
+           54:  0.42% compressed bytes,     78 bits encoded
+           55:  0.26% compressed bytes,     60 bits encoded
+           56:  0.37% compressed bytes,     60 bits encoded
+           57:  0.32% compressed bytes,     42 bits encoded
+           58:  0.26% compressed bytes,     42 bits encoded
+           59:  0.58% compressed bytes,     96 bits encoded
+           60:  0.42% compressed bytes,     72 bits encoded
+           61:  0.16% compressed bytes,     42 bits encoded
+           62:  0.16% compressed bytes,     42 bits encoded
+           63:  0.21% compressed bytes,     42 bits encoded
+           64:  0.16% compressed bytes,     36 bits encoded
+           65:  0.16% compressed bytes,     66 bits encoded
+           66:  0.16% compressed bytes,     24 bits encoded
+           67:  0.05% compressed bytes,     12 bits encoded
+           68:  0.21% compressed bytes,     36 bits encoded
+           69:  0.11% compressed bytes,     18 bits encoded
+           70:  0.11% compressed bytes,     12 bits encoded
+           71:  0.11% compressed bytes,     30 bits encoded
+           72:  0.21% compressed bytes,     48 bits encoded
+           73:  0.16% compressed bytes,     18 bits encoded
+           74:  0.05% compressed bytes,      6 bits encoded
+           75:  0.05% compressed bytes,     12 bits encoded
+           76:  0.11% compressed bytes,     24 bits encoded
+           77:  0.05% compressed bytes,     18 bits encoded
+           78:  0.11% compressed bytes,     12 bits encoded
+           79:  0.11% compressed bytes,     35 bits encoded
+           80:  0.26% compressed bytes,     42 bits encoded
+           81:  0.32% compressed bytes,     42 bits encoded
+           82:  0.05% compressed bytes,     14 bits encoded
+           83:  0.05% compressed bytes,     14 bits encoded
+           84:  0.05% compressed bytes,     28 bits encoded
+           85:  0.00% compressed bytes,      7 bits encoded
+           88:  0.05% compressed bytes,     14 bits encoded
+           89:  0.11% compressed bytes,     28 bits encoded
+           93:  0.16% compressed bytes,     28 bits encoded
+           94:  0.05% compressed bytes,     21 bits encoded
+           95:  0.26% compressed bytes,     42 bits encoded
+           96:  0.05% compressed bytes,      7 bits encoded
+           97:  0.05% compressed bytes,      7 bits encoded
+           100:  0.05% compressed bytes,     14 bits encoded
+           103:  0.05% compressed bytes,      7 bits encoded
+           104:  0.00% compressed bytes,     14 bits encoded
+           106:  0.05% compressed bytes,      7 bits encoded
+           109:  0.05% compressed bytes,      7 bits encoded
+           111:  0.05% compressed bytes,     14 bits encoded
+           112:  0.00% compressed bytes,      7 bits encoded
+           113:  0.05% compressed bytes,     14 bits encoded
+           116:  0.05% compressed bytes,      7 bits encoded
+           117:  0.05% compressed bytes,      7 bits encoded
+           119:  0.11% compressed bytes,     14 bits encoded
+           122:  0.11% compressed bytes,     14 bits encoded
+           123:  0.05% compressed bytes,      7 bits encoded
+           124:  0.00% compressed bytes,      7 bits encoded
+           125:  0.05% compressed bytes,      7 bits encoded
+           131:  0.00% compressed bytes,      7 bits encoded
+           133:  0.00% compressed bytes,      7 bits encoded
+           140:  0.05% compressed bytes,      7 bits encoded
+           147:  0.00% compressed bytes,      8 bits encoded
+           154:  0.05% compressed bytes,      8 bits encoded
+           332:  0.00% compressed bytes,      9 bits encoded
+26 :: 73119 [luma Nth significand]
+27 :: 33961 [luma Nth sign]
+28 :: 7296 [chroma eob]
+  nonzeros  0: 11.79% compressed bytes,   5584 bits encoded
+  nonzeros  1: 11.64% compressed bytes,   4932 bits encoded
+  nonzeros  2:  9.69% compressed bytes,   7108 bits encoded
+  nonzeros  3:  9.81% compressed bytes,   6332 bits encoded
+  nonzeros  4:  8.24% compressed bytes,   7914 bits encoded
+  nonzeros  5:  7.47% compressed bytes,   6594 bits encoded
+  nonzeros  6:  6.77% compressed bytes,   6162 bits encoded
+  nonzeros  7:  6.14% compressed bytes,   5232 bits encoded
+  nonzeros  8:  7.89% compressed bytes,   5896 bits encoded
+  nonzeros  9:  6.10% compressed bytes,   4560 bits encoded
+  nonzeros 10:  4.76% compressed bytes,   3552 bits encoded
+  nonzeros 11:  3.69% compressed bytes,   2656 bits encoded
+  nonzeros 12:  2.69% compressed bytes,   2048 bits encoded
+  nonzeros 13:  1.81% compressed bytes,   1352 bits encoded
+  nonzeros 14:  1.04% compressed bytes,    712 bits encoded
+  nonzeros 15:  0.42% compressed bytes,    288 bits encoded
+29 :: 15887 [chroma bitmask]
+30 :: 52 [chroma exp]
+           16:  3.85% compressed bytes,     16 bits encoded
+           17:  7.69% compressed bytes,     32 bits encoded
+           18:  7.69% compressed bytes,     30 bits encoded
+           19: 11.54% compressed bytes,     36 bits encoded
+           20:  1.92% compressed bytes,     24 bits encoded
+           21:  5.77% compressed bytes,      9 bits encoded
+           22:  5.77% compressed bytes,     18 bits encoded
+           23:  3.85% compressed bytes,     24 bits encoded
+           24:  9.62% compressed bytes,     24 bits encoded
+           25:  5.77% compressed bytes,     20 bits encoded
+           26:  1.92% compressed bytes,     20 bits encoded
+           27:  3.85% compressed bytes,     12 bits encoded
+           28:  3.85% compressed bytes,     16 bits encoded
+           29:  1.92% compressed bytes,      4 bits encoded
+           30:  0.00% compressed bytes,      4 bits encoded
+           31:  3.85% compressed bytes,     10 bits encoded
+           32:  0.00% compressed bytes,      5 bits encoded
+           33:  3.85% compressed bytes,     10 bits encoded
+           36:  0.00% compressed bytes,      5 bits encoded
+           43:  3.85% compressed bytes,     10 bits encoded
+           44:  0.00% compressed bytes,      5 bits encoded
+           46:  0.00% compressed bytes,      5 bits encoded
+           48:  1.92% compressed bytes,      6 bits encoded
+           52:  1.92% compressed bytes,     12 bits encoded
+           60:  1.92% compressed bytes,      6 bits encoded
+31 :: 10839 [chroma significand]
+32 :: 7749 [chroma sign]
+TOTAL written 262594
+0 :: 71.375000   [boilerplate] 
+1 :: 366.500000   [skip] 
+6 :: 80.375000   [qpl] 
+7 :: 1185.375000   [mb type] 
+8 :: 832.375000   [ref] 
+10 :: 4757.000000   [16x16] 
+12 :: 510.250000   [pred mode] 
+13 :: 1650.500000   [sub mb] 
+14 :: 6171.500000   [mv[0]] 
+15 :: 5809.750000   [mv[1]] 
+17 :: 4424.625000   [chroma dc] 
+18 :: 43849.750000   [luma 0 eob] 
+19 :: 1867.250000   [luma 0 bitmask] 
+20 :: 7490.000000   [luma 0 exponent] 
+22 :: 3005.875000   [luma 0 sign] 
+24 :: 40321.000000   [luma Nth bitmask] 
+25 :: 61884.750000   [luma Nth exponent] 
+27 :: 32475.500000   [luma Nth sign] 
+28 :: 15160.375000   [chroma eob] 
+29 :: 10576.500000   [chroma bitmask] 
+30 :: 8050.250000   [chroma exp] 
+32 :: 7497.375000   [chroma sign] 
+66 :: 216.000000   [prev pred mode] 
+TOTAL: 258254.250000
+------------------------------------------------------
+    ./h264dec /tmp/a.pip /tmp/a.264
+H264 source file name: /tmp/a.pip..
+Sequence output file name: /tmp/a.264..
+-------------------------------------------------------
+iWidth:		176
+height:		144
+Frames:		30
+decode time:	0.868341 sec
+FPS:		34.548639 fps
+-------------------------------------------------------
+TOTAL written 0
+0 :: 71.375000   [boilerplate] 
+1 :: 366.500000   [skip] 
+6 :: 80.375000   [qpl] 
+7 :: 1185.375000   [mb type] 
+8 :: 832.375000   [ref] 
+10 :: 4757.000000   [16x16] 
+12 :: 510.250000   [pred mode] 
+13 :: 1650.500000   [sub mb] 
+14 :: 6171.500000   [mv[0]] 
+15 :: 5809.750000   [mv[1]] 
+17 :: 4424.625000   [chroma dc] 
+18 :: 43849.750000   [luma 0 eob] 
+19 :: 1867.250000   [luma 0 bitmask] 
+20 :: 7490.000000   [luma 0 exponent] 
+22 :: 3005.875000   [luma 0 sign] 
+24 :: 40321.000000   [luma Nth bitmask] 
+25 :: 61884.750000   [luma Nth exponent] 
+27 :: 32475.500000   [luma Nth sign] 
+28 :: 15160.375000   [chroma eob] 
+29 :: 10576.500000   [chroma bitmask] 
+30 :: 8050.250000   [chroma exp] 
+32 :: 7497.375000   [chroma sign] 
+66 :: 216.000000   [prev pred mode] 
+TOTAL: 258254.250000
+------------------------------------------------------
+============== ./roundtriptest/../res/BA1_FT_C.264 ================
+    ./h264dec ./roundtriptest/../res/BA1_FT_C.264 /tmp/a.pip
+H264 source file name: ./roundtriptest/../res/BA1_FT_C.264..
+Sequence output file name: /tmp/a.pip..
+-------------------------------------------------------
+iWidth:		352
+height:		288
+Frames:		299
+decode time:	4.702025 sec
+FPS:		63.589624 fps
+-------------------------------------------------------
+0 :: 6196 [boilerplate]
+1 :: 8216 [skip]
+2 :: 940 [skip end]
+3 :: 8161 [cbpc]
+4 :: 33743 [cbpl]
+6 :: 2943 [qpl]
+7 :: 4801 [mb type]
+8 :: 445 [ref]
+9 :: 7027 [8x8]
+10 :: 5541 [16x16]
+12 :: 9317 [pred mode]
+13 :: 25 [sub mb]
+14 :: 47628 [mv[0]]
+15 :: 43988 [mv[1]]
+16 :: 4250 [luma dc]
+17 :: 10849 [chroma dc]
+18 :: 109122 [luma 0 eob]
+  nonzeros  0: 23.65% compressed bytes, 159680 bits encoded
+  nonzeros  1: 24.81% compressed bytes, 271462 bits encoded
+  nonzeros  2: 19.62% compressed bytes, 261748 bits encoded
+  nonzeros  3: 13.59% compressed bytes, 126688 bits encoded
+  nonzeros  4:  7.99% compressed bytes,  91440 bits encoded
+  nonzeros  5:  4.33% compressed bytes,  42240 bits encoded
+  nonzeros  6:  2.34% compressed bytes,  22830 bits encoded
+  nonzeros  7:  1.37% compressed bytes,  12828 bits encoded
+  nonzeros  8:  1.03% compressed bytes,   9232 bits encoded
+  nonzeros  9:  0.58% compressed bytes,   4880 bits encoded
+  nonzeros 10:  0.26% compressed bytes,   2232 bits encoded
+  nonzeros 11:  0.14% compressed bytes,   1488 bits encoded
+  nonzeros 12:  0.09% compressed bytes,   1008 bits encoded
+  nonzeros 13:  0.07% compressed bytes,    832 bits encoded
+  nonzeros 14:  0.05% compressed bytes,    720 bits encoded
+  nonzeros 15:  0.05% compressed bytes,    712 bits encoded
+  nonzeros 16:  0.03% compressed bytes,    390 bits encoded
+19 :: 28023 [luma 0 bitmask]
+20 :: 60 [luma 0 exponent]
+           16:  3.33% compressed bytes,     10 bits encoded
+           17:  5.00% compressed bytes,     18 bits encoded
+           18:  1.67% compressed bytes,      8 bits encoded
+           19:  3.33% compressed bytes,     15 bits encoded
+           20:  1.67% compressed bytes,      9 bits encoded
+           21:  6.67% compressed bytes,     21 bits encoded
+           22:  1.67% compressed bytes,     12 bits encoded
+           23:  1.67% compressed bytes,      8 bits encoded
+           25:  1.67% compressed bytes,     12 bits encoded
+           26:  1.67% compressed bytes,     12 bits encoded
+           27:  0.00% compressed bytes,      4 bits encoded
+           28:  1.67% compressed bytes,     16 bits encoded
+           29:  3.33% compressed bytes,     24 bits encoded
+           30:  1.67% compressed bytes,      8 bits encoded
+           32:  3.33% compressed bytes,     10 bits encoded
+           33:  5.00% compressed bytes,     30 bits encoded
+           34:  0.00% compressed bytes,     15 bits encoded
+           35:  3.33% compressed bytes,     10 bits encoded
+           36:  1.67% compressed bytes,      5 bits encoded
+           37:  1.67% compressed bytes,     10 bits encoded
+           38:  3.33% compressed bytes,     10 bits encoded
+           39:  1.67% compressed bytes,      5 bits encoded
+           40:  1.67% compressed bytes,     10 bits encoded
+           42:  1.67% compressed bytes,     10 bits encoded
+           43:  0.00% compressed bytes,     15 bits encoded
+           44:  1.67% compressed bytes,     10 bits encoded
+           46:  1.67% compressed bytes,      5 bits encoded
+           47:  5.00% compressed bytes,     18 bits encoded
+           48:  1.67% compressed bytes,     12 bits encoded
+           49:  1.67% compressed bytes,     24 bits encoded
+           51:  3.33% compressed bytes,     12 bits encoded
+           53:  5.00% compressed bytes,     18 bits encoded
+           59:  1.67% compressed bytes,      6 bits encoded
+           61:  1.67% compressed bytes,      6 bits encoded
+           63:  0.00% compressed bytes,      6 bits encoded
+           67:  0.00% compressed bytes,     12 bits encoded
+           68:  0.00% compressed bytes,      6 bits encoded
+           69:  0.00% compressed bytes,      6 bits encoded
+           71:  0.00% compressed bytes,      6 bits encoded
+           74:  1.67% compressed bytes,      6 bits encoded
+           75:  0.00% compressed bytes,      6 bits encoded
+           76:  1.67% compressed bytes,      6 bits encoded
+           78:  0.00% compressed bytes,      6 bits encoded
+           79:  0.00% compressed bytes,      7 bits encoded
+           91:  0.00% compressed bytes,      7 bits encoded
+           94:  1.67% compressed bytes,     14 bits encoded
+           102:  0.00% compressed bytes,      7 bits encoded
+           105:  1.67% compressed bytes,      7 bits encoded
+           149:  1.67% compressed bytes,      8 bits encoded
+           159:  0.00% compressed bytes,      8 bits encoded
+           185:  1.67% compressed bytes,      8 bits encoded
+           192:  1.67% compressed bytes,      8 bits encoded
+21 :: 18205 [luma 0 significand]
+22 :: 14949 [luma 0 sign]
+24 :: 101087 [luma Nth bitmask]
+25 :: 208 [luma Nth exponent]
+           16:  1.44% compressed bytes,     40 bits encoded
+           17:  4.81% compressed bytes,     78 bits encoded
+           18:  3.37% compressed bytes,     58 bits encoded
+           19:  7.69% compressed bytes,    102 bits encoded
+           20:  4.33% compressed bytes,     60 bits encoded
+           21:  6.25% compressed bytes,     93 bits encoded
+           22:  3.37% compressed bytes,     63 bits encoded
+           23:  4.81% compressed bytes,     56 bits encoded
+           24:  0.48% compressed bytes,     44 bits encoded
+           25:  5.29% compressed bytes,     52 bits encoded
+           26:  3.37% compressed bytes,     60 bits encoded
+           27:  1.92% compressed bytes,     32 bits encoded
+           28:  1.44% compressed bytes,     24 bits encoded
+           29:  3.85% compressed bytes,     60 bits encoded
+           30:  3.37% compressed bytes,     44 bits encoded
+           31:  4.33% compressed bytes,     80 bits encoded
+           32:  2.88% compressed bytes,     55 bits encoded
+           33:  2.40% compressed bytes,     40 bits encoded
+           34:  2.88% compressed bytes,     40 bits encoded
+           35:  2.88% compressed bytes,     50 bits encoded
+           36:  1.92% compressed bytes,     20 bits encoded
+           37:  1.44% compressed bytes,     25 bits encoded
+           38:  1.92% compressed bytes,     40 bits encoded
+           39:  0.96% compressed bytes,     15 bits encoded
+           40:  1.44% compressed bytes,     30 bits encoded
+           41:  0.96% compressed bytes,     15 bits encoded
+           43:  1.44% compressed bytes,     15 bits encoded
+           44:  0.48% compressed bytes,     10 bits encoded
+           45:  0.48% compressed bytes,     10 bits encoded
+           46:  0.96% compressed bytes,     25 bits encoded
+           47:  0.96% compressed bytes,     18 bits encoded
+           48:  0.00% compressed bytes,     12 bits encoded
+           49:  0.48% compressed bytes,      6 bits encoded
+           50:  1.92% compressed bytes,     24 bits encoded
+           51:  1.44% compressed bytes,     18 bits encoded
+           52:  0.00% compressed bytes,     12 bits encoded
+           53:  0.48% compressed bytes,     12 bits encoded
+           54:  1.44% compressed bytes,     18 bits encoded
+           55:  0.48% compressed bytes,     12 bits encoded
+           56:  1.44% compressed bytes,     18 bits encoded
+           58:  0.48% compressed bytes,     12 bits encoded
+           59:  1.44% compressed bytes,     18 bits encoded
+           60:  0.48% compressed bytes,     18 bits encoded
+           61:  0.96% compressed bytes,     12 bits encoded
+           62:  0.48% compressed bytes,      6 bits encoded
+           63:  0.48% compressed bytes,      6 bits encoded
+           65:  0.48% compressed bytes,      6 bits encoded
+           69:  0.48% compressed bytes,     12 bits encoded
+           70:  0.00% compressed bytes,      6 bits encoded
+           71:  0.00% compressed bytes,      6 bits encoded
+           72:  0.48% compressed bytes,      6 bits encoded
+           78:  0.00% compressed bytes,      6 bits encoded
+           122:  0.48% compressed bytes,      7 bits encoded
+           207:  0.00% compressed bytes,      8 bits encoded
+26 :: 27388 [luma Nth significand]
+27 :: 42676 [luma Nth sign]
+28 :: 4849 [chroma eob]
+  nonzeros  0: 30.56% compressed bytes,  34553 bits encoded
+  nonzeros  1: 51.62% compressed bytes,  16332 bits encoded
+  nonzeros  2: 12.17% compressed bytes,   4040 bits encoded
+  nonzeros  3:  2.58% compressed bytes,    800 bits encoded
+  nonzeros  4:  0.72% compressed bytes,    300 bits encoded
+  nonzeros  5:  0.23% compressed bytes,    126 bits encoded
+  nonzeros  6:  0.52% compressed bytes,    234 bits encoded
+  nonzeros  7:  0.41% compressed bytes,    180 bits encoded
+  nonzeros  8:  0.29% compressed bytes,    160 bits encoded
+  nonzeros  9:  0.27% compressed bytes,    160 bits encoded
+  nonzeros 10:  0.19% compressed bytes,    112 bits encoded
+  nonzeros 11:  0.16% compressed bytes,     72 bits encoded
+  nonzeros 12:  0.08% compressed bytes,     40 bits encoded
+  nonzeros 13:  0.08% compressed bytes,     32 bits encoded
+  nonzeros 14:  0.04% compressed bytes,     24 bits encoded
+29 :: 2884 [chroma bitmask]
+30 :: 5 [chroma exp]
+           16:  0.00% compressed bytes,      2 bits encoded
+           17:  0.00% compressed bytes,      4 bits encoded
+           22:  0.00% compressed bytes,      3 bits encoded
+           28: 20.00% compressed bytes,      4 bits encoded
+           29:  0.00% compressed bytes,      4 bits encoded
+           38:  0.00% compressed bytes,      5 bits encoded
+31 :: 791 [chroma significand]
+32 :: 1448 [chroma sign]
+TOTAL written 545765
+0 :: 2668.875000   [boilerplate] 
+1 :: 15506.625000   [skip] 
+6 :: 106.875000   [qpl] 
+7 :: 16449.875000   [mb type] 
+10 :: 58860.500000   [16x16] 
+12 :: 7240.500000   [pred mode] 
+13 :: 254.000000   [sub mb] 
+14 :: 52985.875000   [mv[0]] 
+15 :: 52051.375000   [mv[1]] 
+16 :: 23834.750000   [luma dc] 
+17 :: 11103.750000   [chroma dc] 
+18 :: 232099.125000   [luma 0 eob] 
+19 :: 10913.000000   [luma 0 bitmask] 
+20 :: 10123.000000   [luma 0 exponent] 
+22 :: 19855.250000   [luma 0 sign] 
+24 :: 45072.500000   [luma Nth bitmask] 
+25 :: 15246.500000   [luma Nth exponent] 
+27 :: 45297.000000   [luma Nth sign] 
+28 :: 10223.375000   [chroma eob] 
+29 :: 414.625000   [chroma bitmask] 
+30 :: 306.000000   [chroma exp] 
+32 :: 1533.500000   [chroma sign] 
+66 :: 4458.000000   [prev pred mode] 
+TOTAL: 636604.875000
+------------------------------------------------------
+    ./h264dec /tmp/a.pip /tmp/a.264
+H264 source file name: /tmp/a.pip..
+Sequence output file name: /tmp/a.264..
+-------------------------------------------------------
+iWidth:		352
+height:		288
+Frames:		299
+decode time:	6.761236 sec
+FPS:		44.222684 fps
+-------------------------------------------------------
+TOTAL written 0
+0 :: 2668.875000   [boilerplate] 
+1 :: 15503.875000   [skip] 
+6 :: 106.875000   [qpl] 
+7 :: 16449.875000   [mb type] 
+10 :: 58860.500000   [16x16] 
+12 :: 7240.500000   [pred mode] 
+13 :: 254.000000   [sub mb] 
+14 :: 52985.875000   [mv[0]] 
+15 :: 52051.375000   [mv[1]] 
+16 :: 23834.750000   [luma dc] 
+17 :: 11103.750000   [chroma dc] 
+18 :: 232099.125000   [luma 0 eob] 
+19 :: 10913.000000   [luma 0 bitmask] 
+20 :: 10123.000000   [luma 0 exponent] 
+22 :: 19855.250000   [luma 0 sign] 
+24 :: 45072.500000   [luma Nth bitmask] 
+25 :: 15246.500000   [luma Nth exponent] 
+27 :: 45297.000000   [luma Nth sign] 
+28 :: 10223.375000   [chroma eob] 
+29 :: 414.625000   [chroma bitmask] 
+30 :: 306.000000   [chroma exp] 
+32 :: 1533.500000   [chroma sign] 
+66 :: 4458.000000   [prev pred mode] 
+TOTAL: 636602.125000
+------------------------------------------------------
+============== ./roundtriptest/walk.264 ================
+    ./h264dec ./roundtriptest/walk.264 /tmp/a.pip
+H264 source file name: ./roundtriptest/walk.264..
+Sequence output file name: /tmp/a.pip..
 -------------------------------------------------------
 iWidth:		640
 height:		352
 Frames:		1331
-decode time:	143.660676 sec
-FPS:		9.264887 fps
+decode time:	47.603376 sec
+FPS:		27.960202 fps
 -------------------------------------------------------
 0 :: 11845 [boilerplate]
-1 :: 104100 [skip]
+1 :: 102219 [skip]
 2 :: 1845 [skip end]
-3 :: 137837 [cbpc]
-4 :: 281560 [cbpl]
-6 :: 137529 [qpl]
-7 :: 193712 [mb type]
+3 :: 135110 [cbpc]
+4 :: 279300 [cbpl]
+6 :: 135475 [qpl]
+7 :: 189228 [mb type]
 8 :: 3473 [ref]
-9 :: 136791 [8x8]
-10 :: 79874 [16x16]
-11 :: 819887 [pred]
+9 :: 133830 [8x8]
+10 :: 79347 [16x16]
+12 :: 703642 [pred mode]
 13 :: 1498 [sub mb]
-14 :: 481434 [mv[0]]
-15 :: 483274 [mv[1]]
-16 :: 64153 [luma dc]
-17 :: 581371 [chroma dc]
-19 :: 744607 [luma 0 bitmask]
-20 :: 200485 [luma 0 exponent]
-21 :: 40157 [luma 0 significand]
-22 :: 257654 [luma 0 sign]
-24 :: 1736065 [luma Nth bitmask]
-25 :: 178206 [luma Nth exponent]
-26 :: 29509 [luma Nth significand]
-27 :: 344836 [luma Nth sign]
-29 :: 486794 [chroma bitmask]
-30 :: 70665 [chroma exp]
-31 :: 14912 [chroma significand]
-32 :: 114711 [chroma sign]
-65 :: 528211 [prev pred]
-TOTAL written 8266995
+14 :: 468925 [mv[0]]
+15 :: 469771 [mv[1]]
+16 :: 63290 [luma dc]
+17 :: 562280 [chroma dc]
+18 :: 1114935 [luma 0 eob]
+  nonzeros  0: 27.28% compressed bytes, 1982661 bits encoded
+  nonzeros  1: 28.84% compressed bytes, 3605772 bits encoded
+  nonzeros  2: 19.86% compressed bytes, 2583280 bits encoded
+  nonzeros  3: 10.90% compressed bytes, 969368 bits encoded
+  nonzeros  4:  5.56% compressed bytes, 605718 bits encoded
+  nonzeros  5:  3.09% compressed bytes, 286572 bits encoded
+  nonzeros  6:  1.65% compressed bytes, 154260 bits encoded
+  nonzeros  7:  1.03% compressed bytes,  86664 bits encoded
+  nonzeros  8:  0.78% compressed bytes,  68192 bits encoded
+  nonzeros  9:  0.47% compressed bytes,  37880 bits encoded
+  nonzeros 10:  0.26% compressed bytes,  21176 bits encoded
+  nonzeros 11:  0.15% compressed bytes,  11312 bits encoded
+  nonzeros 12:  0.07% compressed bytes,   5808 bits encoded
+  nonzeros 13:  0.03% compressed bytes,   2328 bits encoded
+  nonzeros 14:  0.01% compressed bytes,    920 bits encoded
+  nonzeros 15:  0.01% compressed bytes,    384 bits encoded
+  nonzeros 16:  0.00% compressed bytes,    140 bits encoded
+19 :: 274840 [luma 0 bitmask]
+20 :: 40 [luma 0 exponent]
+           16:  5.00% compressed bytes,     27 bits encoded
+           17:  5.00% compressed bytes,     26 bits encoded
+           18: 10.00% compressed bytes,     28 bits encoded
+           19: 15.00% compressed bytes,     39 bits encoded
+           20:  7.50% compressed bytes,     24 bits encoded
+           21:  7.50% compressed bytes,     12 bits encoded
+           22: 10.00% compressed bytes,     27 bits encoded
+           23:  2.50% compressed bytes,      4 bits encoded
+           24: 10.00% compressed bytes,     20 bits encoded
+           25:  0.00% compressed bytes,      8 bits encoded
+           26:  5.00% compressed bytes,     12 bits encoded
+           27:  0.00% compressed bytes,      4 bits encoded
+           28:  0.00% compressed bytes,     12 bits encoded
+           29:  2.50% compressed bytes,      8 bits encoded
+           30:  2.50% compressed bytes,      4 bits encoded
+           31:  2.50% compressed bytes,      5 bits encoded
+           33:  2.50% compressed bytes,      5 bits encoded
+           35:  0.00% compressed bytes,      5 bits encoded
+           38:  2.50% compressed bytes,      5 bits encoded
+           42:  0.00% compressed bytes,      5 bits encoded
+           50:  0.00% compressed bytes,      6 bits encoded
+21 :: 237664 [luma 0 significand]
+22 :: 201559 [luma 0 sign]
+24 :: 663210 [luma Nth bitmask]
+25 :: 12 [luma Nth exponent]
+           16:  8.33% compressed bytes,      8 bits encoded
+           17: 16.67% compressed bytes,     20 bits encoded
+           18:  0.00% compressed bytes,      2 bits encoded
+           19:  8.33% compressed bytes,      9 bits encoded
+           21:  8.33% compressed bytes,      6 bits encoded
+           22:  0.00% compressed bytes,      9 bits encoded
+           24:  8.33% compressed bytes,      4 bits encoded
+           25:  0.00% compressed bytes,      4 bits encoded
+           26:  8.33% compressed bytes,      4 bits encoded
+           27:  8.33% compressed bytes,      4 bits encoded
+           31:  0.00% compressed bytes,      5 bits encoded
+26 :: 204338 [luma Nth significand]
+27 :: 307872 [luma Nth sign]
+28 :: 249036 [chroma eob]
+  nonzeros  0: 25.25% compressed bytes, 819867 bits encoded
+  nonzeros  1: 29.89% compressed bytes, 519316 bits encoded
+  nonzeros  2: 19.75% compressed bytes, 515712 bits encoded
+  nonzeros  3: 11.49% compressed bytes, 221368 bits encoded
+  nonzeros  4:  6.33% compressed bytes, 146502 bits encoded
+  nonzeros  5:  3.52% compressed bytes,  70728 bits encoded
+  nonzeros  6:  1.70% compressed bytes,  34386 bits encoded
+  nonzeros  7:  0.93% compressed bytes,  16806 bits encoded
+  nonzeros  8:  0.57% compressed bytes,  10040 bits encoded
+  nonzeros  9:  0.31% compressed bytes,   5120 bits encoded
+  nonzeros 10:  0.18% compressed bytes,   2840 bits encoded
+  nonzeros 11:  0.06% compressed bytes,   1008 bits encoded
+  nonzeros 12:  0.02% compressed bytes,    320 bits encoded
+  nonzeros 13:  0.01% compressed bytes,    184 bits encoded
+  nonzeros 14:  0.00% compressed bytes,     32 bits encoded
+  nonzeros 15:  0.00% compressed bytes,      8 bits encoded
+29 :: 204483 [chroma bitmask]
+30 :: 9 [chroma exp]
+           16:  0.00% compressed bytes,      5 bits encoded
+           17: 11.11% compressed bytes,      8 bits encoded
+           18:  0.00% compressed bytes,      4 bits encoded
+           19:  0.00% compressed bytes,      6 bits encoded
+           20: 11.11% compressed bytes,      9 bits encoded
+           21: 22.22% compressed bytes,      6 bits encoded
+           22:  0.00% compressed bytes,      3 bits encoded
+           24:  0.00% compressed bytes,      4 bits encoded
+           25: 11.11% compressed bytes,      4 bits encoded
+31 :: 85997 [chroma significand]
+32 :: 103677 [chroma sign]
+TOTAL written 6988750
 0 :: 3992.000000   [boilerplate] 
 1 :: 151125.500000   [skip] 
 6 :: 1215.250000   [qpl] 
@@ -66,19 +933,18 @@ TOTAL written 8266995
 32 :: 114465.875000   [chroma sign] 
 66 :: 397802.000000   [prev pred mode] 
 TOTAL: 8178982.625000
+------------------------------------------------------
     ./h264dec /tmp/a.pip /tmp/a.264
-x264 [info]: using cpu capabilities: none!
-x264 [info]: profile High, level 1.3
 H264 source file name: /tmp/a.pip..
 Sequence output file name: /tmp/a.264..
-------------------------------------------------------
 -------------------------------------------------------
 iWidth:		640
 height:		352
 Frames:		1331
-decode time:	166.370093 sec
-FPS:		8.000236 fps
+decode time:	70.336774 sec
+FPS:		18.923245 fps
 -------------------------------------------------------
+TOTAL written 0
 0 :: 3992.000000   [boilerplate] 
 1 :: 150984.625000   [skip] 
 6 :: 1215.250000   [qpl] 
@@ -103,3 +969,4 @@ FPS:		8.000236 fps
 32 :: 114465.875000   [chroma sign] 
 66 :: 397802.000000   [prev pred mode] 
 TOTAL: 8178841.750000
+------------------------------------------------------
