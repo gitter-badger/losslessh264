@@ -221,9 +221,6 @@ void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     }
 
     compressed_total += writer.pos;
-    if (streamId == PIP_PREV_PRED_TAG || streamId == PIP_NZC_TAG) {
-        fprintf(stderr, "TOTAL written %d\n", compressed_total);
-    }
 #endif
     if (!buffer.empty()) {
         w.Write(streamId, &buffer[0], writer.pos);
@@ -279,6 +276,9 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
          ++i) {
         i->second.flushToWriter(i->first, w);
     }
+#ifdef BILLING
+    fprintf(stderr, "TOTAL written %d\n", compressed_total);
+#endif
 }
 
 ArithmeticCodedInput& InputCompressionStream::tag(int32_t tag) {

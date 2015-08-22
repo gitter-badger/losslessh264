@@ -24,7 +24,7 @@ fi
 IFS=""
 for f in ${FILES[@]}; do
     rm -f /tmp/a.pip* /tmp/a.264
-    echo "============== $f ================"
+    echo "============== $f ================" >&2
     echo "    ./h264dec $f /tmp/a.pip"
     ./h264dec "$f" /tmp/a.pip
     echo "    ./h264dec /tmp/a.pip /tmp/a.264"
