@@ -57,17 +57,8 @@ struct DecodedMacroblock {
             return std::pair<uint16_t, uint16_t>(quantizationTable[t][coef & 0x7], 1);
         }
   }
-  DecodedMacroblock()
-      : eSliceType(), uiChromaQpIndexOffset(),
-        iPrevIntra4x4PredMode(), iRemIntra4x4PredMode(), sMbMvp(),
-        uiSubMbType(), iRefIdx(), uiCbpC(0), uiCbpL(0), iLastMbQp(0),
-        uiChmaI8x8Mode(), uiLumaI16x16Mode(), iMbSkipRun(), uiMbType(0),
-        uiNumRefIdxL0Active(), uiLumaQp(),
-        numLumaNonzeros_(0), numChromaNonzeros_(0), numSubLumaNonzeros_(), numSubChromaNonzeros_(),
-        cachedSkips(0), cachedDeltaLumaQp(0) {
-      memset(quantizationTable, 0, sizeof(quantizationTable));
-      isSkipped = false;
-      cachedSkips = 0;
+  DecodedMacroblock() {
+      memset(this, 0, sizeof(*this));
   }
   void preInit(const WelsDec::PSlice);
 
