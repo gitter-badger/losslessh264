@@ -29,7 +29,7 @@ ENCODER_CPP_SRCS=\
 	$(ENCODER_SRCDIR)/core/src/svc_set_mb_syn_cavlc.cpp\
 	$(ENCODER_SRCDIR)/core/src/wels_preprocess.cpp\
 	$(ENCODER_SRCDIR)/plus/src/welsEncoderExt.cpp\
-	$(ENCODER_SRCDIR)/core/src/xencoder.cpp\
+
 
 ENCODER_OBJS += $(ENCODER_CPP_SRCS:.cpp=.$(OBJ))
 
