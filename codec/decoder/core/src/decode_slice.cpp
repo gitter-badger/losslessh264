@@ -473,7 +473,7 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     int32_t iPrevIntra4x4PredMode = 0;
     rtd->iRemIntra4x4PredMode[i] = 0;
 #ifdef BILLING
-    curBillTag = PIP_PRED_MODE_TAG;
+    curBillTag = PIP_16x16_TAG; // PIP_PRED_MODE_TAG
 #endif
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
@@ -679,7 +679,7 @@ int32_t ParseIntra16x16Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
     pCurDqLayer->pChromaPredMode[iMbXy] = iCode;
   } else {
 #ifdef BILLING
-      curBillTag = PIP_16x16_TAG;
+      curBillTag = PIP_8x8_TAG;
 #endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //intra_chroma_pred_mode
     if (uiCode > MAX_PRED_MODE_ID_CHROMA) {
@@ -3537,7 +3537,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
 
   if (MB_TYPE_INTRA16x16 != pCurLayer->pMbType[iMbXy]) {
 #ifdef BILLING
-      curBillTag = PIP_16x16_TAG;
+      curBillTag = PIP_CBPL_TAG;
 #endif
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //coded_block_pattern
     uiCbp = uiCode;
@@ -3596,7 +3596,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
     memset (pCurLayer->pScaledTCoeff[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
     memset (pCurLayer->pScaledTCoeffQuant[iMbXy], 0, MB_COEFF_LIST_SIZE * sizeof (int16_t));
 #ifdef BILLING
-      curBillTag = PIP_16x16_TAG;
+      curBillTag = PIP_QPL_TAG;
 #endif
     WELS_READ_VERIFY (BsGetSe (pBs, &iCode)); //mb_qp_delta
     iQpDelta = iCode;

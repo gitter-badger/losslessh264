@@ -92,7 +92,7 @@ def analyze(output_path):
             us = video_result.ours.get(label, 0)
             print '\t' + feature_row_format.format(label, bench, us, us - bench, perc(us, bench))
 
-        for prefix in 'luma ', 'chroma ', '':
+        for prefix in 'luma ', 'chroma ', 'pred ', '':
             def total(table):
                 return sum(v for k, v in table.items() if k.startswith(prefix))
             bench = total(video_result.benchmark)
