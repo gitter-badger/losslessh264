@@ -25,7 +25,7 @@ REPORT=/tmp/report
 rm -f $REPORT
 for f in ${FILES[@]}; do
     rm -f /tmp/a.pip* /tmp/a.264
-    bill=`mktemp`
+    bill=/tmp/lossless_h264_bill
     echo "============== $f ================" |tee -a $bill
     echo "    ./h264dec $f /tmp/a.pip" | tee -a $bill
     ./h264dec "$f" /tmp/a.pip | tee -a $bill
