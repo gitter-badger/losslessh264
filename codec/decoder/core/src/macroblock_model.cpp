@@ -456,11 +456,11 @@ Branch<4> MacroblockModel::getPredictionModePrior(int predMode, int leftAvail, i
 }
 
 MacroblockModel::DCPrior* MacroblockModel::getLumaDCIntPrior(size_t index) {
-  return &lumaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
+  return &lumaDCIntPriors.at(index, mb->eSliceType, encodeMacroblockType(mb->uiMbType));
 }
 
 MacroblockModel::DCPrior* MacroblockModel::getChromaDCIntPrior(size_t index) {
-  return &chromaDCIntPriors[index][mb->eSliceType][encodeMacroblockType(mb->uiMbType)];
+  return &chromaDCIntPriors.at(index, mb->eSliceType, encodeMacroblockType(mb->uiMbType));
 }
 
 MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int subblockIndex) {
@@ -483,13 +483,13 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
   } else {
     above = mb->countSubblockNonzeros(color, subblockIndex - 4);
   }
-  return &nonzerosPriors
-    [mb->eSliceType]                       // makes very little difference
-    [encodeMacroblockType(mb->uiMbType)]   // small but significant
-    [color]                                // makes very little difference
-    [std::min(2, past)]                    // past + left + above priors give a pretty decent boost!
-    [std::min(2, left)]
-    [std::min(2, above)];
+  return &nonzerosPriors.at(
+      mb->eSliceType,                       // makes very little difference
+      encodeMacroblockType(mb->uiMbType),   // small but significant
+      color,                                // makes very little difference
+      std::min(2, past),                    // past + left + above priors give a pretty decent boost!
+      std::min(2, left),
+      std::min(2, above));
 }
 
 MacroblockModel::ACPrior* MacroblockModel::getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
@@ -501,16 +501,16 @@ MacroblockModel::ACPrior* MacroblockModel::getACPrior(int index, int coef, int c
   int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
   auto neighbors = priorCoef(index % (color ? 4 : 16), coef, color);
 
-  return &acPriors
-    [mb->eSliceType]
-    [encodeMacroblockType(mb->uiMbType)]
-    [color]
-    [emitted.size()]
-    [std::min(4, nonzeros_left)]
-    [std::max(0, std::min(4, prev+2))]
-    [std::max(0, std::min(4, prev2+2))]
-    [std::max(0, std::min(4, neighbors.left+2))]
-    [std::max(0, std::min(4, neighbors.above+2))];
+  return &acPriors.at(
+      mb->eSliceType,
+      encodeMacroblockType(mb->uiMbType),
+      color,
+      emitted.size()).at(
+          std::min(4, nonzeros_left),
+          std::max(0, std::min(4, prev+2)),
+          std::max(0, std::min(4, prev2+2)),
+          std::max(0, std::min(4, neighbors.left+2)),
+          std::max(0, std::min(4, neighbors.above+2)));
 }
 
 std::pair<MacroblockModel::MotionVectorDifferencePrior*, int>
@@ -524,7 +524,7 @@ MacroblockModel::getMotionVectorDifferencePrior(int subblockIndex, int xyIndex) 
   } else if (n[ABOVE]) {
 //    prev = n[ABOVE]->sMbMvp[subblockIndex][xyIndex];
   }
-  return std::make_pair(&motionVectorDifferencePriors[mb->uiMbType][subblockIndex], prev);
+  return std::make_pair(&motionVectorDifferencePriors.at(mb->uiMbType, subblockIndex), prev);
 }
 
 std::pair<Sirikata::Array1d<DynProb, 8>::Slice, uint32_t> MacroblockModel::getLumaI16x16ModePrior() {

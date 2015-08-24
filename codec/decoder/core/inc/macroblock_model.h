@@ -121,18 +121,19 @@ class MacroblockModel {
     Neighbors n;
     Sirikata::Array3d<DynProb, 32, 2, 15> mbTypePriors; // We could use just 8 bits for I Slices
     typedef UEGkIntPrior<9, 4, 3, 4, 3> MotionVectorDifferencePrior;
-    MotionVectorDifferencePrior motionVectorDifferencePriors[200][16];
+    Sirikata::Array2d<MotionVectorDifferencePrior, 200, 16> motionVectorDifferencePriors;
     Sirikata::Array2d<DynProb, 8, 8> lumaI16x16ModePriors;
     Sirikata::Array2d<DynProb, 8, 8> chromaI8x8ModePriors;
     typedef IntPrior<3, 4> DCPrior;
-    DCPrior lumaDCIntPriors[16][5][16];
-    DCPrior chromaDCIntPriors[8][5][16];
+    Sirikata::Array3d<DCPrior, 16, 5, 16> lumaDCIntPriors;
+    Sirikata::Array3d<DCPrior, 8, 5, 16> chromaDCIntPriors;
 
     //typedef IntPrior<2, 4> ACPrior;
     typedef UEGkIntPrior<14, 4, 2, 4, 0> ACPrior;
     typedef UnsignedIntPrior<3, 4> NonzerosPrior;
-    NonzerosPrior nonzerosPriors[5][16][3][3][3][3];  // eSliceType, mbType, color, past, left, above
-    ACPrior acPriors[5][16][3][16][5][5][5][5][5]; // eSliceType, mbType, color, index, nonzeros, prev, prev2, left, above
+    Sirikata::Array6d<NonzerosPrior, 5, 16, 3, 3, 3, 3> nonzerosPriors;  // eSliceType, mbType, color, past, left, above
+    Sirikata::Array4d<Sirikata::Array5d<ACPrior, 5, 5, 5, 5, 5>,// nonzeros, prev, prev2, left, above
+                      5, 16, 3, 16> acPriors; // eSliceType, mbType, color, index,
 
     Sirikata::Array3d<DynProb,
             512, // past
