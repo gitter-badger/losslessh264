@@ -44,6 +44,9 @@ BitStream::BitStream() {
     escapeBufferSize = 0;
     buffer.reserve(64*1024*1024);
 }
+
+uint64_t InputCompressionStream::totalFileSize = 0;
+
 void BitStream::appendByte(uint8_t x) {
     if (escapingEnabled) {
         if (x <= 3 && escapeBufferSize == 2 && escapeBuffer[0] == 0 && escapeBuffer[1] == 0) {

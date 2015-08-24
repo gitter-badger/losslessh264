@@ -123,13 +123,29 @@ const char * billEnumToName(int en) {
 struct BillTally {
     ~BillTally() {
         double total = 0;
+        double adjustment = 1;
+        for (int i= 0;i  < NUM_TOTAL_TAGS;++i) {
+            total += ceil(bill[i] / 8);
+        }
+        adjustment = iMovie().getOriginalFileSize()/total;
+        total = 0;
+        
+        for (int i= 0;i  < NUM_TOTAL_TAGS;++i) {
+            total += ceil(bill[i] * adjustment / 8);
+        }
+        double final_adjustment = iMovie().getOriginalFileSize() - total;
+        total = 0;
         for (int i= 0;i  < NUM_TOTAL_TAGS;++i) {
             if (bill[i]) {
-                double cur = (bill[i] / 8);
+                double cur = ceil(bill[i] * adjustment / 8);
+                if ( i == PIP_DEFAULT_TAG) {
+                    cur += final_adjustment;
+                }
                 total += cur;
                 fprintf(stderr, "%d :: %f   [%s] \n", i, cur, billEnumToName(i));
             }
         }
+        assert(total == iMovie().getOriginalFileSize());
         fprintf(stderr,"TOTAL: %f\n", total);
     }
 } tallyAtEnd;

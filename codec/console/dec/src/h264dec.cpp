@@ -112,6 +112,9 @@ public:
     void nop(){}
     ~FlushOnClose() {
         MultiFileWriter mfw(filename);
+        if (oMovie().isRecoding) {
+            iMovie().setOriginalFileSize(oMovie().def().len());
+        }
         oMovie().flushToWriter(mfw);
         mfw.Close();
     }
@@ -212,6 +215,9 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
 
   fseek (pH264File, 0L, SEEK_END);
   iFileSize = (int32_t) ftell (pH264File);
+  if (!oMovie().isRecoding) {
+      iMovie().setOriginalFileSize(iFileSize);
+  }
   if (iFileSize <= 0) {
     fprintf (stderr, "Current Bit Stream File is too small, read error!!!!\n");
     goto label_exit;

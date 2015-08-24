@@ -590,7 +590,7 @@ struct InputCompressionStream {
     std::string filenamePrefix;
     std::map<int32_t, ArithmeticCodedInput> taggedStreams;
     ArithmeticCodedInput&tag(int32_t tag);
-
+    static uint64_t totalFileSize;
     // Prior may be IntPrior<Exponent, Mantissa>, UnsignedIntPrior, or NonzeroIntPrior.
     template <class Prior>
     int scanInt(Prior* prior, int tagExponent, int tagMantissa = -1, int tagZero = -1, int tagSign = -1) {
@@ -663,12 +663,17 @@ struct InputCompressionStream {
     return sign ? -(first + second) : (first + second);
   }
 
-    // The default prior emits a Rice coding (plus zero and sign bits).
-    int scanInt(int tag) {
-      IntPrior<> prior;
-      return scanInt(&prior, tag);
-    }
-
+  // The default prior emits a Rice coding (plus zero and sign bits).
+  int scanInt(int tag) {
+    IntPrior<> prior;
+    return scanInt(&prior, tag);
+  }
+  static uint64_t getOriginalFileSize() {
+      return totalFileSize;
+  }
+  static void setOriginalFileSize(uint64_t fs) {
+      totalFileSize = fs;
+  }
 };
 InputCompressionStream &iMovie();
 
