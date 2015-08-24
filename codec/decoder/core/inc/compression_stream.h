@@ -1,7 +1,7 @@
 #ifndef _COMPRESSION_STREAM_H_
 #define _COMPRESSION_STREAM_H_
 #include <algorithm>
-#include <array>
+//#include <array>
 #include <string>
 #include <vector>
 #include <map>
@@ -168,9 +168,9 @@ public:
 // UnaryIntPrior: encode values as '0', '10', '110', '1110', etc, with priors on the first N values.
 template <int N = 0>
 struct UnaryIntPrior {
-    std::array<DynProb, N> priors;
+    Sirikata::Array1d<DynProb, N> priors;
     DynProb* at(int i) {
-      return &priors[std::min<int>(i, priors.size()-1)];
+        return &priors.at(std::min<int>(i, priors.size()-1));
     }
 };
 
@@ -188,12 +188,14 @@ struct UnaryIntPrior<0> {
 template <int Exponent = 0, int Mantissa = 0, int Order = 0>
 struct PositiveIntPrior {
     static constexpr bool hasSign = false, hasZero = false;
-    static constexpr int order = Order;
+    enum {
+        order = Order
+    };
     UnaryIntPrior<Exponent> exponent;
-    std::array<DynProb, Mantissa> mantissa;
+    Sirikata::Array1d<DynProb, Mantissa> mantissa;
 
-    DynProb* sign() { return nullptr; }
-    DynProb* zero() { return nullptr; }
+    DynProb* sign() { return NULL; }
+    DynProb* zero() { return NULL; }
 };
 
 // UnsignedIntPrior: encode 0..infinity as zero bit + unary exponent + mantissa value.
@@ -348,7 +350,7 @@ public:
     std::vector<uint8_t> buffer;
     vpx_writer writer;
     std::map<std::pair<std::string, int>, std::pair<int, int>> bill;
-    std::pair<int, int>* bill_subtag = &bill[std::make_pair("(none)", 0)];  // always points into bill
+    std::pair<int, int>* bill_subtag;  // always points into bill
     int32_t tag;
 
 #ifdef PRIOR_STATS
@@ -357,8 +359,11 @@ public:
 #endif
 
     static DynProb TEST_PROB;
-
+    void init () {
+        bill_subtag = &bill[std::make_pair("(none)", 0)];
+    }
     ArithmeticCodedOutput() : writer() {
+        init();
     }
     ~ArithmeticCodedOutput();
 
@@ -374,6 +379,7 @@ public:
 
     ArithmeticCodedOutput(const ArithmeticCodedOutput &orig) {
       *this = orig;
+      init();
     }
 
     ArithmeticCodedOutput &operator=(const ArithmeticCodedOutput &orig) {

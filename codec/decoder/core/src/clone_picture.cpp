@@ -60,7 +60,7 @@ std::vector<uint16_t> LumaPicture::get_b_sum(int iMbX, int iMbY) const {
 					sum += value;
 				}
 			}
-			assert(sum < UINT16_MAX);
+			assert(sum < (1 << (sizeof(uint16_t))));
 			result.push_back(sum);
 		}
 	}
