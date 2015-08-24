@@ -12,9 +12,6 @@
 #endif
 
 using namespace WelsDec;
-void warnme() {
-fprintf(stderr, "DOING 431\n");
-}
 #define H264ErrorNil ERR_NONE
 
 namespace {
@@ -210,13 +207,13 @@ static int compressed_total = 0;
 void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     vpx_stop_encode(&writer);
 #ifdef BILLING
-    fprintf(stderr, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
+    fprintf(stdout, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
     if (bill.size() > 1) {
       for (const auto& entry : bill) {
         const auto& label = entry.first;
         const auto& bytes_symbols = entry.second;
         if (bytes_symbols.second > 0) {
-          fprintf(stderr, "  %8s %2d: %5.2f%% compressed bytes, %6d bits encoded\n",
+          fprintf(stdout, "  %8s %2d: %5.2f%% compressed bytes, %6d bits encoded\n",
                   label.first.c_str(), label.second,
                   100.0*bytes_symbols.first/writer.pos, bytes_symbols.second);
         }
@@ -236,7 +233,7 @@ ArithmeticCodedOutput::~ArithmeticCodedOutput() {
     uint64_t total = miss_counts[0] + miss_counts[1];
     double hitrate = (100. * (double) miss_counts[0]) / (double) total;
     const char* tag_name = billEnumToName(tag);
-    fprintf(stderr, "%-21s: %ju of %ju hits (%0.2f%%)\n", tag_name,
+    fprintf(stdout, "%-21s: %ju of %ju hits (%0.2f%%)\n", tag_name,
             miss_counts[0], miss_counts[0] + miss_counts[1], hitrate);
 
     std::ofstream miss_data;
@@ -268,7 +265,7 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
     def().padToByte();
 #ifdef BILLING
     if (!isRecoding) {
-        fprintf(stderr, "0 :: %d [boilerplate]\n", (int)def().buffer.size());
+        fprintf(stdout, "0 :: %d [boilerplate]\n", (int)def().buffer.size());
         compressed_total += def().buffer.size();
     }
 #endif
@@ -280,7 +277,7 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
         i->second.flushToWriter(i->first, w);
     }
 #ifdef BILLING
-    fprintf(stderr, "TOTAL written %d\n", compressed_total);
+    fprintf(stdout, "TOTAL written %d\n", compressed_total);
 #endif
 }
 

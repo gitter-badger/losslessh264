@@ -20,12 +20,20 @@ else
 fi
 
 IFS=""
+REPORT=/tmp/report
+
 for f in ${FILES[@]}; do
     rm -f /tmp/a.pip* /tmp/a.264
     echo "============== $f ================" >&2
     echo "    ./h264dec $f /tmp/a.pip"
-    ./h264dec "$f" /tmp/a.pip
+    bill=`mktemp`
+    ./h264dec "$f" /tmp/a.pip | tee $bill
+    pwd
+    python analyze_billing.py $bill
+    cat $bill >> $REPORT
+    rm $bill
     echo "    ./h264dec /tmp/a.pip /tmp/a.264"
     ./h264dec /tmp/a.pip /tmp/a.264
     diff /tmp/a.264 "$f"
 done
+echo "FULL report in $REPORT"

@@ -142,11 +142,11 @@ struct BillTally {
                     cur += final_adjustment;
                 }
                 total += cur;
-                fprintf(stderr, "%d :: %f   [%s] \n", i, cur, billEnumToName(i));
+                fprintf(stdout, "%d :: %f   [%s] \n", i, cur, billEnumToName(i));
             }
         }
         assert(total == iMovie().getOriginalFileSize());
-        fprintf(stderr,"TOTAL: %f\n", total);
+        fprintf(stdout,"TOTAL: %f\n", total);
     }
 } tallyAtEnd;
 #endif
