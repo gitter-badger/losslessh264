@@ -183,7 +183,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
       fprintf (stderr, "Can not open h264 source file, check its legal path related please..\n");
       return;
     }
-    fprintf (stderr, "H264 source file name: %s..\n", kpH264FileName);
+    fprintf (stdout, "H264 source file name: %s..\n", kpH264FileName);
   } else {
     fprintf (stderr, "Can not find any h264 bitstream file to read..\n");
     fprintf (stderr, "----------------decoder return------------------------\n");
@@ -197,7 +197,7 @@ void H264DecodeInstance (ISVCDecoder* pDecoder, const char* kpH264FileName, cons
       // any options
       //return; // can let decoder work in quiet mode, no writing any output
     } else
-      fprintf (stderr, "Sequence output file name: %s..\n", kpOuputFileName);
+      fprintf (stdout, "Sequence output file name: %s..\n", kpOuputFileName);
   } else {
     fprintf (stderr, "Can not find any output file to write..\n");
     // any options

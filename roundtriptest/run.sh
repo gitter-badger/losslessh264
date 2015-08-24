@@ -20,15 +20,15 @@ else
 fi
 
 IFS=""
-REPORT=/tmp/report
 
+REPORT=/tmp/report
+rm -f $REPORT
 for f in ${FILES[@]}; do
     rm -f /tmp/a.pip* /tmp/a.264
-    echo "============== $f ================" >&2
-    echo "    ./h264dec $f /tmp/a.pip"
     bill=`mktemp`
-    ./h264dec "$f" /tmp/a.pip | tee $bill
-    pwd
+    echo "============== $f ================" |tee -a $bill
+    echo "    ./h264dec $f /tmp/a.pip" | tee -a $bill
+    ./h264dec "$f" /tmp/a.pip | tee -a $bill
     python analyze_billing.py $bill
     cat $bill >> $REPORT
     rm $bill
