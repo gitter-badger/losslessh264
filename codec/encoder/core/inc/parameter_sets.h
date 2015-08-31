@@ -155,6 +155,8 @@ bool            bDeblockingFilterControlPresentFlag;
 // bool            bWeightedPredFlag;
 // uint8_t         uiWeightedBiPredIdc;
 
+bool    bTransform8x8ModeFlag;
+
 } SWelsPPS, *PWelsPPPS;
 
 }

@@ -597,6 +597,7 @@ int32_t WelsInitPps (SWelsPPS* pPps,
   pPps->iPicInitQp = 26;
   pPps->iPicInitQs = 26;
 
+  pPps->bTransform8x8ModeFlag = 0;
   pPps->uiChromaQpIndexOffset                   = 0;
   pPps->bDeblockingFilterControlPresentFlag     = kbDeblockingFilterPresentFlag;
 

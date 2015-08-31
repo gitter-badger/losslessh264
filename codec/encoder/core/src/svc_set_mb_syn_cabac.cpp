@@ -49,7 +49,7 @@ static const uint16_t uiCoeffAbsLevelMinus1Offset[5] = {0, 10, 20, 30, 39};
 static const uint16_t uiCodecBlockFlagOffset[5] = {0, 4, 8, 12, 16};
 
 
-static void WelsCabacMbType (SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCache, int32_t iMbWidth,
+static void WelsCabacMbType (sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCache, int32_t iMbWidth,
                              EWelsSliceType eSliceType) {
 
   if (eSliceType == I_SLICE) {
@@ -57,13 +57,20 @@ static void WelsCabacMbType (SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCac
     SMB* pLeftMb = pCurMb - 1 ;
     SMB* pTopMb = pCurMb - iMbWidth;
     int32_t iCtx = 3;
-    if ((uiNeighborAvail & LEFT_MB_POS) && !IS_INTRA4x4 (pLeftMb->uiMbType))
+    int32_t i8x8Ctx = 399;
+    if ((uiNeighborAvail & LEFT_MB_POS) && !IS_INTRANxN (pLeftMb->uiMbType))
       iCtx++;
-    if ((uiNeighborAvail & TOP_MB_POS) && !IS_INTRA4x4 (pTopMb->uiMbType))  //TOP MB
+    if ((uiNeighborAvail & TOP_MB_POS) && !IS_INTRANxN (pTopMb->uiMbType))  //TOP MB
       iCtx++;
-
-    if (pCurMb->uiMbType == MB_TYPE_INTRA4x4) {
+    if ((uiNeighborAvail & LEFT_MB_POS) && IS_INTRA8x8 (pLeftMb->uiMbType))
+      i8x8Ctx++;
+    if ((uiNeighborAvail & TOP_MB_POS) && IS_INTRA8x8 (pTopMb->uiMbType))  //TOP MB
+      i8x8Ctx++;
+    if (IS_INTRANxN(pCurMb->uiMbType)) {
       WelsCabacEncodeDecision (pCabacCtx, iCtx, 0);
+      if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
+        WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx, IS_INTRA8x8(pCurMb->uiMbType));
+      }
     } else {
       int32_t iCbpChroma = pCurMb->uiCbp >> 4;
       int32_t iCbpLuma   = pCurMb->uiCbp & 15;
@@ -101,11 +108,23 @@ static void WelsCabacMbType (SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCac
       WelsCabacEncodeDecision (pCabacCtx, 14, 0);
       WelsCabacEncodeDecision (pCabacCtx, 15, 0);
       WelsCabacEncodeDecision (pCabacCtx, 16, 1);
-    } else if (pCurMb->uiMbType == MB_TYPE_INTRA4x4) {
+    } else if (IS_INTRANxN(pCurMb->uiMbType)) {
+      // INTRA8x8 or INTRA4x4
       WelsCabacEncodeDecision (pCabacCtx, 14, 1);
       WelsCabacEncodeDecision (pCabacCtx, 17, 0);
+      if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
+        uint32_t uiNeighborAvail = pCurMb->uiNeighborAvail;
+        SMB* pLeftMb = pCurMb - 1 ;
+        SMB* pTopMb = pCurMb - iMbWidth;
+        int32_t i8x8Ctx = 399;
+        if ((uiNeighborAvail & LEFT_MB_POS) && IS_INTRA8x8 (pLeftMb->uiMbType))
+          i8x8Ctx++;
+        if ((uiNeighborAvail & TOP_MB_POS) && IS_INTRA8x8 (pTopMb->uiMbType))  //TOP MB
+          i8x8Ctx++;
+        WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx, IS_INTRA8x8(pCurMb->uiMbType));
+      }
     } else {
-
+      // INTRA16x16
       int32_t iCbpChroma = pCurMb->uiCbp >> 4;
       int32_t iCbpLuma   = pCurMb->uiCbp & 15;
       int32_t iPredMode = g_kiMapModeI16x16[pMbCache->uiLumaI16x16Mode];
@@ -135,6 +154,25 @@ static void WelsCabacMbType (SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCac
 void WelsCabacMbIntra4x4PredMode (SCabacCtx* pCabacCtx, SMbCache* pMbCache) {
 
   for (int32_t iMode = 0; iMode < 16; iMode++) {
+
+    bool bPredFlag = pMbCache->pPrevIntra4x4PredModeFlag[iMode];
+    int8_t iRemMode  = pMbCache->pRemIntra4x4PredModeFlag[iMode];
+
+    if (bPredFlag)
+      WelsCabacEncodeDecision (pCabacCtx, 68, 1);
+    else {
+      WelsCabacEncodeDecision (pCabacCtx, 68, 0);
+
+      WelsCabacEncodeDecision (pCabacCtx, 69, iRemMode & 0x01);
+      WelsCabacEncodeDecision (pCabacCtx, 69, (iRemMode >> 1) & 0x01);
+      WelsCabacEncodeDecision (pCabacCtx, 69, (iRemMode >> 2));
+    }
+  }
+}
+
+void WelsCabacMbIntra8x8PredMode (SCabacCtx* pCabacCtx, SMbCache* pMbCache) {
+
+  for (int32_t iMode = 0; iMode < 4; iMode++) {
 
     bool bPredFlag = pMbCache->pPrevIntra4x4PredModeFlag[iMode];
     int8_t iRemMode  = pMbCache->pRemIntra4x4PredModeFlag[iMode];
@@ -654,11 +692,13 @@ int32_t WelsSpatialWriteMbSynCabac (sWelsEncCtx* pEncCtx, SSlice* pSlice, SMB* p
       WelsMbSkipCabac (&pSlice->sCabacCtx, pCurMb, iMbWidth, pEncCtx->eSliceType, 0);
 
     //write mb type
-    WelsCabacMbType (pCabacCtx, pCurMb, pMbCache, iMbWidth, pEncCtx->eSliceType);
+    WelsCabacMbType (pEncCtx, pCabacCtx, pCurMb, pMbCache, iMbWidth, pEncCtx->eSliceType);
 
     if (IS_INTRA (uiMbType)) {
       if (uiMbType == MB_TYPE_INTRA4x4) {
         WelsCabacMbIntra4x4PredMode (pCabacCtx, pMbCache);
+      } else if (uiMbType == MB_TYPE_INTRA8x8) {
+        WelsCabacMbIntra8x8PredMode (pCabacCtx, pMbCache);
       }
       WelsCabacMbIntraChromaPredMode (pCabacCtx, pCurMb, pMbCache, iMbWidth);
       sMvd.iMvX = sMvd.iMvY = 0;

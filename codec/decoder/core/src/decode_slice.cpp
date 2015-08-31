@@ -1697,8 +1697,11 @@ struct EncoderState {
       }
     }
 
-    void init(DecodedMacroblock *rtd) {
+    void init(PWelsDecoderContext pCtx, PDqLayer pCurLayer, DecodedMacroblock *rtd) {
         pPpsP.uiChromaQpIndexOffset = rtd->uiChromaQpIndexOffset;
+        WelsDec::PSliceHeader pSliceHeader = &pCurLayer->sLayerInfo.
+            sSliceInLayer.sSliceHeaderExt.sSliceHeader;
+        pPpsP.bTransform8x8ModeFlag = pSliceHeader->pPps->bTransform8x8ModeFlag;
 
         // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset FIXME?
         pEncCtx.eSliceType = WelsCommon::EWelsSliceType(rtd->eSliceType);
@@ -2323,7 +2326,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));*/
     } else {
       EncoderState es;
-      es.init(&rtd);
+      es.init(pCtx, pCurLayer, &rtd);
       es.setupCoefficientsFromOdata(rtd.odata);
       es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       woffset = 0;
@@ -2726,7 +2729,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
 #endif
     rtd.iMbSkipRun = origSkipped;
     esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
-    esCabac->init(&rtd);
+    esCabac->init(pCtx, pCurLayer, &rtd);
     esCabac->setupCoefficientsFromOdata(rtd.odata);
     esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     esCabac->computeNeighborPriorsCabac();
@@ -2740,7 +2743,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   }
 #endif
     rtd.iMbSkipRun = origSkipped;
-    es.init(&rtd);
+    es.init(pCtx, pCurLayer, &rtd);
     es.setupCoefficientsFromOdata(rtd.odata);
     es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     WelsEnc::WelsSpatialWriteMbSyn (
@@ -2816,7 +2819,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   if (curSkipped == -1) {
     initRTDFromDecoderState(rtd, pCurLayer);
     EncoderState es2;
-    es2.init(&rtd);
+    es2.init(pCtx, pCurLayer, &rtd);
     es2.setupCoefficientsFromOdata(rtd.odata);
     es2.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
     es2.pSlice.iMbSkipRun = origSkipped;

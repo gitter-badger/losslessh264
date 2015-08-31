@@ -1100,9 +1100,9 @@ int32_t WelsResidualBlockCavlc8x8 (SVlcTable* pVlcTable, uint8_t* pNonZeroCountC
       }
       for (int k = iCoeffNum - iRun[i]; k < iCoeffNum; ++k) {
           int jj          = kpZigzagTable[ k ];
-          bill[bill_base + jj] += run_cost[i]/(double)iRun[i];
+          bill[bill_base + (jj % 16)] += run_cost[i]/(double)iRun[i];
       }
-      bill[bill_base + j] += level_cost[i];
+      bill[bill_base + (j % 16)] += level_cost[i];
 #endif
   }
 #ifdef BILLING
