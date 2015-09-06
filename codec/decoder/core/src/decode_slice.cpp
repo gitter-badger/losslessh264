@@ -2813,13 +2813,13 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   pCurLayer->pMbRefConcealedFlag[iNextMbXyIndex] = pCtx->bMbRefConcealed;
 
 #ifdef ROUNDTRIP_TEST
-  {
+  if (curSkipped == -1) {
     initRTDFromDecoderState(rtd, pCurLayer);
-    rtd.iMbSkipRun = origSkipped;
     EncoderState es2;
     es2.init(&rtd);
     es2.setupCoefficientsFromOdata(rtd.odata);
     es2.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
+    es2.pSlice.iMbSkipRun = origSkipped;
     woffset = 0;
     WelsEnc::WelsSpatialWriteMbSyn (
         &es2.pEncCtx, &es2.pSlice, &es2.pCurMb());
