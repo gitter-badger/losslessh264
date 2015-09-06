@@ -344,6 +344,10 @@ int32_t WelsUtilWriteMbResidual (SWelsFuncPtrList* pFuncList, uint32_t uiMbType,
     if (kiCbpLuma) {
       pBlock = iLumaBlock;
 
+      /* For 8x8 Blocks, it is expected that the caller perform 8x8 zigzag
+         and split the data into 4 interleaved blocks of 16, such that the same
+         4x4 code can be used.
+      */
       for (i = 0; i < 16; i += 4) {
         if (kiCbpLuma & (1 << (i >> 2))) {
           int32_t iIdx = g_kuiCache48CountScan4Idx[i];

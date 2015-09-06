@@ -1506,7 +1506,7 @@ struct EncoderState {
     }
     void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components, bool dc) {
         for (size_t i = 0; i < num_components; ++i) {
-            zigdest[i] = source[((i >> 4) << 4) | g_kuiZigzagScan[ i & 0xf ]];
+            zigdest[i] = source[(i & ~0xf) | g_kuiZigzagScan[ i & 0xf ]];
         }
         if (! dc) {
             for (size_t i = 0; i < num_components; ++i) {
@@ -1522,12 +1522,25 @@ struct EncoderState {
 
     void lZigCopyDC(int16_t *zigdest, const int16_t *source, size_t num_components) {
         for (size_t i = 0; i < num_components; ++i) {
-            zigdest[i] = source[((i >> 4) << 4) | (g_kuiLumaDcZigzagScan[ i & 0xf ] >> 4)];
+            zigdest[i] = source[(i & ~0xf) | (g_kuiLumaDcZigzagScan[ i & 0xf ] >> 4)];
+        }
+    }
+
+    void lZigCopy8x8(int16_t *zigdest, const int16_t *source, size_t num_components) {
+        for (size_t i = 0; i < num_components; ++i) {
+            // Coefficients in zigzag order:
+            // zigdest[i] = source[(i & ~0x3f) | (g_kuiZigzagScan8x8[ i & 0x3f ])];
+            // Coefficients in 8x8 zigzag order, interleaved:
+            zigdest[i] = source[(i & ~0x3f) | (g_kuiZigzagScan8x8[ ((i & 0xf) << 2) + ((i >> 4) & 0x3) ])];
         }
     }
 
     void setupCoefficientsFromOdata(const DecodedMacroblock::RawDCTData&odata) {
-        zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]), pCurMb().uiMbType != MB_TYPE_INTRA16x16);
+        if (pCurMb().uiMbType == MB_TYPE_INTRA8x8) {
+            lZigCopy8x8(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]));
+        } else {
+            zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]), pCurMb().uiMbType != MB_TYPE_INTRA16x16);
+        }
         zigCopy(&pDct.iChromaBlock[0][0], odata.chromaAC, sizeof(odata.chromaAC)/ sizeof(odata.chromaAC[0]), false);
         //memcpy(pDct.iLumaI16x16Dc, odata.lumaDC, sizeof(odata.lumaDC));
         lZigCopyDC(&pDct.iLumaI16x16Dc[0], odata.lumaDC, sizeof(odata.lumaDC)/ sizeof(odata.lumaDC[0]));
@@ -2314,7 +2327,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 #ifdef ROUNDTRIP_TEST
     if (pCtx->pPps->bEntropyCodingModeFlag) {
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
-      esCabac->init(&rtd);
+      esCabac->init(pCtx, pCurLayer, &rtd);
       esCabac->setupCoefficientsFromOdata(rtd.odata);
       esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       esCabac->computeNeighborPriorsCabac();
@@ -2341,7 +2354,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       initRTDFromDecoderState(rtd, pCurLayer);
       rtd.uiMbType = MB_TYPE_SKIP;
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
-      esCabac->init(&rtd);
+      esCabac->init(pCtx, pCurLayer, &rtd);
       esCabac->setupCoefficientsFromOdata(rtd.odata);
       esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       esCabac->computeNeighborPriorsCabac();

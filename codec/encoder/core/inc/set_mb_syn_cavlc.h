@@ -52,7 +52,8 @@ enum ECtxBlockCat {
   LUMA_AC     = 1,
   LUMA_4x4    = 2,
   CHROMA_DC   = 3,
-  CHROMA_AC   = 4
+  CHROMA_AC   = 4,
+  LUMA_DC_AC_8 = 5,
 };
 
 

@@ -43,10 +43,18 @@
 
 namespace WelsEnc {
 
-static const uint16_t uiSignificantCoeffFlagOffset[5] = {0, 15, 29, 44, 47};
-static const uint16_t uiLastCoeffFlagOffset[5] = {0, 15, 29, 44, 47};
-static const uint16_t uiCoeffAbsLevelMinus1Offset[5] = {0, 10, 20, 30, 39};
-static const uint16_t uiCodecBlockFlagOffset[5] = {0, 4, 8, 12, 16};
+#define NEW_CTX_OFFSET_MAP 105
+#define NEW_CTX_OFFSET_LAST 166
+#define NEW_CTX_OFFSET_ABS 232
+
+#define NEW_CTX_OFFSET_MAP_8x8  402
+#define NEW_CTX_OFFSET_LAST_8x8 417
+#define NEW_CTX_OFFSET_ABS_8x8  431 // Puzzle, where is the definition?
+
+static const uint16_t uiSignificantCoeffFlagOffset[] = {0, 15, 29, 44, 47, NEW_CTX_OFFSET_MAP_8x8 - NEW_CTX_OFFSET_MAP};
+static const uint16_t uiLastCoeffFlagOffset[] = {0, 15, 29, 44, 47, NEW_CTX_OFFSET_LAST_8x8 - NEW_CTX_OFFSET_LAST};
+static const uint16_t uiCoeffAbsLevelMinus1Offset[] = {0, 10, 20, 30, 39, NEW_CTX_OFFSET_ABS_8x8 - NEW_CTX_OFFSET_ABS};
+static const uint16_t uiCodecBlockFlagOffset[] = {0, 4, 8, 12, 16, 0};
 
 
 static void WelsCabacMbType (sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCache, int32_t iMbWidth,
@@ -489,9 +497,36 @@ int16_t WelsGetMbCtxCabac (SMbCache* pMbCache, SMB* pCurMb, uint32_t iMbWidth, E
   return 85 + uiCodecBlockFlagOffset[eCtxBlockCat] + iCtxInc;
 }
 
+static const uint8_t coeffToIdx16[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+
+static const uint8_t g_kuiIdx2CtxSignificantCoeffFlag8x8[64] = {  // Table 9-43, Page 289
+    0,  1,  2,  3,  4,  5,  5,  4,
+    4,  3,  3,  4,  4,  4,  5,  5,
+    4,  4,  4,  4,  3,  3,  6,  7,
+    7,  7,  8,  9, 10,  9,  8,  7,
+    7,  6, 11, 12, 13, 11,  6,  7,
+    8,  9, 14, 10,  9,  8,  6, 11,
+    12, 13, 11, 6,  9, 14, 10,  9,
+    11, 12, 13, 11 ,14, 10, 12, 14,
+};
+
+static const uint8_t g_kuiIdx2CtxLastSignificantCoeffFlag8x8[64] = { // Table 9-43, Page 289
+    0,  1,  1,  1,  1,  1,  1,  1,
+    1,  1,  1,  1,  1,  1,  1,  1,
+    2,  2,  2,  2,  2,  2,  2,  2,
+    2,  2,  2,  2,  2,  2,  2,  2,
+    3,  3,  3,  3,  3,  3,  3,  3,
+    4,  4,  4,  4,  4,  4,  4,  4,
+    5,  5,  5,  5,  6,  6,  6,  6,
+    7,  7,  7,  7,  8,  8,  8,  8,
+};
+
 void  WelsWriteBlockResidualCabac (SMbCache* pMbCache, SMB* pCurMb, uint32_t iMbWidth, SCabacCtx* pCabacCtx,
                                    ECtxBlockCat eCtxBlockCat, int16_t  iIdx, int16_t iNonZeroCount, int16_t* pBlock, int16_t iEndIdx) {
-  int32_t iCtx = WelsGetMbCtxCabac (pMbCache, pCurMb, iMbWidth, eCtxBlockCat, iIdx);
+  int32_t iCtx = 0;
+  if (eCtxBlockCat != LUMA_DC_AC_8) {
+    iCtx = WelsGetMbCtxCabac (pMbCache, pCurMb, iMbWidth, eCtxBlockCat, iIdx);
+  }
   if (iNonZeroCount) {
     ENFORCE_STACK_ALIGN_1D (int16_t, iAbsLevel, 16, 16);
     ENFORCE_STACK_ALIGN_1D (int16_t, iSignLevel, 16, 16);
@@ -502,23 +537,34 @@ void  WelsWriteBlockResidualCabac (SMbCache* pMbCache, SMB* pCurMb, uint32_t iMb
     int32_t i = 0;
     int32_t iNumAbsLevelEq1 = 0;
     int32_t iNumAbsLevelGt1 = 0;
-
-    WelsCabacEncodeDecision (pCabacCtx, iCtx, 1);
+    const uint8_t *kCoeffToSignificantIdx;
+    const uint8_t *kCoeffToLastSignificantIdx;
+    assert ((eCtxBlockCat == LUMA_DC_AC_8) == (iEndIdx == 63));
+    if (iEndIdx == 63) {
+      // 8x8 block.
+      kCoeffToSignificantIdx = g_kuiIdx2CtxSignificantCoeffFlag8x8;
+      kCoeffToLastSignificantIdx = g_kuiIdx2CtxLastSignificantCoeffFlag8x8;
+      // Do not need to encode CBF since it is redundant with the cbpL
+    } else {
+      kCoeffToSignificantIdx = coeffToIdx16;
+      kCoeffToLastSignificantIdx = coeffToIdx16;
+      WelsCabacEncodeDecision (pCabacCtx, iCtx, 1);
+    }
     while (1) {
       if (pBlock[i]) {
         iSignLevel[iNonZeroIdx] = pBlock[i] < 0;
         iAbsLevel[iNonZeroIdx] = WELS_ABS (pBlock[i]) - 1;
 
         iNonZeroIdx++;
-        WelsCabacEncodeDecision (pCabacCtx, iCtxSig + i, 1);
+        WelsCabacEncodeDecision (pCabacCtx, iCtxSig + kCoeffToSignificantIdx[i], 1);
         if (iNonZeroIdx != iNonZeroCount)
-          WelsCabacEncodeDecision (pCabacCtx, iCtxLast + i, 0);
+          WelsCabacEncodeDecision (pCabacCtx, iCtxLast + kCoeffToLastSignificantIdx[i], 0);
         else {
-          WelsCabacEncodeDecision (pCabacCtx, iCtxLast + i, 1);
+          WelsCabacEncodeDecision (pCabacCtx, iCtxLast + kCoeffToLastSignificantIdx[i], 1);
           break;
         }
       } else
-        WelsCabacEncodeDecision (pCabacCtx, iCtxSig + i, 0);
+        WelsCabacEncodeDecision (pCabacCtx, iCtxSig + kCoeffToSignificantIdx[i], 0);
       i++;
       if (i == iEndIdx) {
         iSignLevel[iNonZeroIdx]   = pBlock[i] < 0;
@@ -551,6 +597,7 @@ void  WelsWriteBlockResidualCabac (SMbCache* pMbCache, SMB* pCurMb, uint32_t iMb
     } while (iNonZeroIdx > 0);
 
   } else {
+    assert (eCtxBlockCat != LUMA_DC_AC_8);
     WelsCabacEncodeDecision (pCabacCtx, iCtx, 0);
   }
 
@@ -601,6 +648,21 @@ int32_t WelsWriteMbResidualCabac (SWelsFuncPtrList* pFuncList, SSlice* pSlice, S
           int32_t iIdx = g_kuiCache48CountScan4Idx[i];
           WelsWriteBlockResidualCabac (pMbCache, pCurMb, iMbWidth, pCabacCtx, LUMA_AC, iIdx,
                                        pNonZeroCoeffCount[iIdx], pMbCache->pDct->iLumaBlock[i], 14);
+        }
+      }
+    } else if (IS_INTRA8x8 (uiMbType) || IS_Inter_8x8(uiMbType)) {
+      for (i = 0; i < 4; i++) {
+        if (iCbpLuma & (1 << i)) {
+          int8_t numNonzeros = 0;
+          for (int subIdx4x4 = 0; subIdx4x4 < 4; subIdx4x4++) {
+            numNonzeros += pNonZeroCoeffCount[(i << 2) + subIdx4x4];
+          }
+          int16_t uninterleaedZigzag[64];
+          for (int iCoef = 0; iCoef < 64; iCoef++) {
+            uninterleaedZigzag[((iCoef & 0xf) << 2) + ((iCoef >> 4) & 0x3)] = pMbCache->pDct->iLumaBlock[i][iCoef];
+          }
+          WelsWriteBlockResidualCabac (pMbCache, pCurMb, iMbWidth, pCabacCtx, LUMA_DC_AC_8, i << 2,
+                                       numNonzeros, uninterleaedZigzag, 63);
         }
       }
     } else {
