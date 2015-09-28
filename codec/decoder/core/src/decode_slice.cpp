@@ -1438,6 +1438,7 @@ bool stringBitCompare(const PBitStringAux& orig,
 }
 
 struct EncoderState {
+private:
     WelsEnc::SDCTCoeff pDct;
     WelsEnc::sWelsEncCtx pEncCtx;
     WelsEnc::SSlice pSlice;
@@ -1448,13 +1449,16 @@ struct EncoderState {
     WelsEnc::SDqLayer pCurDqLayer;
     WelsEnc::SWelsPPS pPpsP;
     WelsEnc::SMVUnitXY sMv[16];
-    SBitStringAux wrBs;
     std::vector<uint8_t> buf;
     std::vector<int32_t> unused; // Not used, but gets written in one place.
     bool prevIntra4x4PredModeFlag[16];
     int8_t remIntra4x4PredModeFlag[16];
     std::vector<int8_t> pRefIndex;
 
+public:
+    SBitStringAux wrBs;
+
+private:
     WelsEnc::SMB &pCurMb() {
       return pMb[mbXy];
     }
@@ -1467,11 +1471,13 @@ struct EncoderState {
       return pMb[mbXy - mbWidth];
     }
 
+public:
     EncoderState(size_t size=MAX_MACROBLOCK_SIZE_IN_BYTE_x2 * 2, uint8_t mbWidth=1, uint8_t mbHeight=1)
             : pDct(), pEncCtx(), pSlice(), mbXy(0), mbWidth(mbWidth), mbHeight(mbHeight),
              pMb(mbWidth * mbHeight), pCurDqLayer(), pPpsP(),
-             wrBs(), buf(), unused(mbWidth + 8), prevIntra4x4PredModeFlag(),
-             remIntra4x4PredModeFlag(), pRefIndex(mbWidth * mbHeight * 4) {
+             buf(), unused(mbWidth + 8), prevIntra4x4PredModeFlag(),
+             remIntra4x4PredModeFlag(), pRefIndex(mbWidth * mbHeight * 4),
+             wrBs() {
 
         buf.resize(size);
         reset();
@@ -1500,10 +1506,40 @@ struct EncoderState {
         }
     }
 
+    void cabacInitSlice(PSliceHeader pSliceHeader) {
+      WelsEnc::WelsCabacInit (&pEncCtx);
+      pEncCtx.eSliceType = pSliceHeader->eSliceType;
+      pEncCtx.iGlobalQp = pSliceHeader->iSliceQp;
+      pSlice.iCabacInitIdc = pSliceHeader->iCabacInitIdc;
+      wrBs.pCurBuf = wrBs.pStartBuf;
+      pSlice.sCabacCtx.m_pBufCur = pSlice.sCabacCtx.m_pBufStart;
+      WelsEnc::WelsInitSliceCabac (&pEncCtx, &pSlice);
+    }
+
+    void cabacEncodeFlush() {
+      WelsCabacEncodeFlush (&pSlice.sCabacCtx);
+      wrBs.pCurBuf = WelsCabacEncodeGetPtr (&pSlice.sCabacCtx);
+    }
+
+    void overrideSkipRun(int origSkipped) {
+      pSlice.iMbSkipRun = origSkipped;
+    }
+
     void setXY(int firstMbInSlice, int newMbXy) {
       pSlice.sSliceHeaderExt.sSliceHeader.iFirstMbInSlice = firstMbInSlice;
       mbXy = newMbXy;
     }
+
+    void writeMbSynCabac() {
+      computeNeighborPriorsCabac();
+      WelsEnc::WelsSpatialWriteMbSynCabac (&pEncCtx, &pSlice, &pCurMb());
+    }
+
+    void writeMbSynCavlc() {
+      WelsEnc::WelsSpatialWriteMbSyn (&pEncCtx, &pSlice, &pCurMb());
+    }
+
+private:
     void zigCopy(int16_t *zigdest, const int16_t *source, size_t num_components, bool dc) {
         for (size_t i = 0; i < num_components; ++i) {
             zigdest[i] = source[(i & ~0xf) | g_kuiZigzagScan[ i & 0xf ]];
@@ -1547,6 +1583,7 @@ struct EncoderState {
         memcpy(pDct.iChromaDc, odata.chromaDC, sizeof(odata.chromaDC));
     }
 
+public:
     static void getNeighborBlocks(PWelsDecoderContext pCtx, PDqLayer pCurLayer, SWelsNeighAvail *pNeighAvail, int8_t *pNonZeroCount, int8_t *pIntraPredMode, int32_t *iSampleAvail, uint8_t *uiNeighAvail, int mbType) {
       *uiNeighAvail = 0;
       memset(pNonZeroCount, 0xe7, 48);
@@ -1566,7 +1603,8 @@ struct EncoderState {
       }
     }
 
-    void initNonZeroCount(PWelsDecoderContext pCtx, PDqLayer pCurLayer, const DecodedMacroblock::RawDCTData &odata, DecodedMacroblock &rtd) {
+private:
+    void initNonZeroCount(PWelsDecoderContext pCtx, PDqLayer pCurLayer, DecodedMacroblock &rtd) {
       int8_t *pNonZeroCount = pSlice.sMbCacheInfo.iNonZeroCoeffCount;
       {
         SWelsNeighAvail sNeighAvail;
@@ -1616,10 +1654,11 @@ struct EncoderState {
         if (MB_TYPE_INTRA16x16 == pCurMb().uiMbType) {
           start = 1;
         }
+        // FIXME: do not use odata!
         for (int i = 0; i < 16; i++) {
           int numnzc = 0;
-          for (int coef = start; coef < 16; coef++) {
-            if (odata.lumaAC[i * 16 + coef]) {
+          for (int coef = 0; coef < 16 - start; coef++) {
+            if (pDct.iLumaBlock[i][coef]) {
               numnzc++;
             }
           }
@@ -1630,8 +1669,8 @@ struct EncoderState {
         for (int cbcr = 0; cbcr < 2; cbcr++) {
           for (int i = 0; i < 4; i++) {
             int numnzc = 0;
-            for (int coef = 1; coef < 16; coef++) {
-              if (odata.chromaAC[cbcr * 64 + i * 16 + coef]) {
+            for (int coef = 0; coef < 15; coef++) {
+              if (pDct.iChromaBlock[cbcr * 4 + i][coef]) {
                 numnzc++;
               }
             }
@@ -1642,6 +1681,9 @@ struct EncoderState {
       if (pCurMb().uiCbp && MB_TYPE_INTRA16x16 != pCurMb().uiMbType) {
         for (int iId8x8 = 0; iId8x8 < 4; iId8x8++) {
           if (!(pCurMb().uiCbp & (1 << iId8x8))) {
+            // FIXME: Is this not redundant?
+            // In which case would cbp not be set but yet have nonzeros from
+            // the previous loop? Should test removing this loop here
             pNonZeroCount[g_kuiCache48CountScan4Idx[iId8x8 << 2]] = 0;
             pNonZeroCount[g_kuiCache48CountScan4Idx[iId8x8 << 2] + 1] = 0;
             pNonZeroCount[g_kuiCache48CountScan4Idx[(iId8x8 << 2) + 2]] = 0;
@@ -1709,6 +1751,11 @@ struct EncoderState {
           assert(0);
       }
     }
+public:
+
+    size_t getCabacSize() {
+        return pSlice.sCabacCtx.m_pBufCur - pSlice.sCabacCtx.m_pBufStart;
+    }
 
     void init(PWelsDecoderContext pCtx, PDqLayer pCurLayer, DecodedMacroblock *rtd) {
         pPpsP.uiChromaQpIndexOffset = rtd->uiChromaQpIndexOffset;
@@ -1772,6 +1819,9 @@ struct EncoderState {
           pCurMb().uiChromaQp = g_kuiChromaQpTable[WELS_CLIP3 (rtd->uiLumaQp +
               rtd->uiChromaQpIndexOffset, 0, 51)];
         }
+
+        setupCoefficientsFromOdata(rtd->odata);
+        initNonZeroCount(pCtx, pCurLayer, *rtd);
     }
 
 };
@@ -2095,6 +2145,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       uint32_t& uiCachedLumaQp,
                                       int32_t& uiLastNonzeroDeltaLumaQp,
                                       int macroblockIndexInSlice) {
+  if (which_block == 322) {
+    fprintf(stderr, "block %d\n", which_block);
+  }
   bool isFirstMB = (macroblockIndexInSlice == 0);
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
@@ -2144,6 +2197,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   }
   if (writeBlock) {
     initRTDFromDecoderState(rtd, pCurLayer);
+    if (which_block == 322) {
+      fprintf(stderr, "block %d Mb type: %d\n", which_block, rtd.uiMbType);
+    }
 
     oMovie().tag(PIP_SKIP_END_TAG).emitBit(hasExactlyOneStopBit, oMovie().model().getStopBitPrior(macroblockIndexInSlice));
     oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
@@ -2328,11 +2384,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     if (pCtx->pPps->bEntropyCodingModeFlag) {
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
       esCabac->init(pCtx, pCurLayer, &rtd);
-      esCabac->setupCoefficientsFromOdata(rtd.odata);
-      esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
-      esCabac->computeNeighborPriorsCabac();
-      WelsEnc::WelsSpatialWriteMbSynCabac (
-          &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
+      esCabac->writeMbSynCabac();
       //if (pSliceHeader->eSliceType==P_SLICE&&which_block>=396){
   /*WelsCabacEncodeFlush (&esCabac->pSlice.sCabacCtx);
   esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
@@ -2340,11 +2392,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     } else {
       EncoderState es;
       es.init(pCtx, pCurLayer, &rtd);
-      es.setupCoefficientsFromOdata(rtd.odata);
-      es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
       woffset = 0;
-      WelsEnc::WelsSpatialWriteMbSyn (
-          &es.pEncCtx, &es.pSlice, &es.pCurMb());
+      es.writeMbSynCavlc();
       assert(stringBitCompare(pCurLayer->pBitStringAux, es.wrBs, 22));
     }
 #endif
@@ -2355,11 +2404,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       rtd.uiMbType = MB_TYPE_SKIP;
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
       esCabac->init(pCtx, pCurLayer, &rtd);
-      esCabac->setupCoefficientsFromOdata(rtd.odata);
-      esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
-      esCabac->computeNeighborPriorsCabac();
-      WelsEnc::WelsSpatialWriteMbSynCabac (
-          &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
+      esCabac->writeMbSynCabac();
   /*WelsCabacEncodeFlush (&esCabac->pSlice.sCabacCtx);
   esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
   assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));}*/
@@ -2743,24 +2788,16 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     rtd.iMbSkipRun = origSkipped;
     esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
     esCabac->init(pCtx, pCurLayer, &rtd);
-    esCabac->setupCoefficientsFromOdata(rtd.odata);
-    esCabac->initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
-    esCabac->computeNeighborPriorsCabac();
-    WelsEnc::WelsSpatialWriteMbSynCabac (
-        &esCabac->pEncCtx, &esCabac->pSlice, &esCabac->pCurMb());
+    esCabac->writeMbSynCabac();
 #ifdef DEBUG_PRINTS
-    fprintf(stderr, "Cabac size: %ld\n",
-            esCabac->pSlice.sCabacCtx.m_pBufCur - esCabac->pSlice.sCabacCtx.m_pBufStart);
+    fprintf(stderr, "Cabac size: %ld\n", esCabac->getCabacSize());
 #endif
 #ifndef CABAC_HACK
   }
 #endif
     rtd.iMbSkipRun = origSkipped;
     es.init(pCtx, pCurLayer, &rtd);
-    es.setupCoefficientsFromOdata(rtd.odata);
-    es.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
-    WelsEnc::WelsSpatialWriteMbSyn (
-        &es.pEncCtx, &es.pSlice, &es.pCurMb());
+    es.writeMbSynCavlc();
 
   // Copied from svc_encode_slive.cpp:1023 . Have my doubts about CABAC support here.
   if (curSkipped == 1 && endOfSlice) {
@@ -2833,12 +2870,9 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     initRTDFromDecoderState(rtd, pCurLayer);
     EncoderState es2;
     es2.init(pCtx, pCurLayer, &rtd);
-    es2.setupCoefficientsFromOdata(rtd.odata);
-    es2.initNonZeroCount(pCtx, pCurLayer, rtd.odata, rtd);
-    es2.pSlice.iMbSkipRun = origSkipped;
+    es2.overrideSkipRun(origSkipped);
     woffset = 0;
-    WelsEnc::WelsSpatialWriteMbSyn (
-        &es2.pEncCtx, &es2.pSlice, &es2.pCurMb());
+    es2.writeMbSynCavlc();
     assert(stringBitCompare(&copyOfFirstEncodeWrbs, es2.wrBs, 0));
   }
 #endif
@@ -2951,13 +2985,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   static std::auto_ptr<EncoderState> esCabac(new EncoderState(10000000, pCurLayer->iMbWidth, pCurLayer->iMbHeight)); // FIXME: How to get size estimate of a slice?;
   if (pCtx->pPps->bEntropyCodingModeFlag) {
     esCabac->reset();
-    WelsEnc::WelsCabacInit (&esCabac->pEncCtx);
-    esCabac->pEncCtx.eSliceType = pSliceHeader->eSliceType;
-    esCabac->pEncCtx.iGlobalQp = pSlice->sSliceHeaderExt.sSliceHeader.iSliceQp;
-    esCabac->pSlice.iCabacInitIdc = pSlice->sSliceHeaderExt.sSliceHeader.iCabacInitIdc;
-    esCabac->wrBs.pCurBuf = esCabac->wrBs.pStartBuf;
-    esCabac->pSlice.sCabacCtx.m_pBufCur = esCabac->pSlice.sCabacCtx.m_pBufStart;
-    WelsEnc::WelsInitSliceCabac (&esCabac->pEncCtx, &esCabac->pSlice);
+    esCabac->cabacInitSlice(pSliceHeader);
   }
   uint32_t uiCachedLumaQp = 0;
   int32_t uiLastNonzeroDeltaLumaQp = 0;
@@ -3023,16 +3051,14 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   } while (1);
   if (pCtx->pPps->bEntropyCodingModeFlag) {
     if (oMovie().isRecoding) {
-      WelsCabacEncodeFlush (&esCabac->pSlice.sCabacCtx);
-      esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
+      esCabac->cabacEncodeFlush();
       EmitDefBitsToOMovie emission;
       copySBitStringAux(esCabac->wrBs, emission);
       // assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));
     }
 #ifdef ROUNDTRIP_TEST
     if (!oMovie().isRecoding) {
-      WelsCabacEncodeFlush (&esCabac->pSlice.sCabacCtx);
-      esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
+      esCabac->cabacEncodeFlush();
       assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));
     }
 #endif
@@ -3411,6 +3437,8 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   uint32_t uiCode;
   int32_t iCode;
   int32_t iMbResProperty;
+
+  // FIXME: Warum ist pTransformSize8x8Flag[iMbXy] nicht hier auf false gesetzt?
 
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
