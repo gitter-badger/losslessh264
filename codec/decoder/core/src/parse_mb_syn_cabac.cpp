@@ -31,10 +31,11 @@
  *      parse_mb_syn_cabac.cpp: cabac parse for syntax elements
  */
 #include "compression_stream.h"
-#include "decoded_macroblock.h"
 #include "parse_mb_syn_cabac.h"
 #include "mv_pred.h"
 #include "error_code.h"
+#include "parameter_sets.h"
+#include "decoded_macroblock.h"
 namespace WelsDec {
 #define IDX_UNUSED -1
 

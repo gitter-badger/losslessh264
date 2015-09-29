@@ -16,6 +16,7 @@ enum {
     PIP_LAST_MB_TAG,  // not needed & unused -- this can be computed from existing decoder state
     PIP_QPL_TAG,
     PIP_MB_TYPE_TAG,
+    PIP_TRANSFORM_8x8_TAG,
     PIP_REF_TAG,
     PIP_8x8_TAG,
     PIP_16x16_TAG,
@@ -70,6 +71,7 @@ enum {
     PIP_QPC_TAG=1,
     PIP_MB_TYPE_TAG=1,
     PIP_REF_TAG=1,
+    PIP_TRANSFORM_8x8_TAG=1,
     PIP_8x8_TAG=1,
     PIP_16x16_TAG=1,
     PIP_PRED_TAG=1,
@@ -200,6 +202,10 @@ class MacroblockModel {
     Sirikata::Array1d<DynProb,
         2048// num macroblocks in slice
         > stopBitPriors;
+    Sirikata::Array2d<DynProb,
+        16, // mb type
+        128 // QPL
+        > transform8x8FlagPriors;
     struct SingleCoefNeighbors {
         int16_t past;
         int16_t left;
@@ -224,6 +230,8 @@ public:
                                    int bit_len, int which_bit, int significand_so_far);
     DynProb *getAcSignPrior(const bool *nonzeros, const int16_t *ac, int index, int coef,
                             int color);
+
+    DynProb *getTransformSize8x8FlagPrior(int mbType, int qpl);
     Branch<4> getMacroblockTypePrior();
     Branch<4> getPredictionModePrior(int predMode, int leftAvail, int topAvail, int leftTopAvail);
     DCPrior* getLumaDCIntPrior(size_t index);

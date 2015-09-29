@@ -84,6 +84,8 @@ static void initRTDFromDecoderState(DecodedMacroblock &rtd,
     PSlice decoderpSlice = &pCurLayer->sLayerInfo.sSliceInLayer;
     PSliceHeader pSliceHeader = &decoderpSlice->sSliceHeaderExt.sSliceHeader;
 
+    rtd.pTransformSize8x8Flag = pCurLayer->pTransformSize8x8Flag[iMbXy];
+
     int uiCbp = pCurLayer->pCbp[pCurLayer->iMbXyIndex];
     rtd.uiCbpC = uiCbp >> 4;
     rtd.uiCbpL = uiCbp & 15;
@@ -1503,6 +1505,7 @@ public:
             pMb[i].uiMbType = MB_TYPE_SKIP;
             pMb[i].iMbXY = i;
             pMb[i].pSadCost = &unused[0];
+            pMb[i].iTransformSize8x8Flag = 0;
         }
     }
 
@@ -1572,7 +1575,7 @@ private:
     }
 
     void setupCoefficientsFromOdata(const DecodedMacroblock::RawDCTData&odata) {
-        if (pCurMb().uiMbType == MB_TYPE_INTRA8x8) {
+        if (pCurMb().uiMbType == MB_TYPE_INTRA8x8 || pCurMb().iTransformSize8x8Flag == 2) {
             lZigCopy8x8(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]));
         } else {
             zigCopy(&pDct.iLumaBlock[0][0], odata.lumaAC, sizeof(odata.lumaAC)/ sizeof(odata.lumaAC[0]), pCurMb().uiMbType != MB_TYPE_INTRA16x16);
@@ -1762,6 +1765,11 @@ public:
         WelsDec::PSliceHeader pSliceHeader = &pCurLayer->sLayerInfo.
             sSliceInLayer.sSliceHeaderExt.sSliceHeader;
         pPpsP.bTransform8x8ModeFlag = pSliceHeader->pPps->bTransform8x8ModeFlag;
+        if (rtd->needParseTransformSize8x8(pSliceHeader->pPps)) {
+          pCurMb().iTransformSize8x8Flag = 1 + (uint8_t)rtd->pTransformSize8x8Flag;
+        } else {
+          pCurMb().iTransformSize8x8Flag = 0;
+        }
 
         // pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->uiChromaQpIndexOffset FIXME?
         pEncCtx.eSliceType = WelsCommon::EWelsSliceType(rtd->eSliceType);
@@ -2145,9 +2153,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
                                       uint32_t& uiCachedLumaQp,
                                       int32_t& uiLastNonzeroDeltaLumaQp,
                                       int macroblockIndexInSlice) {
-  if (which_block == 322) {
+#ifdef DEBUG_PRINTS
+  if (which_block == 614) {
     fprintf(stderr, "block %d\n", which_block);
   }
+#endif
   bool isFirstMB = (macroblockIndexInSlice == 0);
   PSliceHeaderExt pSliceHeaderExt = &pSlice->sSliceHeaderExt;
   PSliceHeader pSliceHeader = &pSliceHeaderExt->sSliceHeader;
@@ -2197,9 +2207,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   }
   if (writeBlock) {
     initRTDFromDecoderState(rtd, pCurLayer);
-    if (which_block == 322) {
+#ifdef DEBUG_PRINTS
+    if (which_block == 614) {
       fprintf(stderr, "block %d Mb type: %d\n", which_block, rtd.uiMbType);
     }
+#endif
 
     oMovie().tag(PIP_SKIP_END_TAG).emitBit(hasExactlyOneStopBit, oMovie().model().getStopBitPrior(macroblockIndexInSlice));
     oMovie().tag(PIP_MB_TYPE_TAG).emitBits(oMovie().model().encodeMacroblockType(rtd.uiMbType), oMovie().model().getMacroblockTypePrior());
@@ -2338,6 +2350,10 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       oMovie().tag(PIP_REF_TAG).emitBits(rtd.iRefIdx[0], refBits);
       writeMv(0, rtd);
     }
+    if (rtd.needParseTransformSize8x8(pCtx->pPps)) {
+      oMovie().tag(PIP_TRANSFORM_8x8_TAG).emitBit((uint8_t)rtd.pTransformSize8x8Flag,
+                                               oMovie().model().getTransformSize8x8FlagPrior(rtd.uiMbType, rtd.uiLumaQp));
+    }
     bool emitted_luma_dc = false;
     bool emitted_chroma_dc = false;
     if (MB_TYPE_INTRA16x16 == rtd.uiMbType) {
@@ -2376,7 +2392,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
     }
 #ifdef DEBUG_PRINTS
-    fprintf(stderr, "INSIDE skiprun=%d ; origSkip%d ; which_block=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block);
+    fprintf(stderr, "INSIDE skiprun=%d ; origSkip%d ; which_block=%d mbType=%d 8x8transformFlag=%d 8x8needtransform=%d cbpL=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, rtd.uiMbType, rtd.pTransformSize8x8Flag, rtd.needParseTransformSize8x8(pCtx->pPps), rtd.uiCbpL);
     fprintf(stderr, "all done!\n");
 #endif
 
@@ -2723,6 +2739,12 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         rtd.iRefIdx[0] = res.first;
       }
       readMv(0, rtd);
+    }
+    if (rtd.needParseTransformSize8x8(pCtx->pPps)) {
+      rtd.pTransformSize8x8Flag = iMovie().tag(PIP_TRANSFORM_8x8_TAG).scanBit(
+                oMovie().model().getTransformSize8x8FlagPrior(rtd.uiMbType, rtd.uiLumaQp));
+    } else {
+      rtd.pTransformSize8x8Flag = IS_INTRA8x8(rtd.uiMbType);
     }
     bool scanned_luma_dc = false;
     bool scanned_chroma_dc = false;
@@ -3171,7 +3193,7 @@ int32_t WelsActualDecodeMbCavlcISlice (PWelsDecoderContext pCtx, PNalUnit pNalCu
     pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
     if (pCtx->pPps->bTransform8x8ModeFlag) {
 #ifdef BILLING
-      curBillTag = PIP_8x8_TAG;
+      curBillTag = PIP_MB_TYPE_TAG;
 #endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
       pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;
@@ -3439,6 +3461,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
   int32_t iMbResProperty;
 
   // FIXME: Warum ist pTransformSize8x8Flag[iMbXy] nicht hier auf false gesetzt?
+  pCurLayer->pTransformSize8x8Flag[iMbXy] = false;
 
   GetNeighborAvailMbType (&sNeighAvail, pCurLayer);
   ENFORCE_STACK_ALIGN_1D (uint8_t, pNonZeroCount, 48, 16);
@@ -3546,7 +3569,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
         pCurLayer->pMbType[iMbXy] = MB_TYPE_INTRA4x4;
         if (pCtx->pPps->bTransform8x8ModeFlag) {
 #ifdef BILLING
-            curBillTag = PIP_8x8_TAG;
+            curBillTag = PIP_MB_TYPE_TAG;
 #endif
           WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
           pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;
@@ -3614,7 +3637,7 @@ int32_t WelsActualDecodeMbCavlcPSlice (PWelsDecoderContext pCtx, DecodedMacroblo
 
     if (bNeedParseTransformSize8x8Flag) {
 #ifdef BILLING
-      curBillTag = PIP_8x8_TAG;
+      curBillTag = PIP_TRANSFORM_8x8_TAG;
 #endif
       WELS_READ_VERIFY (BsGetOneBit (pBs, &uiCode)); //transform_size_8x8_flag
       pCurLayer->pTransformSize8x8Flag[iMbXy] = !!uiCode;

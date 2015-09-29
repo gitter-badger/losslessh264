@@ -57,6 +57,7 @@ int16_t         iMbY;           // position of MB in vertical axis [0..32767]
 
 uint8_t         uiNeighborAvail;        // avail && same_slice: LEFT_MB_POS:0x01, TOP_MB_POS:0x02, TOPRIGHT_MB_POS = 0x04 ,TOPLEFT_MB_POS = 0x08;
 uint8_t         uiCbp;
+int8_t          iTransformSize8x8Flag; // 0: do not write; 1: 4x4 block; 2: 8x8 block
 
 SMVUnitXY*      sMv;
 int8_t*         pRefIndex;

@@ -286,11 +286,17 @@ int32_t WelsSpatialWriteMbSyn (sWelsEncCtx* pEncCtx, SSlice* pSlice, SMB* pCurMb
       WelsSpatialWriteMbPred (pEncCtx, pSlice, pCurMb);
     }
 
-    /* Step 2: write coded block patern */
+    /* Step 2: write coded block patern and transform 8x8 for inter */
     if (IS_INTRANxN (pCurMb->uiMbType)) {
       BsWriteUE (pBs, g_kuiIntra4x4CbpMap[pCurMb->uiCbp]);
     } else if (!IS_INTRA16x16 (pCurMb->uiMbType)) {
       BsWriteUE (pBs, g_kuiInterCbpMap[pCurMb->uiCbp]);
+    }
+
+    if (pCurMb->iTransformSize8x8Flag != 0 &&
+        pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
+      //transform_size_8x8_flag
+      BsWriteOneBit (pBs, pCurMb->iTransformSize8x8Flag == 2);
     }
 
     /* Step 3: write QP and residual */

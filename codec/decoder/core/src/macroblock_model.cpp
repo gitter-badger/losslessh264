@@ -55,6 +55,7 @@ const char * billEnumToName(int en) {
     if(PIP_QPL_TAG == en) return "qpl";
     if(PIP_MB_TYPE_TAG == en) return "mb type";
     if(PIP_REF_TAG == en) return "ref";
+    if(PIP_TRANSFORM_8x8_TAG == en) return "transform 8x8";
     if(PIP_8x8_TAG == en) return "pred 8x8";
     if(PIP_16x16_TAG == en) return "pred 16x16";
     if(PIP_PRED_TAG == en) return "pred";
@@ -449,6 +450,9 @@ Branch<8> MacroblockModel::getSubMbPrior(int i) {
     return subMbPriors.at(encodeMacroblockType(mb->uiMbType));
 }
 
+DynProb *MacroblockModel::getTransformSize8x8FlagPrior(int mbType, int qpl) {
+  return &transform8x8FlagPriors.at(encodeMacroblockType(mbType), qpl);
+}
 
 Branch<4> MacroblockModel::getPredictionModePrior(int predMode, int leftAvail, int topAvail, int leftTopAvail) {
   int availIdx = (leftAvail << 2) | (topAvail << 1) | (leftTopAvail);

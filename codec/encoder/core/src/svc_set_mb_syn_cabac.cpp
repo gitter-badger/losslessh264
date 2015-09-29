@@ -56,6 +56,23 @@ static const uint16_t uiLastCoeffFlagOffset[] = {0, 15, 29, 44, 47, NEW_CTX_OFFS
 static const uint16_t uiCoeffAbsLevelMinus1Offset[] = {0, 10, 20, 30, 39, NEW_CTX_OFFSET_ABS_8x8 - NEW_CTX_OFFSET_ABS};
 static const uint16_t uiCodecBlockFlagOffset[] = {0, 4, 8, 12, 16, 0};
 
+static void WelsCabacWriteTransform8x8Flag(
+      sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pCurMb, int32_t iMbWidth) {
+  uint32_t uiNeighborAvail = pCurMb->uiNeighborAvail;
+  SMB* pLeftMb = pCurMb - 1 ;
+  SMB* pTopMb = pCurMb - iMbWidth;
+  int32_t i8x8Ctx = 399;
+  if ((uiNeighborAvail & LEFT_MB_POS) &&
+      (pLeftMb->iTransformSize8x8Flag == 2 || IS_INTRA8x8 (pLeftMb->uiMbType)))
+    i8x8Ctx++;
+  if ((uiNeighborAvail & TOP_MB_POS) &&
+      (pTopMb->iTransformSize8x8Flag == 2 || IS_INTRA8x8 (pTopMb->uiMbType)))
+    i8x8Ctx++;
+  if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
+    WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx,
+        pCurMb->iTransformSize8x8Flag == 2 || IS_INTRA8x8 (pCurMb->uiMbType));
+  }
+}
 
 static void WelsCabacMbType (sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pCurMb, SMbCache* pMbCache, int32_t iMbWidth,
                              EWelsSliceType eSliceType) {
@@ -65,20 +82,13 @@ static void WelsCabacMbType (sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pC
     SMB* pLeftMb = pCurMb - 1 ;
     SMB* pTopMb = pCurMb - iMbWidth;
     int32_t iCtx = 3;
-    int32_t i8x8Ctx = 399;
     if ((uiNeighborAvail & LEFT_MB_POS) && !IS_INTRANxN (pLeftMb->uiMbType))
       iCtx++;
     if ((uiNeighborAvail & TOP_MB_POS) && !IS_INTRANxN (pTopMb->uiMbType))  //TOP MB
       iCtx++;
-    if ((uiNeighborAvail & LEFT_MB_POS) && IS_INTRA8x8 (pLeftMb->uiMbType))
-      i8x8Ctx++;
-    if ((uiNeighborAvail & TOP_MB_POS) && IS_INTRA8x8 (pTopMb->uiMbType))  //TOP MB
-      i8x8Ctx++;
     if (IS_INTRANxN(pCurMb->uiMbType)) {
       WelsCabacEncodeDecision (pCabacCtx, iCtx, 0);
-      if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
-        WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx, IS_INTRA8x8(pCurMb->uiMbType));
-      }
+      WelsCabacWriteTransform8x8Flag(pEncCtx, pCabacCtx, pCurMb, iMbWidth);
     } else {
       int32_t iCbpChroma = pCurMb->uiCbp >> 4;
       int32_t iCbpLuma   = pCurMb->uiCbp & 15;
@@ -120,17 +130,7 @@ static void WelsCabacMbType (sWelsEncCtx *pEncCtx, SCabacCtx* pCabacCtx, SMB* pC
       // INTRA8x8 or INTRA4x4
       WelsCabacEncodeDecision (pCabacCtx, 14, 1);
       WelsCabacEncodeDecision (pCabacCtx, 17, 0);
-      if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
-        uint32_t uiNeighborAvail = pCurMb->uiNeighborAvail;
-        SMB* pLeftMb = pCurMb - 1 ;
-        SMB* pTopMb = pCurMb - iMbWidth;
-        int32_t i8x8Ctx = 399;
-        if ((uiNeighborAvail & LEFT_MB_POS) && IS_INTRA8x8 (pLeftMb->uiMbType))
-          i8x8Ctx++;
-        if ((uiNeighborAvail & TOP_MB_POS) && IS_INTRA8x8 (pTopMb->uiMbType))  //TOP MB
-          i8x8Ctx++;
-        WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx, IS_INTRA8x8(pCurMb->uiMbType));
-      }
+      WelsCabacWriteTransform8x8Flag(pEncCtx, pCabacCtx, pCurMb, iMbWidth);
     } else {
       // INTRA16x16
       int32_t iCbpChroma = pCurMb->uiCbp >> 4;
@@ -822,6 +822,9 @@ int32_t WelsSpatialWriteMbSynCabac (sWelsEncCtx* pEncCtx, SSlice* pSlice, SMB* p
     }
     if (uiMbType != MB_TYPE_INTRA16x16) {
       WelsCabacMbCbp (pCurMb, iMbWidth, pCabacCtx);
+    }
+    if (IS_INTER(uiMbType) && pCurMb->iTransformSize8x8Flag != 0) {
+      WelsCabacWriteTransform8x8Flag(pEncCtx, pCabacCtx, pCurMb, iMbWidth);
     }
     iRet = WelsWriteMbResidualCabac (pEncCtx->pFuncList, pSlice, pMbCache, pCurMb, pCabacCtx, iMbWidth,
                                      uiChromaQpIndexOffset);
