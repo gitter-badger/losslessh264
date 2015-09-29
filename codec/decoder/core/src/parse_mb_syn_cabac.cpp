@@ -381,7 +381,6 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
   PSlice pSlice                 = &pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader     = &pSlice->sSliceHeaderExt.sSliceHeader;
   PDqLayer pCurDqLayer = pCtx->pCurDqLayer;
-  PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];
   int32_t pRefCount[2];
   int32_t i, j;
   int32_t iMbXy = pCurDqLayer->iMbXyIndex;
@@ -399,7 +398,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     iPartIdx = 0;
     WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                         iRef[0]));
-    if ((iRef[0] < 0) || (iRef[0] >= pRefCount[0]) || (ppRefPic[iRef[0]] == NULL)) { //error ref_idx
+    if ((iRef[0] < 0) || (iRef[0] >= pRefCount[0])) { //error ref_idx
       pCtx->bMbRefConcealed = true;
       if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
         iRef[0] = 0;
@@ -409,8 +408,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       }
     }
     rtd->iRefIdx[0] = iRef[0];
-    pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[0]]
-                            && ppRefPic[iRef[0]]->bIsComplete);
+    pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
     PredMv (pMotionVector, pRefIndex, 0, 4, iRef[0], pMv);
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
@@ -430,7 +428,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       iPartIdx = i << 3;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                           iRef[i]));
-      if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0]) || (ppRefPic[iRef[i]] == NULL)) { //error ref_idx
+      if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0])) { //error ref_idx
         pCtx->bMbRefConcealed = true;
         if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
           iRef[i] = 0;
@@ -440,8 +438,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         }
       }
       rtd->iRefIdx[i] = iRef[i];
-      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[i]]
-                              && ppRefPic[iRef[i]]->bIsComplete);
+      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
       UpdateP16x8RefIdxCabac (pCurDqLayer, pRefIndex, iPartIdx, iRef[i], LIST_0);
     }
     for (i = 0; i < 2; i++) {
@@ -465,7 +462,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       iPartIdx = i << 2;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                           iRef[i]));
-      if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0]) || (ppRefPic[iRef[i]] == NULL)) { //error ref_idx
+      if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0])) { //error ref_idx
         pCtx->bMbRefConcealed = true;
         if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
           iRef[i] = 0;
@@ -475,8 +472,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         }
       }
       rtd->iRefIdx[i] = iRef[i];
-      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRef[i]]
-                              && ppRefPic[iRef[i]]->bIsComplete);
+      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
       UpdateP8x16RefIdxCabac (pCurDqLayer, pRefIndex, iPartIdx, iRef[i], LIST_0);
     }
     for (i = 0; i < 2; i++) {
@@ -518,7 +514,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
       int16_t iIdx8 = i << 2;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iIdx8, pRefCount[0], 1,
                                           pRefIdx[i]));
-      if ((pRefIdx[i] < 0) || (pRefIdx[i] >= pRefCount[0]) || (ppRefPic[pRefIdx[i]] == NULL)) { //error ref_idx
+      if ((pRefIdx[i] < 0) || (pRefIdx[i] >= pRefCount[0])) { //error ref_idx
         pCtx->bMbRefConcealed = true;
         if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
           pRefIdx[i] = 0;
@@ -528,8 +524,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         }
       }
       rtd->iRefIdx[i] = pRefIdx[i];
-      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[pRefIdx[i]]
-                              && ppRefPic[pRefIdx[i]]->bIsComplete);
+      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
       UpdateP8x8RefIdxCabac (pCurDqLayer, pRefIndex, iIdx8, pRefIdx[i], LIST_0);
     }
     //mv

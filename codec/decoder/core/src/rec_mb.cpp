@@ -226,6 +226,11 @@ static inline void GetRefPic (sMCRefMember* pMCRefMem, PWelsDecoderContext pCtx,
 
   int8_t iRefIdx = pRefIdxList[iIndex];
   pRefPic = pCtx->sRefPic.pRefList[LIST_0][iRefIdx];
+  if (pRefPic == NULL) {
+    fprintf(stderr, "WARNING: missing reference picture %d index %d\n",
+            iRefIdx, iIndex);
+    pRefPic = pCtx->sRefPic.pRefList[LIST_0][0];
+  }
 
   pMCRefMem->iSrcLineLuma   = pRefPic->iLinesize[0];
   pMCRefMem->iSrcLineChroma = pRefPic->iLinesize[1];

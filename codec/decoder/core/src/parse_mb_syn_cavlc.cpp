@@ -1115,7 +1115,6 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
                         PBitStringAux pBs, DecodedMacroblock *rtd) {
   PSlice pSlice                 = &pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer;
   PSliceHeader pSliceHeader     = &pSlice->sSliceHeaderExt.sSliceHeader;
-  PPicture* ppRefPic = pCtx->sRefPic.pRefList[LIST_0];
   int32_t iRefCount[2];
   PDqLayer pCurDqLayer = pCtx->pCurDqLayer;
   int32_t i, j;
@@ -1149,7 +1148,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
       iRefIdx = uiCode;
       // Security check: iRefIdx should be in range 0 to num_ref_idx_l0_active_minus1, includsive
       // ref to standard section 7.4.5.1. iRefCount[0] is 1 + num_ref_idx_l0_active_minus1.
-      if ((iRefIdx < 0) || (iRefIdx >= iRefCount[0]) || (ppRefPic[iRefIdx] == NULL)) { //error ref_idx
+      if ((iRefIdx < 0) || (iRefIdx >= iRefCount[0])) { //error ref_idx
         pCtx->bMbRefConcealed = true;
         if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
           iRefIdx = 0;
@@ -1158,8 +1157,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
           return ERR_INFO_INVALID_REF_INDEX;
         }
       }
-      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRefIdx]
-                              && ppRefPic[iRefIdx]->bIsComplete);
+      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
     } else {
       WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
       return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
@@ -1206,7 +1204,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 #endif
       WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
       iRefIdx[i] = uiCode;
-      if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
+      if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0])) { //error ref_idx
         pCtx->bMbRefConcealed = true;
         if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
           iRefIdx[i] = 0;
@@ -1215,8 +1213,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
           return ERR_INFO_INVALID_REF_INDEX;
         }
       }
-      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRefIdx[i]]
-                              && ppRefPic[iRefIdx[i]]->bIsComplete);
+      pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
       rtd->iRefIdx[i] = iRefIdx[i];
     }
     for (i = 0; i < 2; i++) {
@@ -1259,7 +1256,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 #endif
         WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
         iRefIdx[i] = uiCode;
-        if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
+        if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0])) { //error ref_idx
           pCtx->bMbRefConcealed = true;
           if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
             iRefIdx[i] = 0;
@@ -1268,8 +1265,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
             return ERR_INFO_INVALID_REF_INDEX;
           }
         }
-        pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRefIdx[i]]
-                                && ppRefPic[iRefIdx[i]]->bIsComplete);
+        pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
       } else {
         WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "inter parse: iMotionPredFlag = 1 not supported. ");
         return GENERATE_ERROR_NO (ERR_LEVEL_MB_DATA, ERR_INFO_UNSUPPORTED_ILP);
@@ -1353,7 +1349,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
 #endif
           WELS_READ_VERIFY (BsGetTe0 (pBs, iRefCount[0], &uiCode)); //ref_idx_l0[ mbPartIdx ]
           iRefIdx[i] = uiCode;
-          if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0]) || (ppRefPic[iRefIdx[i]] == NULL)) { //error ref_idx
+          if ((iRefIdx[i] < 0) || (iRefIdx[i] >= iRefCount[0])) { //error ref_idx
             pCtx->bMbRefConcealed = true;
             if (pCtx->eErrorConMethod != ERROR_CON_DISABLE) {
               iRefIdx[i] = 0;
@@ -1362,8 +1358,7 @@ int32_t ParseInterInfo (PWelsDecoderContext pCtx, int16_t iMvArray[LIST_A][30][M
               return ERR_INFO_INVALID_REF_INDEX;
             }
           }
-          pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed || ! (ppRefPic[iRefIdx[i]]
-                                  && ppRefPic[iRefIdx[i]]->bIsComplete);
+          pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
 
           pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx  ] = pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx + 1] =
                 pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx + 4] = pCurDqLayer->pRefIndex[0][iMbXy][uiScan4Idx + 5] = iRefIdx[i];
