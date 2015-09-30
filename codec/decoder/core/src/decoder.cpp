@@ -714,9 +714,10 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           oMovie().def().escape00xWith003x();
           pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
           // note that iBytesConsumed and pNalPayload are only valid for IS_PARAM_SET_NALS NonVclNal header: otherwise it reads way more
-          oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
           if (pNalPayload) { //parse correct
-            if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
+            oMovie().def().appendBytes(pDstNal, pNalPayload - pDstNal);
+            if (pCtx->sCurNalHead.eNalUnitType == NAL_UNIT_SEI ||
+                IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
               iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes, pSrcNal - 3, iSrcIdx + 3);
             }
             CheckAndFinishLastPic (pCtx, ppDst, pDstBufInfo);
@@ -788,7 +789,8 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     pNalPayload = ParseNalHeader (pCtx, &pCtx->sCurNalHead, pDstNal, iDstIdx, pSrcNal - 3, iSrcIdx + 3, &iConsumedBytes);
     // note that iBytesConsumed and pNalPayload are only valid for IS_PARAM_SET_NALS NonVclNal header: otherwise it reads way more
     if (pNalPayload) { //parse correct
-      if (IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
+      if (pCtx->sCurNalHead.eNalUnitType == NAL_UNIT_SEI ||
+          IS_PARAM_SETS_NALS (pCtx->sCurNalHead.eNalUnitType)) {
         iRet = ParseNonVclNal (pCtx, pNalPayload, iDstIdx - iConsumedBytes, pSrcNal - 3, iSrcIdx + 3);
       }
       CheckAndFinishLastPic (pCtx, ppDst, pDstBufInfo);
