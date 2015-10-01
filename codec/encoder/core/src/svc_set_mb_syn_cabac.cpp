@@ -650,7 +650,7 @@ int32_t WelsWriteMbResidualCabac (SWelsFuncPtrList* pFuncList, SSlice* pSlice, S
                                        pNonZeroCoeffCount[iIdx], pMbCache->pDct->iLumaBlock[i], 14);
         }
       }
-    } else if (IS_INTRA8x8 (uiMbType) || IS_Inter_8x8(uiMbType)) {
+    } else if (IS_INTRA8x8 (uiMbType) || pCurMb->iTransformSize8x8Flag == 2) {
       for (i = 0; i < 4; i++) {
         if (iCbpLuma & (1 << i)) {
           int8_t numNonzeros = 0;
