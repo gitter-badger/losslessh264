@@ -69,7 +69,7 @@ static void WelsCabacWriteTransform8x8Flag(
       (pTopMb->iTransformSize8x8Flag == 2 || IS_INTRA8x8 (pTopMb->uiMbType)))
     i8x8Ctx++;
   if (pEncCtx->pCurDqLayer->sLayerInfo.pPpsP->bTransform8x8ModeFlag) {
-    WelsCabacEncodeDecision (pCabacCtx, 399 + i8x8Ctx,
+    WelsCabacEncodeDecision (pCabacCtx, i8x8Ctx,
         pCurMb->iTransformSize8x8Flag == 2 || IS_INTRA8x8 (pCurMb->uiMbType));
   }
 }
@@ -597,8 +597,9 @@ void  WelsWriteBlockResidualCabac (SMbCache* pMbCache, SMB* pCurMb, uint32_t iMb
     } while (iNonZeroIdx > 0);
 
   } else {
-    assert (eCtxBlockCat != LUMA_DC_AC_8);
-    WelsCabacEncodeDecision (pCabacCtx, iCtx, 0);
+    if (eCtxBlockCat != LUMA_DC_AC_8) {
+      WelsCabacEncodeDecision (pCabacCtx, iCtx, 0);
+    }
   }
 
 
@@ -655,11 +656,11 @@ int32_t WelsWriteMbResidualCabac (SWelsFuncPtrList* pFuncList, SSlice* pSlice, S
         if (iCbpLuma & (1 << i)) {
           int8_t numNonzeros = 0;
           for (int subIdx4x4 = 0; subIdx4x4 < 4; subIdx4x4++) {
-            numNonzeros += pNonZeroCoeffCount[(i << 2) + subIdx4x4];
+            numNonzeros += pNonZeroCoeffCount[g_kuiCache48CountScan4Idx[(i << 2) + subIdx4x4]];
           }
           int16_t uninterleaedZigzag[64];
           for (int iCoef = 0; iCoef < 64; iCoef++) {
-            uninterleaedZigzag[((iCoef & 0xf) << 2) + ((iCoef >> 4) & 0x3)] = pMbCache->pDct->iLumaBlock[i][iCoef];
+            uninterleaedZigzag[((iCoef & 0xf) << 2) + ((iCoef >> 4) & 0x3)] = pMbCache->pDct->iLumaBlock[i << 2][iCoef];
           }
           WelsWriteBlockResidualCabac (pMbCache, pCurMb, iMbWidth, pCabacCtx, LUMA_DC_AC_8, i << 2,
                                        numNonzeros, uninterleaedZigzag, 63);
