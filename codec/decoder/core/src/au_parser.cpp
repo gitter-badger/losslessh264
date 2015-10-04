@@ -973,7 +973,6 @@ int32_t ParseSps (PWelsDecoderContext pCtx, PBitStringAux pBsAux, int32_t* pPicW
       return GENERATE_ERROR_NO (ERR_LEVEL_PARAM_SETS, ERR_INFO_UNSUPPORTED_NON_BASELINE);
 
     }// To support 4:0:0; 4:2:0
-    pSps->uiChromaArrayType = pSps->uiChromaFormatIdc;
     WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //bit_depth_luma_minus8
     if (uiCode != 0) {
       WelsLog (& (pCtx->sLogCtx), WELS_LOG_WARNING, "ParseSps(): bit_depth_luma (%d) Only 8 bit supported.", 8 + uiCode);
@@ -998,6 +997,7 @@ int32_t ParseSps (PWelsDecoderContext pCtx, PBitStringAux pBsAux, int32_t* pPicW
                                           pSps->iScalingList8x8));
     }
   }
+  pSps->uiChromaArrayType = pSps->uiChromaFormatIdc;
   WELS_READ_VERIFY (BsGetUe (pBs, &uiCode)); //log2_max_frame_num_minus4
   WELS_CHECK_SE_UPPER_ERROR (uiCode, SPS_LOG2_MAX_FRAME_NUM_MINUS4_MAX, "log2_max_frame_num_minus4",
                              GENERATE_ERROR_NO (ERR_LEVEL_PARAM_SETS, ERR_INFO_INVALID_LOG2_MAX_FRAME_NUM_MINUS4));
