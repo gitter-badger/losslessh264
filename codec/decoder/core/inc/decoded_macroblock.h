@@ -12,8 +12,6 @@ struct DecodedMacroblock {
   uint8_t eSliceType;
   uint8_t pTransformSize8x8Flag;
   int uiChromaQpIndexOffset;
-  int32_t iPrevIntra4x4PredMode[16]; // deprecated, not read
-  int32_t iRemIntra4x4PredMode[16]; // deprecated, not read
   int32_t iBestIntra4x4PredMode[16];
   int16_t sMbMvp[16][2];
   int16_t sMbAbsoluteMv[16][2]; // absolute motion vectors. no need to serialized them
@@ -65,6 +63,9 @@ struct DecodedMacroblock {
   void preInit(const WelsDec::PSlice);
 
   const int16_t* getAC(int color, int subblockIndex = 0) const {
+    assert((color == 0 && subblockIndex < 16 && subblockIndex >= 0) ||
+            (color == 1 && subblockIndex < 4 && subblockIndex >= 0) ||
+            (color == 2 && subblockIndex < 8 && subblockIndex >= 4));
     return &(color == 0 ? odata.lumaAC : odata.chromaAC)[16 * subblockIndex];
   }
   bool needParseTransformSize8x8(WelsDec::PPps pPps) {

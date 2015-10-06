@@ -473,7 +473,6 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   uiNeighAvail = (iSampleAvail[6] << 2) | (iSampleAvail[0] << 1) | (iSampleAvail[1]);
   for (i = 0; i < 16; i++) {
     int32_t iPrevIntra4x4PredMode = 0;
-    rtd->iRemIntra4x4PredMode[i] = 0;
 #ifdef BILLING
     curBillTag = PIP_16x16_TAG; // PIP_PRED_MODE_TAG
 #endif
@@ -490,11 +489,8 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
       if (iPrevIntra4x4PredMode == -1) {
         iBestMode = kiPredMode;
-        rtd->iPrevIntra4x4PredMode[i] = 1;
       } else {
         iBestMode = iPrevIntra4x4PredMode + (iPrevIntra4x4PredMode >= kiPredMode);
-        rtd->iPrevIntra4x4PredMode[i] = 0;
-        rtd->iRemIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
       }
     } else {
       if (iPrevIntra4x4PredMode) {
@@ -506,11 +502,9 @@ int32_t ParseIntra4x4Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
 #endif
 
         WELS_READ_VERIFY (BsGetBits (pBs, 3, &uiCode));
-        rtd->iRemIntra4x4PredMode[i] = uiCode;
         iBestMode = uiCode + ((int32_t) uiCode >= kiPredMode);
         //fprintf(stderr, "dec %d bestmode=%d %d %d\n", i, iBestMode, kiPredMode, uiCode);
       }
-      rtd->iPrevIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
     }
     rtd->iBestIntra4x4PredMode[i] = iBestMode;
 
@@ -576,7 +570,6 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
 
   for (i = 0; i < 4; i++) {
     int32_t iPrevIntra4x4PredMode = 0;
-    rtd->iRemIntra4x4PredMode[i] = 0;
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
       WELS_READ_VERIFY (ParseIntraPredModeLumaCabac (pCtx, iCode));
       iPrevIntra4x4PredMode = iCode;
@@ -593,11 +586,8 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
     if (pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
       if (iPrevIntra4x4PredMode == -1) {
         iBestMode = kiPredMode;
-        rtd->iPrevIntra4x4PredMode[i] = 1;
       } else {
         iBestMode = iPrevIntra4x4PredMode + (iPrevIntra4x4PredMode >= kiPredMode);
-        rtd->iRemIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
-        rtd->iPrevIntra4x4PredMode[i] = 0;
       }
     } else {
       if (iPrevIntra4x4PredMode) {
@@ -607,10 +597,8 @@ int32_t ParseIntra8x8Mode (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
         curBillTag = PIP_PRED_MODE_TAG;
 #endif
         WELS_READ_VERIFY (BsGetBits (pBs, 3, &uiCode));
-        rtd->iRemIntra4x4PredMode[i] = uiCode;
         iBestMode = uiCode + ((int32_t) uiCode >= kiPredMode);
       }
-      rtd->iPrevIntra4x4PredMode[i] = iPrevIntra4x4PredMode;
     }
     rtd->iBestIntra4x4PredMode[i] = iBestMode;
 
@@ -2195,6 +2183,8 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 #endif
   if (initialSkip) {
     origSkipped = rtd.iMbSkipRun;
+  //} else if (rtd.iMbSkipRun && pCtx->pPps->bEntropyCodingModeFlag) {
+  //  origSkipped++;
   }
   if (finalSkip) {
     rtd.iMbSkipRun = origSkipped;
@@ -2281,6 +2271,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
     }
     if (MB_TYPE_INTRA8x8 == rtd.uiMbType) {
+      // TODO: These priors look weird.
       for (int i = 0; i < 4; i++) {
         oMovie().tag(PIP_PRED_MODE_TAG).emitBits((uint8_t)rtd.iBestIntra4x4PredMode[i],
                                                  oMovie().model().getPredictionModePrior(1, 1, 1, 0));

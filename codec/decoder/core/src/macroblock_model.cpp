@@ -473,19 +473,37 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
   if (n[PAST]) {
     past = n[PAST]->countSubblockNonzeros(color, subblockIndex);
   }
-  if ((subblockIndex & 3) == 0) {
-    if (n[LEFT]) {
-      left = n[LEFT]->countSubblockNonzeros(color, subblockIndex + 3);
+  if (color == 0) {
+    if ((subblockIndex & 3) == 0) {
+      if (n[LEFT]) {
+        left = n[LEFT]->countSubblockNonzeros(color, subblockIndex + 3);
+      }
+    } else {
+      left = mb->countSubblockNonzeros(color, subblockIndex - 1);
+    }
+    if (subblockIndex < 4) {
+      if (n[ABOVE]) {
+        above = n[ABOVE]->countSubblockNonzeros(color, subblockIndex + 12);
+      }
+    } else {
+      above = mb->countSubblockNonzeros(color, subblockIndex - 4);
     }
   } else {
-    left = mb->countSubblockNonzeros(color, subblockIndex - 1);
-  }
-  if (subblockIndex < 4) {
-    if (n[ABOVE]) {
-      above = n[ABOVE]->countSubblockNonzeros(color, subblockIndex + 12);
+    // color == 1 (0..3) or color == 2 (4..7)
+    if ((subblockIndex & 1) == 0) { // 0,2,4,6
+      if (n[LEFT]) {
+        left = n[LEFT]->countSubblockNonzeros(color, subblockIndex + 1);
+      }
+    } else {
+      left = mb->countSubblockNonzeros(color, subblockIndex - 1);
     }
-  } else {
-    above = mb->countSubblockNonzeros(color, subblockIndex - 4);
+    if ((subblockIndex & 2) == 0) { // needs to match 0,1 and 4,5
+      if (n[ABOVE]) {
+        above = n[ABOVE]->countSubblockNonzeros(color, subblockIndex + 2);
+      }
+    } else {
+      above = mb->countSubblockNonzeros(color, subblockIndex - 2);
+    }
   }
   return &nonzerosPriors.at(
       mb->eSliceType,                       // makes very little difference
