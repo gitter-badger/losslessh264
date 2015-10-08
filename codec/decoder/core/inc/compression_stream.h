@@ -507,7 +507,7 @@ struct CompressionStream {
     }
     ArithmeticCodedOutput&tag(int32_t tag) {
 #ifdef DEBUG_ARICODER
-        fprintf(stderr, "%d) tag %d\n", r_bitcount, tag);
+        fprintf(stderr, "%d) tag %d\n", w_bitcount, tag);
 #endif
         if (taggedStreams.find(tag) == taggedStreams.end()) {
             taggedStreams[tag].init(tag);
