@@ -20,7 +20,9 @@ void vpx_start_encode(vpx_writer *br, uint8_t *source) {
   br->count    = -24;
   br->buffer   = source;
   br->pos      = 0;
-  vpx_write_bit(br, 0);
+  // marker bit makes it more difficult to debug, since streams may get initialized
+  // at different times
+  //vpx_write_bit(br, 0);
 }
 
 void vpx_stop_encode(vpx_writer *br) {

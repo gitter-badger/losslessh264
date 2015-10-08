@@ -52,7 +52,9 @@ int vpx_reader_init(vpx_reader *r,
     r->count = -8;
     r->range = 255;
     vpx_reader_fill(r);
-    return vpx_read_bit(r) != 0;  // marker bit
+    // marker bit makes it more tricky to debug, since streams may get initialized
+    // at different times
+    return 0;
   }
 }
 
