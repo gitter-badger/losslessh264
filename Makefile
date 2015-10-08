@@ -17,7 +17,7 @@ CXX_LINK_O=-o $@
 AR_OPTS=cr $@
 LINK_LOCAL_DIR=-L.
 LINK_LIB=-l$(1)
-CFLAGS_OPT=-O0 -g -fno-strict-aliasing
+CFLAGS_OPT=-O3 -fno-strict-aliasing
 CFLAGS_DEBUG=-g -fno-strict-aliasing
 BUILDTYPE=Debug
 V=Yes
@@ -75,7 +75,7 @@ CFLAGS += -fprofile-arcs -ftest-coverage
 LDFLAGS += -lgcov
 endif
 
-CFLAGS += -std=c++0x -O0 -g -Wno-deprecated-register
+CFLAGS += -std=c++0x -O3 -Wno-deprecated-register
 
 #### No user-serviceable parts below this line
 ifneq ($(V),Yes)
