@@ -282,6 +282,9 @@ void CompressionStream::flushToWriter(CompressedWriter&w) {
 }
 
 ArithmeticCodedInput& InputCompressionStream::tag(int32_t tag) {
+#ifdef DEBUG_ARICODER
+        fprintf(stderr, "%d) tag %d\n", r_bitcount, tag);
+#endif
     bool mustReadData = taggedStreams.find(tag) == taggedStreams.end();
     ArithmeticCodedInput &bs = taggedStreams[tag];
     if (filenamePrefix.empty()) {
