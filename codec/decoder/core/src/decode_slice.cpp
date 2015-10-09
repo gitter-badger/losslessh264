@@ -2158,6 +2158,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
 #ifdef DEBUG_PRINTS
   fprintf(stderr, "EOSTEST which_block=%d origSkipped=%d skip=%d endofslice=%d uiEosFlag=%d\n", which_block, origSkipped == -1 ? 0 : origSkipped, pSlice->iMbSkipRun, hasExactlyOneStopBit, uiEosFlag);
 #endif
+  bool initialSkip = (rtd.iMbSkipRun > 0 && origSkipped == -1);
+  bool finalSkip = (rtd.iMbSkipRun == 0 && origSkipped != -1);
+  if (pCtx->pPps->bEntropyCodingModeFlag) {
+      writeSkipRun = true; // always write the skip run for CABAC--since it can only skip one at most
+  }
   if (writeSkipRun) {
 #ifdef DEBUG_PRINTS
     fprintf(stderr, "block=%d write skip&eos!\n", which_block);
@@ -2175,17 +2180,15 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     // We are done while finishing a skip. writeBlock will not be true.
       oMovie().tag(PIP_SKIP_END_TAG).emitBit(hasExactlyOneStopBit, oMovie().model().getStopBitPrior(macroblockIndexInSlice));
   }
-  bool initialSkip = (rtd.iMbSkipRun > 0 && origSkipped == -1);
-  bool finalSkip = (rtd.iMbSkipRun == 0 && origSkipped != -1);
   bool writeBlock = rtd.iMbSkipRun == 0;
 #ifdef DEBUG_PRINTS
   fprintf(stderr, "OUTSIDE skiprun=%d ; origSkip%d ; which_block=%d initSkp=%d finalSkp=%d writeBlock=%d | iMbXyIndex=%d iMbX=%d iMbY=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, (int)initialSkip, (int)finalSkip, (int)writeBlock, pCurLayer->iMbXyIndex, pCurLayer->iMbX, pCurLayer->iMbY);
 #endif
   if (initialSkip) {
     origSkipped = rtd.iMbSkipRun;
-  //} else if (rtd.iMbSkipRun && pCtx->pPps->bEntropyCodingModeFlag) {
+  }// else if (rtd.iMbSkipRun && pCtx->pPps->bEntropyCodingModeFlag) {
   //  origSkipped++;
-  }
+  //}
   if (finalSkip) {
     rtd.iMbSkipRun = origSkipped;
     origSkipped = -1;
@@ -2446,7 +2449,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
   }
   BitStream::uint32E res;
   rtd.uiMbType = MB_TYPE_SKIP;
-  if (curSkipped == -1) {
+  if (curSkipped == -1 || (pCtx->pPps->bEntropyCodingModeFlag)) {// always read the skip run for CABAC--since it can only skip one at most
 #ifdef DEBUG_PRINTS
     fprintf(stderr, "block=%d read skip&eos!\n", which_block);
 #endif
