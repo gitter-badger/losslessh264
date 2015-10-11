@@ -117,7 +117,7 @@ uint16_t swizzle_sign(int16_t v);
 int16_t unswizzle_sign(uint16_t v);
 
 class MacroblockModel {
-
+public:
     DecodedMacroblock *mb;
     WelsDec::PWelsDecoderContext pCtx;
     Neighbors n;

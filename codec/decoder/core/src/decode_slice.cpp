@@ -2236,6 +2236,9 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     // TODO: We don't even need to output this if we have the media info for the video
     // and we know there is only 1 frame.
     // TODO: If uiNumRefIdxL0Active is always a power of 2, then we could further optimize.
+    if (pCurLayer->iMbXyIndex == 3) {
+        fprintf(stderr, "cur=%d mb=%d past=%d\n", rtd.uiNumRefIdxL0Active, oMovie().model().mb->uiNumRefIdxL0Active, oMovie().model().n[Nei::PAST] ? oMovie().model().n[Nei::PAST]->uiNumRefIdxL0Active : -1);
+    }
     oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active,
                                        oMovie().model().getNumRefIdxL0ActivePrior());
     uint8_t refBits = ceil(log2((uint16_t)rtd.uiNumRefIdxL0Active));
@@ -2409,10 +2412,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
   } else {
 #ifdef ROUNDTRIP_TEST
     if (pCtx->pPps->bEntropyCodingModeFlag) {
-      initRTDFromDecoderState(rtd, pCurLayer);
-      rtd.uiMbType = MB_TYPE_SKIP;
+      DecodedMacroblock tmpRtd;
+      tmpRtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
+      tmpRtd.uiMbType = MB_TYPE_SKIP;
       esCabac->setXY(pSliceHeader->iFirstMbInSlice, pCurLayer->iMbXyIndex);
-      esCabac->init(pCtx, pCurLayer, &rtd);
+      esCabac->init(pCtx, pCurLayer, &tmpRtd);
       esCabac->writeMbSynCabac();
   /*WelsCabacEncodeFlush (&esCabac->pSlice.sCabacCtx);
   esCabac->wrBs.pCurBuf = WelsCabacEncodeGetPtr (&esCabac->pSlice.sCabacCtx);
@@ -2420,6 +2424,7 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
 #endif
   }
+  rtd.isSkipped = !writeBlock;
   return ERR_NONE;
 }
 
@@ -2476,7 +2481,9 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     // We need to know if this macroblock ends in a skip or ends in a block.
     endOfSlice = iMovie().tag(PIP_SKIP_END_TAG).scanBit(oMovie().model().getStopBitPrior(macroblockIndexInSlice));
   }
+  rtd.isSkipped = true;
   if (curSkipped == 0) { // Decrementing after decode
+    rtd.isSkipped = false;
     endOfSlice = iMovie().tag(PIP_SKIP_END_TAG).scanBit(oMovie().model().getStopBitPrior(macroblockIndexInSlice));
     res = iMovie().tag(PIP_MB_TYPE_TAG).scanBits(oMovie().model().getMacroblockTypePrior());
     if (res.second) {
@@ -3020,6 +3027,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     memset(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex], 0,
            sizeof(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex]));
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
+    if (pCurLayer->iMbXyIndex == 3) {
+        fprintf(stderr, "Setting macroblock for framenum=%d\n", pCtx->iFrameNum);
+    }
     oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
     woffset = 0;
     if (oMovie().isRecoding) {
@@ -3045,7 +3055,11 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
       // save out dequantized values instead
       //xxx until we get quantization working, initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeff[pCurLayer->iMbXyIndex]);
       initCoeffsFromCoefPtr(rtd, pCurLayer->pScaledTCoeffQuant[pCurLayer->iMbXyIndex]);
-      imageCache.at(iMbX, iMbY) = rtd;
+      if (rtd.isSkipped) {
+        imageCache.at(iMbX, iMbY) = imageCache.last(iMbX, iMbY);
+      } else {
+        imageCache.at(iMbX, iMbY) = rtd;
+      }
     }
     ++which_block;
     ++pSlice->iTotalMbInCurSlice;
