@@ -3082,6 +3082,7 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     if (oMovie().isRecoding) {
       esCabac->cabacEncodeFlush();
       EmitDefBitsToOMovie emission;
+      oMovie().def().padToByte(1);
       copySBitStringAux(esCabac->wrBs, emission);
       // assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));
     }

@@ -108,9 +108,9 @@ void BitStream::emitBits(uint32_t bits, uint32_t nBits) {
     b.nBits = uint8_t(nBits);
 }
 
-void BitStream::padToByte() {
+void BitStream::padToByte(int val) {
     for (int i = nBits; (i & 0x07) != 0; ++i) {
-        emitBit(0);
+        emitBit(val);
     }
 }
 

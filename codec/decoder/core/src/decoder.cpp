@@ -727,13 +727,10 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
           }
           //oMovie().def().appendBytes(pNalPayload, iDstIdx - iConsumedBytes); // fixme <-- want to get this roundtripping
           DecodeFinishUpdate (pCtx);
-          if (oMovie().isRecoding) {
+          if (oMovie().isRecoding && !pCtx->pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
               oMovie().def().emitBit(1); // only emit stop bit
           }
           outputTrailingNalZeros(pDstNal, iDstIdx); // these were ignored from the header and added to consume bytes for no good reason
-          if (!oMovie().isRecoding) {
-              //flushPBitString(pCtx);
-          }
           oMovie().def().stopEscape();
           if ((dsOutOfMemory | dsNoParamSets) & pCtx->iErrorCode) {
 #ifdef LONG_TERM_REF
@@ -838,10 +835,13 @@ int32_t WelsDecodeBs (PWelsDecoderContext pCtx, const uint8_t* kpBsBuf, const in
     }
     DecodeFinishUpdate (pCtx);
     if (oMovie().isRecoding) {
-        oMovie().def().emitBit(1); // only emit stop bit
+        if (!pCtx->pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
+            oMovie().def().emitBit(1); // only emit stop bit
+        }
     } else {
-        //flushPBitString(pCtx);
-        oMovie().def().emitBit(1); // only emit stop bit
+        if (!pCtx->pCurDqLayer->sLayerInfo.pPps->bEntropyCodingModeFlag) {
+            oMovie().def().emitBit(1); // only emit stop bit
+        }
     }
     oMovie().def().stopEscape();
 
