@@ -57,6 +57,9 @@ struct BitStream {
     void emitBit(uint32_t bit) {
       emitBits(bit, 1);
     }
+    unsigned int padRemainder() const {
+        return 0x7 - (nBits & 0x7);
+    }
     void padToByte(int val=0);
     std::pair<uint32_t, H264Error> scanBits(uint32_t nBits);
     void pop();

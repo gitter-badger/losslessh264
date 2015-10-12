@@ -1294,9 +1294,21 @@ struct EmitDefBitsToBoolVector {
         }
     }
 };
-template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functor f) {
-    for (const uint8_t *ptr = orig.pStartBuf; ptr != orig.pCurBuf; ++ptr) {
+template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functor f, unsigned int numPadBits = 0, uint8_t padbyte = 0) {
+    uint8_t *end = orig.pCurBuf;
+    if (orig.iLeftBits == 32 && orig.pStartBuf != end) {
+        --end;
+    }
+    for (const uint8_t *ptr = orig.pStartBuf; ptr != end; ++ptr) {
         f(*ptr, 8);
+    }
+    if (orig.iLeftBits == 32 && orig.pStartBuf != orig.pCurBuf) {
+        uint8_t byteToWrite = orig.pCurBuf[-1];
+        uint8_t mask = (1 << numPadBits) -1;
+        //assert((byteToWrite & mask) == padbyte && "May not be true with x264");
+        byteToWrite &= ~mask;
+        byteToWrite |= padbyte;
+        f(byteToWrite, 8);
     }
     if (orig.iLeftBits < 32) {
         int nBits;
@@ -1308,6 +1320,7 @@ template<class Functor> void copySBitStringAux(const SBitStringAux& orig, Functo
             nBits = 32 - orig.iLeftBits;
             curBits = orig.uiCurBits;
         }
+        assert(padbyte == (curBits & ((1 << numPadBits) - 1)));
         while (nBits > 0) {
             if (nBits < 8) {
                 f((curBits) & ((1 << nBits) - 1), nBits);
@@ -2236,9 +2249,6 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     // TODO: We don't even need to output this if we have the media info for the video
     // and we know there is only 1 frame.
     // TODO: If uiNumRefIdxL0Active is always a power of 2, then we could further optimize.
-    if (pCurLayer->iMbXyIndex == 3) {
-        fprintf(stderr, "cur=%d mb=%d past=%d\n", rtd.uiNumRefIdxL0Active, oMovie().model().mb->uiNumRefIdxL0Active, oMovie().model().n[Nei::PAST] ? oMovie().model().n[Nei::PAST]->uiNumRefIdxL0Active : -1);
-    }
     oMovie().tag(PIP_REF_TAG).emitBits(rtd.uiNumRefIdxL0Active,
                                        oMovie().model().getNumRefIdxL0ActivePrior());
     uint8_t refBits = ceil(log2((uint16_t)rtd.uiNumRefIdxL0Active));
@@ -3027,9 +3037,6 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
     memset(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex], 0,
            sizeof(pCurLayer->pScaledTCoeffQuant[ pCurLayer->iMbXyIndex]));
     rtd.preInit(&pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
-    if (pCurLayer->iMbXyIndex == 3) {
-        fprintf(stderr, "Setting macroblock for framenum=%d\n", pCtx->iFrameNum);
-    }
     oMovie().model().initCurrentMacroblock(&rtd, pCtx, &imageCache, iMbX, iMbY);
     woffset = 0;
     if (oMovie().isRecoding) {
@@ -3081,10 +3088,35 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
   if (pCtx->pPps->bEntropyCodingModeFlag) {
     if (oMovie().isRecoding) {
       esCabac->cabacEncodeFlush();
-      EmitDefBitsToOMovie emission;
       oMovie().def().padToByte(1);
-      copySBitStringAux(esCabac->wrBs, emission);
-      // assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));
+    }
+  }
+  unsigned int numPadBits = 7 - (pBs[0].iLeftBits & 0x7);
+  if (oMovie().isRecoding) {
+      numPadBits = oMovie().def().padRemainder();
+  }
+  int padbyte = 0x0;
+  if (numPadBits) {
+      if (oMovie().isRecoding) {
+          BitStream::uint32E res = {};
+          res = iMovie().tag(PIP_PADBYTE_TAG).scanBits(numPadBits);
+          padbyte = res.first;
+          if (res.first) {
+              printf("%d of Padding is %02x :: %02x\n", numPadBits, res.first, res.second);
+          }
+      } else {
+          unsigned int pad = pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1);
+          if (pad) {
+              printf("%d of Padding is %02x\n", numPadBits, pad);
+          }
+          oMovie().tag(PIP_PADBYTE_TAG).emitBits(pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1), numPadBits);
+      }
+  }
+  if (pCtx->pPps->bEntropyCodingModeFlag) {
+    if (oMovie().isRecoding) {
+        EmitDefBitsToOMovie emission;
+        copySBitStringAux(esCabac->wrBs, emission, numPadBits, padbyte);
+        // assert(stringBitCompare(pCurLayer->pBitStringAux, esCabac->wrBs, 22));
     }
 #ifdef ROUNDTRIP_TEST
     if (!oMovie().isRecoding) {

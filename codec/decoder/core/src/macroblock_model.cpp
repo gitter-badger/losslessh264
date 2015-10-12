@@ -118,6 +118,7 @@ const char * billEnumToName(int en) {
     if(PIP_PREV_PRED_TAG == en) return "prev pred";
     if(PIP_PREV_PRED_MODE_TAG == en) return "prev pred mode";
     if(PIP_NZC_TAG == en) return "nonzero count";
+    if (PIP_PADBYTE_TAG == en) return "pad byte";
     return "unknown";
 }
 #ifdef BILLING
