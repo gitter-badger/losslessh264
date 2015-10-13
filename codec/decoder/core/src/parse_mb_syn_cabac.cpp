@@ -37,6 +37,7 @@
 #include "parameter_sets.h"
 #include "decoded_macroblock.h"
 namespace WelsDec {
+extern int cabac_billing_tag;
 #define IDX_UNUSED -1
 
 static const int16_t g_kMaxPos       [] = {IDX_UNUSED, 15, 14, 15, 3, 14, 63, 3, 3, 14, 14};
@@ -169,12 +170,14 @@ void UpdateP8x16MvdCabac (SDqLayer* pCurDqLayer, int16_t pMvdCache[LIST_A][30][M
 }
 
 int32_t ParseEndOfSliceCabac (PWelsDecoderContext pCtx, uint32_t& uiBinVal) {
+  cabac_billing_tag = PIP_SKIP_END_TAG;
   uiBinVal = 0;
   WELS_READ_VERIFY (DecodeTerminateCabac (pCtx->pCabacDecEngine, uiBinVal));
   return ERR_NONE;
 }
 
 int32_t ParseSkipFlagCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiSkip) {
+  cabac_billing_tag = PIP_SKIP_TAG;
   uiSkip = 0;
   int32_t iCtxInc = (pNeighAvail->iLeftAvail && pNeighAvail->iLeftType != MB_TYPE_SKIP) + (pNeighAvail->iTopAvail
                     && pNeighAvail->iTopType  != MB_TYPE_SKIP);
@@ -185,6 +188,7 @@ int32_t ParseSkipFlagCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvai
 
 
 int32_t ParseMBTypeISliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiBinVal) {
+  cabac_billing_tag = PIP_MB_TYPE_TAG;
   uint32_t uiCode;
   int32_t iIdxA = 0, iIdxB = 0;
   int32_t iCtxInc;
@@ -225,6 +229,7 @@ int32_t ParseMBTypeISliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
 }
 
 int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiMbType) {
+  cabac_billing_tag = PIP_MB_TYPE_TAG;
   uint32_t uiCode;
   uiMbType = 0;
   PWelsCabacDecEngine pCabacDecEngine = pCtx->pCabacDecEngine;
@@ -240,7 +245,7 @@ int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
         uiMbType = 30;
         return ERR_NONE;//MB_TYPE_INTRA_PCM;
       }
-
+      cabac_billing_tag = PIP_16x16_TAG;
       WELS_READ_VERIFY (DecodeBinCabac (pCabacDecEngine, pBinCtx + 7, uiCode));
       uiMbType = 6 + uiCode * 12;
 
@@ -252,7 +257,7 @@ int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
         if (uiCode)
           uiMbType += 4;
       }
-
+      cabac_billing_tag = PIP_PRED_MODE_TAG;
       //IPredMode: 0,1,2,3
       WELS_READ_VERIFY (DecodeBinCabac (pCabacDecEngine, pBinCtx + 9, uiCode));
       uiMbType += (uiCode << 1);
@@ -282,6 +287,7 @@ int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
 
 int32_t ParseTransformSize8x8FlagCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail,
                                         bool& bTransformSize8x8Flag) {
+  cabac_billing_tag = PIP_TRANSFORM_8x8_TAG;
   uint32_t uiCode;
   int32_t iIdxA, iIdxB;
   int32_t iCtxInc;
@@ -298,6 +304,7 @@ int32_t ParseTransformSize8x8FlagCabac (PWelsDecoderContext pCtx, PWelsNeighAvai
 }
 
 int32_t ParseSubMBTypeCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail, uint32_t& uiSubMbType) {
+  cabac_billing_tag = PIP_SUB_MB_TAG;
   uint32_t uiCode;
   PWelsCabacDecEngine pCabacDecEngine = pCtx->pCabacDecEngine;
   PWelsCabacCtx pBinCtx = pCtx->pCabacCtx + NEW_CTX_OFFSET_SUBMB_TYPE;
@@ -317,6 +324,7 @@ int32_t ParseSubMBTypeCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAva
 }
 
 int32_t ParseIntraPredModeLumaCabac (PWelsDecoderContext pCtx, int32_t& iBinVal) {
+  cabac_billing_tag = PIP_PRED_MODE_TAG;
   uint32_t uiCode;
   iBinVal = 0;
   WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pCtx->pCabacCtx + NEW_CTX_OFFSET_IPR, uiCode));
@@ -334,6 +342,7 @@ int32_t ParseIntraPredModeLumaCabac (PWelsDecoderContext pCtx, int32_t& iBinVal)
 }
 
 int32_t ParseIntraPredModeChromaCabac (PWelsDecoderContext pCtx, uint8_t uiNeighAvail, int32_t& iBinVal) {
+  cabac_billing_tag = PIP_PRED_MODE_TAG;
   uint32_t uiCode;
   int32_t iIdxA, iIdxB, iCtxInc;
   int8_t* pChromaPredMode = pCtx->pCurDqLayer->pChromaPredMode;
@@ -396,6 +405,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
   switch (pCurDqLayer->pMbType[iMbXy]) {
   case MB_TYPE_16x16: {
     iPartIdx = 0;
+    cabac_billing_tag = PIP_REF_TAG;
     WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                         iRef[0]));
     if ((iRef[0] < 0) || (iRef[0] >= pRefCount[0])) { //error ref_idx
@@ -410,7 +420,9 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     rtd->iRefIdx[0] = iRef[0];
     pCtx->bMbRefConcealed = pCtx->bRPLRError || pCtx->bMbRefConcealed;
     PredMv (pMotionVector, pRefIndex, 0, 4, iRef[0], pMv);
+    cabac_billing_tag = PIP_MVX_TAG;
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
+    cabac_billing_tag = PIP_MVY_TAG;
     WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
     rtd->sMbMvp[0][0] = pMvd[0];
     rtd->sMbMvp[0][1] = pMvd[1];
@@ -426,6 +438,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
   case MB_TYPE_16x8:
     for (i = 0; i < 2; i++) {
       iPartIdx = i << 3;
+      cabac_billing_tag = PIP_REF_TAG;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                           iRef[i]));
       if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0])) { //error ref_idx
@@ -444,7 +457,9 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     for (i = 0; i < 2; i++) {
       iPartIdx = i << 3;
       PredInter16x8Mv (pMotionVector, pRefIndex, iPartIdx, iRef[i], pMv);
+      cabac_billing_tag = PIP_MVX_TAG;
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
+      cabac_billing_tag = PIP_MVY_TAG;
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
       rtd->sMbMvp[8 * i][0] = pMvd[0];
       rtd->sMbMvp[8 * i][1] = pMvd[1];
@@ -460,6 +475,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
   case MB_TYPE_8x16:
     for (i = 0; i < 2; i++) {
       iPartIdx = i << 2;
+    cabac_billing_tag = PIP_REF_TAG;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iPartIdx, pRefCount[0], 0,
                                           iRef[i]));
       if ((iRef[i] < 0) || (iRef[i] >= pRefCount[0])) { //error ref_idx
@@ -478,8 +494,9 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     for (i = 0; i < 2; i++) {
       iPartIdx = i << 2;
       PredInter8x16Mv (pMotionVector, pRefIndex, i << 2, iRef[i], pMv/*&mv[0], &mv[1]*/);
-
+      cabac_billing_tag = PIP_MVX_TAG;
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
+      cabac_billing_tag = PIP_MVY_TAG;
       WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
       rtd->sMbMvp[2 * i][0] = pMvd[0];
       rtd->sMbMvp[2 * i][1] = pMvd[1];
@@ -498,6 +515,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
     uint32_t uiSubMbType;
     //sub_mb_type, partition
     for (i = 0; i < 4; i++) {
+    cabac_billing_tag = PIP_8x8_TAG;
       WELS_READ_VERIFY (ParseSubMBTypeCabac (pCtx, pNeighAvail, uiSubMbType));
       if (uiSubMbType >= 4) { //invalid sub_mb_type
         return ERR_INFO_INVALID_SUB_MB_TYPE;
@@ -512,6 +530,7 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
 
     for (i = 0; i < 4; i++) {
       int16_t iIdx8 = i << 2;
+    cabac_billing_tag = PIP_REF_TAG;
       WELS_READ_VERIFY (ParseRefIdxCabac (pCtx, pNeighAvail, pNonZeroCount, pRefIndex, LIST_0, iIdx8, pRefCount[0], 1,
                                           pRefIdx[i]));
       if ((pRefIdx[i] < 0) || (pRefIdx[i] >= pRefCount[0])) { //error ref_idx
@@ -542,7 +561,9 @@ int32_t ParseInterMotionInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNe
         iScan4Idx = g_kuiScan4[iPartIdx];
         iCacheIdx = g_kuiCache30ScanIdx[iPartIdx];
         PredMv (pMotionVector, pRefIndex, iPartIdx, iBlockW, pRefIdx[i], pMv);
+        cabac_billing_tag = PIP_MVX_TAG;
         WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 0, pMvd[0]));
+        cabac_billing_tag = PIP_MVY_TAG;
         WELS_READ_VERIFY (ParseMvdInfoCabac (pCtx, pNeighAvail, pRefIndex, pMvdCache, iPartIdx, LIST_0, 1, pMvd[1]));
         rtd->sMbMvp[iScan4Idx][0] = pMvd[0];
         rtd->sMbMvp[iScan4Idx][1] = pMvd[1];
@@ -625,7 +646,11 @@ int32_t ParseRefIdxCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail,
 #ifdef CABAC_LOG_DECISIONS
   fprintf(stderr, "Decode Decision: MbRef %d %d %d %d %d %d\n", ref_idx[iListIdx][g_kuiCache30ScanIdx[iZOrderIdx] - 6] > 0, ref_idx[iListIdx][g_kuiCache30ScanIdx[iZOrderIdx] - 1] > 0, pNeighAvail->iTopAvail, pNeighAvail->iLeftAvail, (int)iIdxA, (int)iIdxB);
 #endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
+#endif
   iCtxInc = iIdxA + (iIdxB << 1);
+  cabac_billing_tag = PIP_REF_TAG;
   WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pCtx->pCabacCtx + NEW_CTX_OFFSET_REF_NO + iCtxInc, uiCode));
   if (uiCode) {
     WELS_READ_VERIFY (DecodeUnaryBinCabac (pCtx->pCabacDecEngine, pCtx->pCabacCtx + NEW_CTX_OFFSET_REF_NO + 4, 1, uiCode));
@@ -641,6 +666,7 @@ int32_t ParseMvdInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   int32_t iIdxA = 0;
   //int32_t sym;
   int32_t iCtxInc;
+  cabac_billing_tag = PIP_REF_TAG;
   PWelsCabacCtx pBinCtx = pCtx->pCabacCtx + NEW_CTX_OFFSET_MVD + iMvComp * CTX_NUM_MVD;
   iMvdVal = 0;
   if (pRefIndex[iListIdx][g_kuiCache30ScanIdx[index] - 6] >= 0)
@@ -673,7 +699,7 @@ int32_t ParseCbpInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   uiCbp = 0;
   uint32_t pCbpBit[6];
   int32_t iCtxInc;
-
+  cabac_billing_tag = PIP_CBPL_TAG;
   //Luma: bit by bit for 4 8x8 blocks in z-order
   pBTopMb[0]  = pNeighAvail->iTopAvail  && pNeighAvail->iTopType  != MB_TYPE_INTRA_PCM
                 && ((pNeighAvail->iTopCbp  & (1 << 2)) == 0);
@@ -686,6 +712,7 @@ int32_t ParseCbpInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
 
   //left_top 8x8 block
   iCtxInc = pALeftMb[0] + (pBTopMb[0] << 1);
+
   WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pCtx->pCabacCtx + NEW_CTX_OFFSET_CBP + iCtxInc, pCbpBit[0]));
   if (pCbpBit[0])
     uiCbp += 0x01;
@@ -715,7 +742,7 @@ int32_t ParseCbpInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   if (pCtx->pSps->uiChromaFormatIdc == 0)//monochroma
     return ERR_NONE;
 
-
+  cabac_billing_tag = PIP_CBPC_TAG;
   //Chroma: bit by bit
   iIdxB = pNeighAvail->iTopAvail  && (pNeighAvail->iTopType  == MB_TYPE_INTRA_PCM || (pNeighAvail->iTopCbp  >> 4));
   iIdxA = pNeighAvail->iLeftAvail && (pNeighAvail->iLeftType == MB_TYPE_INTRA_PCM || (pNeighAvail->iLeftCbp >> 4));
@@ -741,6 +768,7 @@ int32_t ParseCbpInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
 }
 
 int32_t ParseDeltaQpCabac (PWelsDecoderContext pCtx, int32_t& iQpDelta) {
+  cabac_billing_tag = PIP_QPL_TAG;
   uint32_t uiCode;
   PSlice pCurrSlice = & (pCtx->pCurDqLayer->sLayerInfo.sSliceInLayer);
   iQpDelta = 0;
@@ -757,9 +785,27 @@ int32_t ParseDeltaQpCabac (PWelsDecoderContext pCtx, int32_t& iQpDelta) {
   pCurrSlice->iLastDeltaQp = iQpDelta;
   return ERR_NONE;
 }
+bool isChroma(int32_t iResProperty) {
+    switch(iResProperty) {
 
+      case CHROMA_DC:
+      case CHROMA_AC:
+      case CHROMA_DC_U:
+      case CHROMA_DC_V:
+      case CHROMA_AC_U:
+      case CHROMA_AC_V:
+      case CHROMA_DC_U_INTER:
+      case CHROMA_DC_V_INTER:
+      case CHROMA_AC_U_INTER:
+      case CHROMA_AC_V_INTER:
+        return true;
+      default:
+        return false;
+    }
+}
 int32_t ParseCbfInfoCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNzcCache, int32_t iZIndex, int32_t iResProperty,
                            PWelsDecoderContext pCtx, uint32_t& uiCbfBit) {
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CBPC_TAG : PIP_CBPL_TAG;
   int8_t nA, nB/*, zigzag_idx = 0*/;
   int32_t iCurrBlkXy = pCtx->pCurDqLayer->iMbXyIndex;
   int32_t iTopBlkXy = iCurrBlkXy - pCtx->pCurDqLayer->iMbWidth; //default value: MB neighboring
@@ -803,7 +849,7 @@ int32_t ParseCbfInfoCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNzcCache, int3
 int32_t ParseSignificantMapCabac (int32_t* pSignificantMap, int32_t iResProperty, PWelsDecoderContext pCtx,
                                   uint32_t& uiCoeffNum) {
   uint32_t uiCode;
-
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_BITMASK : PIP_LAC_N_BITMASK;
   PWelsCabacCtx pMapCtx  = pCtx->pCabacCtx + (iResProperty == LUMA_DC_AC_8 ? NEW_CTX_OFFSET_MAP_8x8 : NEW_CTX_OFFSET_MAP)
                            + g_kBlockCat2CtxOffsetMap [iResProperty];
   PWelsCabacCtx pLastCtx = pCtx->pCabacCtx + (iResProperty == LUMA_DC_AC_8 ? NEW_CTX_OFFSET_LAST_8x8 :
@@ -846,6 +892,7 @@ int32_t ParseSignificantMapCabac (int32_t* pSignificantMap, int32_t iResProperty
 }
 
 int32_t ParseSignificantCoeffCabac (int32_t* pSignificant, int32_t iResProperty, PWelsDecoderContext pCtx) {
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_EXP : PIP_LAC_N_EXP;
   uint32_t uiCode;
   PWelsCabacCtx pOneCtx = pCtx->pCabacCtx + (iResProperty == LUMA_DC_AC_8 ? NEW_CTX_OFFSET_ONE_8x8 : NEW_CTX_OFFSET_ONE) +
                           g_kBlockCat2CtxOffsetOne[iResProperty];
@@ -883,6 +930,8 @@ int32_t ParseSignificantCoeffCabac (int32_t* pSignificant, int32_t iResProperty,
 int32_t ParseResidualBlockCabac8x8 (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroCountCache, SBitStringAux* pBsAux,
                                     int32_t iIndex, int32_t iMaxNumCoeff, const uint8_t* pScanTable, int32_t iResProperty,
                                     short* sTCoeff, short* sTCoeffRaw, /*int mb_mode*/ uint8_t uiQp, PWelsDecoderContext pCtx) {
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_RES : PIP_LAC_N_RES;
+  
   uint32_t uiTotalCoeffNum = 0;
   uint32_t uiCbpBit;
   int32_t pSignificantMap[64] = {0};
@@ -925,6 +974,7 @@ int32_t ParseResidualBlockCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroC
                                  int32_t iIndex, int32_t iMaxNumCoeff,
                                  const uint8_t* pScanTable, int32_t iResProperty, short* sTCoeff, short* sTCoeffRaw, /*int mb_mode*/ uint8_t uiQp,
                                  PWelsDecoderContext pCtx) {
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_RES : PIP_LAC_N_RES;
   int32_t iCurNzCacheIdx;
   uint32_t uiTotalCoeffNum = 0;
   uint32_t uiCbpBit;
@@ -978,6 +1028,7 @@ int32_t ParseResidualBlockCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNonZeroC
 }
 
 int32_t ParseIPCMInfoCabac (PWelsDecoderContext pCtx) {
+  cabac_billing_tag = PIP_LAC_0_RES;
   int32_t i;
   PWelsCabacDecEngine pCabacDecEngine = pCtx->pCabacDecEngine;
   SBitStringAux* pBsAux = pCtx->pCurDqLayer->pBitStringAux;

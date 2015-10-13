@@ -143,6 +143,9 @@ int32_t Read32BitsCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiValue, int3
 
 int dcabacoffset = 0;
 
+int cabac_billing_tag = PIP_DEFAULT_TAG;
+
+
 int32_t DecodeBinCabac (PWelsCabacDecEngine pDecEngine, PWelsCabacCtx pBinCtx, uint32_t& uiBinVal) {
   static PWelsCabacCtx debugFirstCtx = pBinCtx;
   int iCtx = pBinCtx - debugFirstCtx + 3;
@@ -163,6 +166,9 @@ int32_t DecodeBinCabac (PWelsCabacDecEngine pDecEngine, PWelsCabacCtx pBinCtx, u
 #ifdef CABAC_LOG_DECISIONS
     fprintf(stderr, "Decode Decision %d: [%d]:%d/%d -> %d\n", dcabacoffset, iCtx, uiState, pBinCtx->uiMPS, uiBinVal);
 #endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
+#endif
     if (!uiState)
       pBinCtx->uiMPS ^= 0x01;
     pBinCtx->uiState = g_kuiStateTransTable[uiState][0];
@@ -171,6 +177,9 @@ int32_t DecodeBinCabac (PWelsCabacDecEngine pDecEngine, PWelsCabacCtx pBinCtx, u
   } else {  //MPS
 #ifdef CABAC_LOG_DECISIONS
     fprintf(stderr, "Decode Decision %d: [%d]:%d/%d -> %d\n", dcabacoffset, iCtx, uiState, pBinCtx->uiMPS, uiBinVal);
+#endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
 #endif
     pBinCtx->uiState = g_kuiStateTransTable[uiState][1];
     if (uiRange >= WELS_CABAC_QUARTER) {
@@ -224,6 +233,10 @@ int32_t DecodeBypassCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal) {
 #ifdef CABAC_LOG_DECISIONS
     fprintf(stderr, "Decode Decision %d: Bypass -> %d\n", dcabacoffset, uiBinVal);
 #endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
+#endif
+
     return ERR_NONE;
   }
   pDecEngine->iBitsLeft = iBitsLeft;
@@ -232,6 +245,10 @@ int32_t DecodeBypassCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal) {
 #ifdef CABAC_LOG_DECISIONS
   fprintf(stderr, "Decode Decision %d: Bypass -> %d\n", dcabacoffset, uiBinVal);
 #endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
+#endif
+
   return ERR_NONE;
 }
 
@@ -246,10 +263,16 @@ int32_t DecodeTerminateCabac (PWelsCabacDecEngine pDecEngine, uint32_t& uiBinVal
 #ifdef CABAC_LOG_DECISIONS
     fprintf(stderr, "Decode Decision %d: Terminate -> %d\n", dcabacoffset, uiBinVal);
 #endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
+#endif
   } else {
     uiBinVal = 0;
 #ifdef CABAC_LOG_DECISIONS
     fprintf(stderr, "Decode Decision %d: Terminate -> %d\n", dcabacoffset, uiBinVal);
+#endif
+#ifdef BILLING
+    ++bill[cabac_billing_tag];
 #endif
     // Renorm
     if (uiRange < WELS_CABAC_QUARTER) {

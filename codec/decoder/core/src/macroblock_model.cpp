@@ -207,6 +207,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
     if (color == 2) {
         coloroffset = w * h * 16;
     }
+/*
     if (ix > 0) {
         int full_index = (rasterTo8x8Order[index - 1]) * 16 + coef + coloroffset;
         if (color) {
@@ -245,7 +246,8 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
                 retval.above = above->odata.lumaAC[full_index];
             }
         }
-    }
+        }*/
+
     const DecodedMacroblock *past = n[PAST];
     if (past) {
         retval.has_past = true;
