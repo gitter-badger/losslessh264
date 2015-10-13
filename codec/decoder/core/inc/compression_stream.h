@@ -5,11 +5,11 @@
 #include <string>
 #include <vector>
 #include <map>
-#include "bitreader.h"
-#include "bitwriter.h"
 
 #include <assert.h>
 #include "array_nd.h"
+#include "bitreader.h"
+#include "bitwriter.h"
 
 //#define CONTEXT_DIFF
 
@@ -347,7 +347,6 @@ inline std::pair<uint32_t, H264Error> ArithmeticCodedInput::scanBits(Branch<nBit
     bool res = scanBit(priors.getProb());
     return scanBits<nBits - 1>(priors.selectBranch(res));
 }
-
 class ArithmeticCodedOutput {
 public:
     std::vector<uint8_t> buffer;
@@ -486,7 +485,7 @@ template <>
 inline void ArithmeticCodedOutput::emitBits(uint32_t data, Branch<1> priors) {
     emitBit(!!data, priors.getProb());
 }
-
+extern int pipBillTag;
 class MacroblockModel;
 
 struct CompressionStream {
@@ -509,6 +508,7 @@ struct CompressionStream {
         return defaultStream;
     }
     ArithmeticCodedOutput&tag(int32_t tag) {
+        pipBillTag = tag;
 #ifdef DEBUG_ARICODER
         fprintf(stderr, "%d) tag %d\n", w_bitcount, tag);
 #endif

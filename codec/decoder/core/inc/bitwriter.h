@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #include "vpx_config.h"
-
+#include "billing.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -33,6 +33,7 @@ void vpx_stop_encode(vpx_writer *bc);
 extern int w_bitcount;
 
 static INLINE void vpx_write(vpx_writer *br, int bit, int probability) {
+  ++pip_decisions[pipBillTag];
   unsigned int split;
   int count = br->count;
   unsigned int range = br->range;

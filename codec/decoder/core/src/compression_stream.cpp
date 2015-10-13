@@ -18,6 +18,9 @@ namespace {
 static CompressionStream css;
 static InputCompressionStream icss;
 }
+int pipBillTag = 0;
+double pip_decisions[NUM_TOTAL_TAGS] = {0};
+
 CompressionStream &oMovie() {
     return css;
 }
@@ -203,11 +206,12 @@ void BitStream::flushBits() {
 DynProb ArithmeticCodedInput::TEST_PROB;
 DynProb ArithmeticCodedOutput::TEST_PROB;
 static int compressed_total = 0;
-
+double our_decisions[NUM_TOTAL_TAGS] = {0};
 void ArithmeticCodedOutput::flushToWriter(int streamId, CompressedWriter &w) {
     vpx_stop_encode(&writer);
 #ifdef BILLING
-    fprintf(stdout, "%d :: %d [%s]\n", streamId, writer.pos, billEnumToName(streamId));
+    fprintf(stdout, "%d :: %d [%s] %d\n", streamId, writer.pos, billEnumToName(streamId),
+            (int)floor(pip_decisions[streamId] / 8));
     if (bill.size() > 1) {
       for (const auto& entry : bill) {
         const auto& label = entry.first;
