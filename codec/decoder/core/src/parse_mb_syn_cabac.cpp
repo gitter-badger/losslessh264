@@ -245,7 +245,6 @@ int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
         uiMbType = 30;
         return ERR_NONE;//MB_TYPE_INTRA_PCM;
       }
-      cabac_billing_tag = PIP_16x16_TAG;
       WELS_READ_VERIFY (DecodeBinCabac (pCabacDecEngine, pBinCtx + 7, uiCode));
       uiMbType = 6 + uiCode * 12;
 
@@ -257,7 +256,6 @@ int32_t ParseMBTypePSliceCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeigh
         if (uiCode)
           uiMbType += 4;
       }
-      cabac_billing_tag = PIP_PRED_MODE_TAG;
       //IPredMode: 0,1,2,3
       WELS_READ_VERIFY (DecodeBinCabac (pCabacDecEngine, pBinCtx + 9, uiCode));
       uiMbType += (uiCode << 1);
@@ -666,7 +664,6 @@ int32_t ParseMvdInfoCabac (PWelsDecoderContext pCtx, PWelsNeighAvail pNeighAvail
   int32_t iIdxA = 0;
   //int32_t sym;
   int32_t iCtxInc;
-  cabac_billing_tag = PIP_REF_TAG;
   PWelsCabacCtx pBinCtx = pCtx->pCabacCtx + NEW_CTX_OFFSET_MVD + iMvComp * CTX_NUM_MVD;
   iMvdVal = 0;
   if (pRefIndex[iListIdx][g_kuiCache30ScanIdx[index] - 6] >= 0)
