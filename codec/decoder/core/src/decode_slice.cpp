@@ -2378,9 +2378,17 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     }
     for (int i8x8 =0; i8x8 < 4; i8x8++){
       if (rtd.uiCbpL & (1 << i8x8)) {
-        for (int i4x4 = 0; i4x4 < 4; i4x4++) {
-            int i = i8x8*4 + i4x4;
-            encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+        if (rtd.pTransformSize8x8Flag) {
+            //FIXME:  this should encode a single 8x8
+            for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+                int i = i8x8*4 + i4x4;
+                encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+            }
+        } else {
+            for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+                int i = i8x8*4 + i4x4;
+                encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+            }
             /*
             if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
                 oMovie().tag(PIP_LAC_TAG0 + PIP_AC_STEP * i % 16).emitBits((uint16_t)rtd.odata.lumaAC[i], 16);
@@ -2389,8 +2397,16 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
     }
     if (rtd.uiCbpC == 2) {
-      for (int i = 0; i < 8; i++) {
-          encode4x4(&rtd.odata.chromaAC[i * 16], i, !emitted_chroma_dc, i < 4 ? 1 : 2);
+      if (rtd.pTransformSize8x8Flag) {
+          for (int i = 0; i < 2; i++) {
+              for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+                  encode4x4(&rtd.odata.chromaAC[(i * 4 +i4x4) * 16], (i * 4 +i4x4), !emitted_chroma_dc, i == 0 ? 1 : 2);
+              }              
+          }
+      } else {
+          for (int i = 0; i < 8; i++) {
+              encode4x4(&rtd.odata.chromaAC[i * 16], i, !emitted_chroma_dc, i < 4 ? 1 : 2);
+          }
               /*
           if ((i & 15) != 0 || !emitted_chroma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
               oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
@@ -2776,9 +2792,16 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
     }
     for (int i8x8 =0; i8x8 < 4; i8x8++){
       if (rtd.uiCbpL & (1 << i8x8)) {
-        for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+        if (rtd.pTransformSize8x8Flag) {
+          for (int i4x4 = 0; i4x4 < 4; i4x4++) {
             int i = i8x8*4 + i4x4;
             decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+          }
+        } else {
+          for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+            int i = i8x8*4 + i4x4;
+            decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+          }
         }
       } else {
         for (int i4x4 = 0; i4x4 < 4; i4x4++) {
@@ -2788,8 +2811,16 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
     }
     if (rtd.uiCbpC == 2) {
-      for (int i = 0; i < 8; i++) {
-          decode4x4(&rtd.odata.chromaAC[i * 16], i, !scanned_chroma_dc, i < 4 ? 1 : 2);
+      if (rtd.pTransformSize8x8Flag) {
+          for (int i = 0; i < 2; i++) {
+              for (int i4x4 = 0; i4x4 < 4; i4x4++) {
+                  decode4x4(&rtd.odata.chromaAC[(i * 4 + i4x4)* 16], i * 4 + i4x4, !scanned_chroma_dc, i == 0 ? 1 : 2);
+              }
+          }
+      } else {
+          for (int i = 0; i < 8; i++) {
+              decode4x4(&rtd.odata.chromaAC[i * 16], i, !scanned_chroma_dc, i < 4 ? 1 : 2);
+          }
       }
     }
 
