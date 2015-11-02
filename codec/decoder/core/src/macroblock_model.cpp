@@ -189,27 +189,28 @@ const int rasterTo8x8OrderChroma[16] = {
     0, 1,
     2, 3
 };
-
+template<unsigned int block_size>
 MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, int coef, int color) {
     using namespace Nei;
     SingleCoefNeighbors retval = {};
     const int *rasterTo8x8Order = color ? rasterTo8x8OrderChroma : rasterTo8x8OrderLuma;
-    int w = 4;
-    int h = 4;
-    if (color) {
+    int index = rasterTo8x8Order[index8x8];
+    int w = 4, h = 4;
+    if (color || block_size == 64) {
         w = 2;
         h = 2;
     }
-    int index = rasterTo8x8Order[index8x8];
     int ix = (index & (w - 1));
     int iy = (index / w);
     int coloroffset = 0;
     if (color == 2) {
         coloroffset = w * h * 16;
     }
+    
 /*
+    int rasterdelta = block_size == 64 ? 2 : 1;
     if (ix > 0) {
-        int full_index = (rasterTo8x8Order[index - 1]) * 16 + coef + coloroffset;
+        int full_index = (rasterTo8x8Order[index - rasterdelta]) * 16 + coef + coloroffset;
         if (color) {
             retval.left = mb->odata.chromaAC[full_index];
         }else {
@@ -220,7 +221,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
         const DecodedMacroblock *left = n[LEFT];
         if (left) {
             retval.has_left = true;
-            int full_index = (rasterTo8x8Order[index + w - 1]) * 16 + coef + coloroffset;
+            int full_index = (rasterTo8x8Order[index + w - raster_delta]) * 16 + coef + coloroffset;
             if (color) {
                 retval.left = left->odata.chromaAC[full_index];
             } else {
@@ -229,7 +230,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
         }
     }
     if (iy > 0) {
-        int full_index = (rasterTo8x8Order[index - w]) * 16 + coef + coloroffset;
+        int full_index = (rasterTo8x8Order[index - w * raster_delta]) * 16 + coef + coloroffset;
         if (color) {
             retval.above = mb->odata.chromaAC[full_index];
         }else {
@@ -239,7 +240,7 @@ MacroblockModel::SingleCoefNeighbors MacroblockModel::priorCoef(int index8x8, in
     } else {
         const DecodedMacroblock *above = n[ABOVE];
         if (above) {
-            int full_index = (rasterTo8x8Order[index + w * (h - 1)]) * 16 + coef + coloroffset;
+            int full_index = (rasterTo8x8Order[index + w * (h - raster_delta) * raster_delta]) * 16 + coef + coloroffset;
             if (color) {
                 retval.above = above->odata.chromaAC[full_index];
             } else {
@@ -313,7 +314,7 @@ DynProb* MacroblockModel::getAcSignPrior(const bool *nonzeros, const int16_t *ac
 Sirikata::Array1d<DynProb, 15>::Slice MacroblockModel::getAcExpPrior(const bool *nonzeros, const int16_t *ac,
                                          int index, int coef,
                                          bool emit_dc, int color) {
-    SingleCoefNeighbors priors = priorCoef(index, coef, color);
+    SingleCoefNeighbors priors = priorCoef<16>(index, coef, color);
     int past_prior = 2;
     int left_prior = 2;
     int above_prior = 2;
@@ -470,7 +471,7 @@ MacroblockModel::DCPrior* MacroblockModel::getChromaDCIntPrior(size_t index) {
   return &chromaDCIntPriors.at(index, mb->eSliceType, encodeMacroblockType(mb->uiMbType));
 }
 
-MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int subblockIndex) {
+MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior4x4(int color, int subblockIndex) {
   using namespace Nei;
   int past = 0, left = 0, above = 0;
   if (n[PAST]) {
@@ -517,14 +518,68 @@ MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior(int color, int
       std::min(2, above));
 }
 
-MacroblockModel::ACPrior* MacroblockModel::getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
+MacroblockModel::NonzerosPrior* MacroblockModel::getNonzerosPrior8x8(int color, int subblockIndex) {
+  assert(color == 0);
+  assert((subblockIndex & 3) == 0);
+  using namespace Nei;
+  int past = 0, left = 0, above = 0;
+  if (n[PAST]) {
+    past = n[PAST]->countSubblockNonzeros8x8(color, subblockIndex);
+  }
+  subblockIndex /= 4;
+  if ((subblockIndex & 1) == 0) { // 0,2
+    if (n[LEFT]) {
+        left = n[LEFT]->countSubblockNonzeros8x8(color, (subblockIndex + 1) * 4);
+    }
+  } else {
+    left = mb->countSubblockNonzeros8x8(color, (subblockIndex - 1) * 4);
+  }
+  if ((subblockIndex & 2) == 0) { // needs to match 0,1
+    if (n[ABOVE]) {
+        above = n[ABOVE]->countSubblockNonzeros8x8(color, (subblockIndex + 2) * 4);
+    }
+  } else {
+    above = mb->countSubblockNonzeros8x8(color, (subblockIndex - 2) * 4);
+  }
+  return &nonzerosPriors8x8.at(
+      mb->eSliceType,                       // makes very little difference
+      encodeMacroblockType(mb->uiMbType),   // small but significant
+      color,                                // makes very little difference
+      std::min(2, past),                    // past + left + above priors give a pretty decent boost!
+      std::min(2, left),
+      std::min(2, above)); // FIXME: should this be a bit higher than a max of 2?
+}
+
+MacroblockModel::ACPrior* MacroblockModel::getACPrior8x8(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
+  assert(!color && "Only use 8x8 for luma");
   int nonzeros_left = nonzeros;
   for (int coefficient : emitted) {
     if (coefficient != 0) nonzeros_left--;
   }
   int prev = emitted.empty() ? 0 : emitted.back();
   int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
-  auto neighbors = priorCoef(index % (color ? 4 : 16), coef, color);
+  auto neighbors = priorCoef<64>(index, coef, 0);
+
+  return &acPriors.at(
+      mb->eSliceType,
+      encodeMacroblockType(mb->uiMbType),
+      color,
+      emitted.size()).at(
+          std::min(4, nonzeros_left),
+          std::max(0, std::min(4, prev+2)),
+          std::max(0, std::min(4, prev2+2)),
+          std::max(0, std::min(4, neighbors.left+2)),
+          std::max(0, std::min(4, neighbors.above+2)));
+}
+
+MacroblockModel::ACPrior* MacroblockModel::getACPrior4x4(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
+  int nonzeros_left = nonzeros;
+  for (int coefficient : emitted) {
+    if (coefficient != 0) nonzeros_left--;
+  }
+  int prev = emitted.empty() ? 0 : emitted.back();
+  int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
+  auto neighbors = priorCoef<16>(index % (color ? 4 : 16), coef, color);
 
   return &acPriors.at(
       mb->eSliceType,

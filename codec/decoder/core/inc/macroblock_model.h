@@ -46,6 +46,7 @@ public:
     typedef UEGkIntPrior<14, 4, 2, 4, 0> ACPrior;
     typedef UnsignedIntPrior<3, 4> NonzerosPrior;
     Sirikata::Array6d<NonzerosPrior, 5, 16, 3, 3, 3, 3> nonzerosPriors;  // eSliceType, mbType, color, past, left, above
+    Sirikata::Array6d<NonzerosPrior, 5, 16, 3, 3, 3, 3> nonzerosPriors8x8;  // eSliceType, mbType, color, past, left, above
     Sirikata::Array4d<Sirikata::Array5d<ACPrior, 5, 5, 5, 5, 5>,// nonzeros, prev, prev2, left, above
                       5, 16, 3, 16> acPriors; // eSliceType, mbType, color, index,
 
@@ -131,7 +132,7 @@ public:
         8,
         9,
         15> predictionModePriors;
-    SingleCoefNeighbors priorCoef(int index, int coef, int color);
+    template<unsigned int block_size>SingleCoefNeighbors priorCoef(int index, int coef, int color);
 public:
     void initCurrentMacroblock(DecodedMacroblock *curMb, WelsDec::PWelsDecoderContext pCtx,
                                const FreqImage *, int mbx, int mby);
@@ -149,8 +150,23 @@ public:
     DCPrior* getLumaDCIntPrior(size_t index);
     DCPrior* getChromaDCIntPrior(size_t index);
 
-    NonzerosPrior* getNonzerosPrior(int color, int subblockIndex);
-    ACPrior* getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
+    NonzerosPrior* getNonzerosPrior8x8(int color, int subblockIndex);
+    NonzerosPrior* getNonzerosPrior4x4(int color, int subblockIndex);
+    template<unsigned int block_size> NonzerosPrior* getNonzerosPrior(int color, int subblockIndex){
+        if (block_size == 64) {
+            return getNonzerosPrior8x8(color, subblockIndex);
+        } else {
+            return getNonzerosPrior4x4(color, subblockIndex);
+        }
+    }
+    ACPrior* getACPrior8x8(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
+    ACPrior* getACPrior4x4(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
+    template<unsigned int block_size> ACPrior* getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
+        if (block_size == 64) {
+            return this->getACPrior8x8(index, coef, color, emitted, nonzeros);
+        }
+        return this->getACPrior4x4(index, coef, color, emitted, nonzeros);
+    }
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
     std::pair<MotionVectorDifferencePrior*, int> getMotionVectorDifferencePrior(int subblockIndex, int xyIndex);

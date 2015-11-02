@@ -91,6 +91,16 @@ struct DecodedMacroblock {
     }
     return nonzeros;
   }
+  int countSubblockNonzeros8x8(int color, int subblockIndex) const {
+    assert(color == 0);
+    assert((subblockIndex & 3) == 0); // make sure we're an actual 8x8 block
+    const int16_t* ac = getAC(color, subblockIndex);
+    int nonzeros = 0;
+    for (int i = 0; i < 64; i++) {
+      if (ac[i] != 0) nonzeros++;
+    }
+    return nonzeros;
+  }
 };
 
 struct FreqImage {
