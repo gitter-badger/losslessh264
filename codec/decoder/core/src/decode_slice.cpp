@@ -2816,7 +2816,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
         } else {
           for (int i4x4 = 0; i4x4 < 4; i4x4++) {
             int i = i8x8*4 + i4x4;
-            decode4x4<16>(&rtd.odata.lumaAC[i], i, !scanned_luma_dc, 0);
+            decode4x4<16>(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
           }
         }
       } else {
@@ -3140,14 +3140,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           BitStream::uint32E res = {};
           res = iMovie().tag(PIP_PADBYTE_TAG).scanBits(numPadBits);
           padbyte = res.first;
-          if (res.first) {
-              printf("%d of Padding is %02x :: %02x\n", numPadBits, res.first, res.second);
-          }
       } else {
           unsigned int pad = pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1);
-          if (pad) {
-              printf("%d of Padding is %02x\n", numPadBits, pad);
-          }
+          (void)pad;
           oMovie().tag(PIP_PADBYTE_TAG).emitBits(pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1), numPadBits);
       }
   }

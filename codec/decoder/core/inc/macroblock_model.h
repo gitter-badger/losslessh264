@@ -155,17 +155,20 @@ public:
     template<unsigned int block_size> NonzerosPrior* getNonzerosPrior(int color, int subblockIndex){
         if (block_size == 64) {
             return getNonzerosPrior8x8(color, subblockIndex);
-        } else {
+        } else if (block_size == 16) {
             return getNonzerosPrior4x4(color, subblockIndex);
         }
+        return NULL;
     }
     ACPrior* getACPrior8x8(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
     ACPrior* getACPrior4x4(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros);
     template<unsigned int block_size> ACPrior* getACPrior(int index, int coef, int color, const std::vector<int>& emitted, int nonzeros) {
         if (block_size == 64) {
             return this->getACPrior8x8(index, coef, color, emitted, nonzeros);
+        } else if (block_size == 16) {
+            return this->getACPrior4x4(index, coef, color, emitted, nonzeros);
         }
-        return this->getACPrior4x4(index, coef, color, emitted, nonzeros);
+        return NULL;
     }
 
     // Returns a prior distribution over deltas, and a base value for the delta, for sMbMvp[subblockIndex][xyIndex].
