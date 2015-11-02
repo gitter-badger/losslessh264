@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 #include "error_code.h"
 #include "macroblock_model.h"
 #include "compression_stream.h"
