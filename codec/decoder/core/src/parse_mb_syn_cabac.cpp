@@ -802,7 +802,7 @@ bool isChroma(int32_t iResProperty) {
 }
 int32_t ParseCbfInfoCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNzcCache, int32_t iZIndex, int32_t iResProperty,
                            PWelsDecoderContext pCtx, uint32_t& uiCbfBit) {
-  cabac_billing_tag = isChroma(iResProperty) ? PIP_CBPC_TAG : PIP_CBPL_TAG;
+  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_EOB : PIP_LAC_0_EOB;
   int8_t nA, nB/*, zigzag_idx = 0*/;
   int32_t iCurrBlkXy = pCtx->pCurDqLayer->iMbXyIndex;
   int32_t iTopBlkXy = iCurrBlkXy - pCtx->pCurDqLayer->iMbWidth; //default value: MB neighboring
@@ -846,7 +846,6 @@ int32_t ParseCbfInfoCabac (PWelsNeighAvail pNeighAvail, uint8_t* pNzcCache, int3
 int32_t ParseSignificantMapCabac (int32_t* pSignificantMap, int32_t iResProperty, PWelsDecoderContext pCtx,
                                   uint32_t& uiCoeffNum) {
   uint32_t uiCode;
-  cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_BITMASK : PIP_LAC_N_BITMASK;
   PWelsCabacCtx pMapCtx  = pCtx->pCabacCtx + (iResProperty == LUMA_DC_AC_8 ? NEW_CTX_OFFSET_MAP_8x8 : NEW_CTX_OFFSET_MAP)
                            + g_kBlockCat2CtxOffsetMap [iResProperty];
   PWelsCabacCtx pLastCtx = pCtx->pCabacCtx + (iResProperty == LUMA_DC_AC_8 ? NEW_CTX_OFFSET_LAST_8x8 :
@@ -863,11 +862,14 @@ int32_t ParseSignificantMapCabac (int32_t* pSignificantMap, int32_t iResProperty
   for (i = i0; i < i1; ++i) {
     iCtx = (iResProperty == LUMA_DC_AC_8 ? g_kuiIdx2CtxSignificantCoeffFlag8x8[i] : i);
     //read significant
+    cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_BITMASK : PIP_LAC_N_BITMASK;
+  
     WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pMapCtx + iCtx, uiCode));
     if (uiCode) {
       * (pSignificantMap++) = 1;
       ++ uiCoeffNum;
       //read last significant
+      cabac_billing_tag = isChroma(iResProperty) ? PIP_CRAC_EOB : PIP_LAC_N_EOB;
       iCtx = (iResProperty == LUMA_DC_AC_8 ? g_kuiIdx2CtxLastSignificantCoeffFlag8x8[i] : i);
       WELS_READ_VERIFY (DecodeBinCabac (pCtx->pCabacDecEngine, pLastCtx + iCtx, uiCode));
       if (uiCode) {
