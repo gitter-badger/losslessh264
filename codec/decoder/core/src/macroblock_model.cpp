@@ -560,7 +560,7 @@ MacroblockModel::ACPrior* MacroblockModel::getACPrior8x8(int index, int coef, in
   int prev2 = emitted.size() <= 1 ? 0 : emitted[emitted.size()-2];
   auto neighbors = priorCoef<64>(index, coef, 0);
 
-  return &acPriors.at(
+  return &acPriors8x8.at(
       mb->eSliceType,
       encodeMacroblockType(mb->uiMbType),
       color,

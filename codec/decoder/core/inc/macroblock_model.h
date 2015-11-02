@@ -49,6 +49,8 @@ public:
     Sirikata::Array6d<NonzerosPrior, 5, 16, 3, 3, 3, 3> nonzerosPriors8x8;  // eSliceType, mbType, color, past, left, above
     Sirikata::Array4d<Sirikata::Array5d<ACPrior, 5, 5, 5, 5, 5>,// nonzeros, prev, prev2, left, above
                       5, 16, 3, 16> acPriors; // eSliceType, mbType, color, index,
+    Sirikata::Array4d<Sirikata::Array5d<ACPrior, 5, 5, 5, 5, 5>,// nonzeros, prev, prev2, left, above
+                      5, 16, 3, 64> acPriors8x8; // eSliceType, mbType, color, index,
 
     Sirikata::Array3d<DynProb,
             512, // past
