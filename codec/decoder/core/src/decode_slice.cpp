@@ -2031,32 +2031,55 @@ bool knownCodeUnitTest2() {
     return knownCodeUnitTest(odata, expectedPrefix);
 }
 
-const uint8_t kzz[16] ={
+const uint8_t kzz16[16] ={
     0, 1,  4, 8,
     5, 2, 3, 6,
     9, 12, 13, 10,
     7, 11, 14, 15
 };
-
+const uint8_t kzz64[64] ={
+    0,  1,  5,  6, 14, 15, 27, 28,
+    2,  4,  7, 13, 16, 26, 29, 42,
+    3,  8, 12, 17, 25, 30, 41, 43,
+    9, 11, 18, 24, 31, 40, 44, 53,
+    10, 19, 23, 32, 39, 45, 52, 54,
+    20, 22, 33, 38, 46, 51, 55, 60,
+    21, 34, 37, 47, 50, 56, 59, 61,
+    35, 36, 48, 49, 57, 58, 62, 63
+};
+template <int num_coefficients> const uint8_t * kzz() {
+    int static_assert_size_16_or_64[(num_coefficients == 16 || num_coefficients == 64) ? 1 : -1];
+    (void)static_assert_size_16_or_64;
+    if (num_coefficients == 16) {
+        return kzz16;
+    } else {
+        return kzz64;
+    }
+}
+template <int num_coefficients>
 void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     int nonzeros = 0;
-    for (int i = 15; i >= (emit_dc ? 0 : 1); --i) {
-      if (ac[kzz[i]] != 0) nonzeros++;
+    for (int i = num_coefficients - 1; i >= (emit_dc ? 0 : 1); --i) {
+        if (ac[kzz<num_coefficients>()[i]] != 0) nonzeros++;
     }
-    auto nonzeros_prior = oMovie().model().getNonzerosPrior(color, index);
+    auto nonzeros_prior = oMovie().model().getNonzerosPrior<num_coefficients>(color, index);
     oMovie().tag(color ? PIP_CRAC_EOB : PIP_LAC_0_EOB).billTo("nonzeros", nonzeros);
     oMovie().emitInt(nonzeros, nonzeros_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
 
     int nonzeros_left = nonzeros;
     std::vector<int> emitted;
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < num_coefficients; i++) {
         if (i == 0 && !emit_dc) continue;
         if (nonzeros_left == 0) {
-          assert(ac[kzz[i]] == 0);
+          assert(ac[kzz<num_coefficients>()[i]] == 0);
           continue;
         }
-        auto prior = oMovie().model().getACPrior(index, kzz[i], color, emitted, nonzeros);
-        int coefficient = ac[kzz[i]];
+        auto prior = oMovie().model().getACPrior<num_coefficients>(index,
+                                                                   kzz<num_coefficients>()[i],
+                                                                   color,
+                                                                   emitted,
+                                                                   nonzeros);
+        int coefficient = ac[kzz<num_coefficients>()[i]];
         oMovie().tag(
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP
             ).billTo(std::max(coefficient, -coefficient));
@@ -2070,29 +2093,37 @@ void encode4x4(const int16_t *ac, int index, bool emit_dc, int color) {
     }
 }
 
+template<int num_coefficients>
 void decode4x4(int16_t *ac, int index, bool emit_dc, int color) {
-    auto nonzeros_prior = oMovie().model().getNonzerosPrior(color, index);
+    auto nonzeros_prior = oMovie().model().getNonzerosPrior<num_coefficients>(color, index);
     int nonzeros = iMovie().scanInt(nonzeros_prior, color ? PIP_CRAC_EOB : PIP_LAC_0_EOB);
 
     int nonzeros_left = nonzeros;
     std::vector<int> emitted;
-    for (int i = 0; i < 16; i++) {
+    for (int i = 0; i < num_coefficients; i++) {
+        
         if (i == 0 && !emit_dc) continue;
         if (nonzeros_left == 0) {
-          ac[kzz[i]] = 0;
+          ac[kzz<num_coefficients>()[i]] = 0;
           continue;
         }
-        auto prior = oMovie().model().getACPrior(index, kzz[i], color, emitted, nonzeros);
+        auto prior = oMovie().model().getACPrior<num_coefficients>(index,
+                                                                   kzz<num_coefficients>()[i],
+                                                                   color,
+                                                                   emitted,
+                                                                   nonzeros);
         int coefficient = iMovie().scanUEGkInt(prior,
             color ? PIP_CRAC_EXP     : i == 0 ? PIP_LAC_0_EXP     : PIP_LAC_N_EXP,
             color ? PIP_CRAC_RES     : i == 0 ? PIP_LAC_0_RES     : PIP_LAC_N_RES,
             color ? PIP_CRAC_BITMASK : i == 0 ? PIP_LAC_0_BITMASK : PIP_LAC_N_BITMASK,
             color ? PIP_CRAC_SIGN    : i == 0 ? PIP_LAC_0_SIGN    : PIP_LAC_N_SIGN);
-        ac[kzz[i]] = coefficient;
+        ac[kzz<num_coefficients>()[i]] = coefficient;
         emitted.push_back(coefficient);
         if (coefficient != 0) nonzeros_left--;
     }
 }
+
+
 
 void writeMv(int i, DecodedMacroblock &rtd) {
   auto priorX = oMovie().model().getMotionVectorDifferencePrior(i, 0);
@@ -2379,15 +2410,11 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
     for (int i8x8 =0; i8x8 < 4; i8x8++){
       if (rtd.uiCbpL & (1 << i8x8)) {
         if (rtd.pTransformSize8x8Flag) {
-            //FIXME:  this should encode a single 8x8
-            for (int i4x4 = 0; i4x4 < 4; i4x4++) {
-                int i = i8x8*4 + i4x4;
-                encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
-            }
+                encode4x4<64>(&rtd.odata.lumaAC[i8x8 * 64], i8x8 * 4, !emitted_luma_dc, 0);
         } else {
             for (int i4x4 = 0; i4x4 < 4; i4x4++) {
                 int i = i8x8*4 + i4x4;
-                encode4x4(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
+                encode4x4<16>(&rtd.odata.lumaAC[i * 16], i, !emitted_luma_dc, 0);
             }
             /*
             if ((i & 15) != 0 || !emitted_luma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
@@ -2397,21 +2424,13 @@ int32_t WelsDecodeSliceForNonRecoding(PWelsDecoderContext pCtx,
       }
     }
     if (rtd.uiCbpC == 2) {
-      if (rtd.pTransformSize8x8Flag) {
-          for (int i = 0; i < 2; i++) {
-              for (int i4x4 = 0; i4x4 < 4; i4x4++) {
-                  encode4x4(&rtd.odata.chromaAC[(i * 4 +i4x4) * 16], (i * 4 +i4x4), !emitted_chroma_dc, i == 0 ? 1 : 2);
-              }              
-          }
-      } else {
-          for (int i = 0; i < 8; i++) {
-              encode4x4(&rtd.odata.chromaAC[i * 16], i, !emitted_chroma_dc, i < 4 ? 1 : 2);
-          }
+      for (int i = 0; i < 8; i++) {
+          encode4x4<16>(&rtd.odata.chromaAC[i * 16], i, !emitted_chroma_dc, i < 4 ? 1 : 2);
+      }
               /*
           if ((i & 15) != 0 || !emitted_chroma_dc) { // the dc hasn't been emitted, we need to emit it now (or any of the AC's)
               oMovie().tag(PIP_CRAC_TAG0 + PIP_AC_STEP * i % 8).emitBits((uint16_t)rtd.odata.chromaAC[i], 16);
               }*/
-      }
     }
 #ifdef DEBUG_PRINTS
     fprintf(stderr, "INSIDE skiprun=%d ; origSkip%d ; which_block=%d mbType=%d 8x8transformFlag=%d 8x8needtransform=%d cbpL=%d\n", rtd.iMbSkipRun, origSkipped, (int)(uint16_t)which_block, rtd.uiMbType, rtd.pTransformSize8x8Flag, rtd.needParseTransformSize8x8(pCtx->pPps), rtd.uiCbpL);
@@ -2779,7 +2798,7 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       for (int i = 0; i < 16; i++) {
         auto prior = oMovie().model().getLumaDCIntPrior(i);
         rtd.odata.lumaDC[i] = iMovie().scanInt(prior, PIP_LDC_TAG);
-        rtd.odata.lumaAC[i * 16 + kzz[0]] = rtd.odata.lumaDC[i];
+        rtd.odata.lumaAC[i * 16 + kzz<16>()[0]] = rtd.odata.lumaDC[i];
       }
     }
     if (1 == rtd.uiCbpC || 2 == rtd.uiCbpC) {
@@ -2787,20 +2806,17 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       for (int i = 0; i < 8; i++) {
         auto prior = oMovie().model().getChromaDCIntPrior(i);
         rtd.odata.chromaDC[i] = iMovie().scanInt(prior, PIP_CRDC_TAG);
-        rtd.odata.chromaAC[i * 16 + kzz[0]] = rtd.odata.chromaDC[i];
+        rtd.odata.chromaAC[i * 16 + kzz<16>()[0]] = rtd.odata.chromaDC[i];
       }
     }
     for (int i8x8 =0; i8x8 < 4; i8x8++){
       if (rtd.uiCbpL & (1 << i8x8)) {
         if (rtd.pTransformSize8x8Flag) {
-          for (int i4x4 = 0; i4x4 < 4; i4x4++) {
-            int i = i8x8*4 + i4x4;
-            decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
-          }
+          decode4x4<64>(&rtd.odata.lumaAC[i8x8 * 64], i8x8 * 4, !scanned_luma_dc, 0);
         } else {
           for (int i4x4 = 0; i4x4 < 4; i4x4++) {
             int i = i8x8*4 + i4x4;
-            decode4x4(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
+            decode4x4<16>(&rtd.odata.lumaAC[i * 16], i, !scanned_luma_dc, 0);
           }
         }
       } else {
@@ -2811,16 +2827,8 @@ int32_t WelsDecodeSliceForRecoding(PWelsDecoderContext pCtx,
       }
     }
     if (rtd.uiCbpC == 2) {
-      if (rtd.pTransformSize8x8Flag) {
-          for (int i = 0; i < 2; i++) {
-              for (int i4x4 = 0; i4x4 < 4; i4x4++) {
-                  decode4x4(&rtd.odata.chromaAC[(i * 4 + i4x4)* 16], i * 4 + i4x4, !scanned_chroma_dc, i == 0 ? 1 : 2);
-              }
-          }
-      } else {
-          for (int i = 0; i < 8; i++) {
-              decode4x4(&rtd.odata.chromaAC[i * 16], i, !scanned_chroma_dc, i < 4 ? 1 : 2);
-          }
+      for (int i = 0; i < 8; i++) {
+          decode4x4<16>(&rtd.odata.chromaAC[i * 16], i, !scanned_chroma_dc, i < 4 ? 1 : 2);
       }
     }
 
@@ -3132,14 +3140,9 @@ int32_t WelsDecodeSlice (PWelsDecoderContext pCtx, bool bFirstSliceInLayer, PNal
           BitStream::uint32E res = {};
           res = iMovie().tag(PIP_PADBYTE_TAG).scanBits(numPadBits);
           padbyte = res.first;
-          if (res.first) {
-              printf("%d of Padding is %02x :: %02x\n", numPadBits, res.first, res.second);
-          }
       } else {
           unsigned int pad = pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1);
-          if (pad) {
-              printf("%d of Padding is %02x\n", numPadBits, pad);
-          }
+          (void)pad;
           oMovie().tag(PIP_PADBYTE_TAG).emitBits(pBs[0].pEndBuf[-1] & ((1 << numPadBits) - 1), numPadBits);
       }
   }
