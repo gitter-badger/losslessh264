@@ -1,5 +1,7 @@
 Lossless H.264 Compression
 ========
+
+[![Join the chat at https://gitter.im/akashmishra23/losslessh264](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/akashmishra23/losslessh264?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 OpenH264 is a codec library which supports H.264 encoding and decoding. It is suitable for use in real time applications such as WebRTC. See http://www.openh264.org/ for more details.
 
 Ontop of this we built a recompression layer that can get additional win ontop of CAVLC and other algorithms.
